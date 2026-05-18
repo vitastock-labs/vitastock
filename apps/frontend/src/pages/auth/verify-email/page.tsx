@@ -15,8 +15,10 @@ function VerifyEmailPage() {
 	return (
 		<Main>
 			<section className="flex max-w-[442px] flex-col items-center gap-8">
-				<span className="grid size-[80px] place-items-center rounded-[12px] bg-vitastock-226-100-84">
-					<IconBox icon="material-symbols:mail" className="size-7.5 text-vitastock-225-34-44" />
+				<span
+					className="grid size-[80px] place-items-center rounded-[12px] bg-vitastock-primary-subtle"
+				>
+					<IconBox icon="material-symbols:mail" className="size-7.5 text-vitastock-primary-light" />
 				</span>
 
 				<div className="flex flex-col items-center gap-4 text-center">

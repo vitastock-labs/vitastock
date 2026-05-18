@@ -55,7 +55,7 @@ function ErrorPage() {
 						blur-3xl md:right-64"
 				/>
 				<span
-					className="absolute left-0 -z-1 size-full bg-vitastock-226-100-84/10 mix-blend-overlay
+					className="absolute left-0 -z-1 size-full bg-vitastock-primary-subtle/10 mix-blend-overlay
 						blur-3xl md:left-24"
 				/>
 

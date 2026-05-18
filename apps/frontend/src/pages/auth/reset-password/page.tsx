@@ -13,10 +13,12 @@ function ResetPasswordPage() {
 	return (
 		<Main>
 			<section className="flex w-full max-w-[442px] flex-col items-center gap-9">
-				<span className="grid size-[80px] place-items-center rounded-[12px] bg-vitastock-226-100-84">
+				<span
+					className="grid size-[80px] place-items-center rounded-[12px] bg-vitastock-primary-subtle"
+				>
 					<IconBox
 						icon="streamline:padlock-square-1-solid"
-						className="size-7 text-vitastock-225-34-44"
+						className="size-7 text-vitastock-primary-light"
 					/>
 				</span>
 

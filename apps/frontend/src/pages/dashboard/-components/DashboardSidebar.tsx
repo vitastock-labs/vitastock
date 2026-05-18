@@ -87,11 +87,11 @@ function DashboardSidebar() {
 										<Sidebar.MenuButton tooltip={item.title} asChild={true}>
 											<NavLink
 												to={item.href}
-												className="h-11 gap-3 px-3.5 text-[14px] font-medium transition-colors
-													hover:bg-black/5 hover:text-vitastock-primary-dark
-													data-[active=true]:bg-vitastock-226-100-84/70
+												className="h-11
+													gap-3 px-3.5 text-[14px]
+													font-medium transition-colors hover:bg-black/5 hover:text-vitastock-primary-dark data-[active=true]:bg-vitastock-primary-subtle/70
 													data-[active=true]:text-vitastock-primary-dark
-													data-[active=true]:hover:bg-vitastock-226-100-84/90
+													data-[active=true]:hover:bg-vitastock-primary-subtle/90
 													data-[active=true]:hover:text-vitastock-primary-dark"
 											>
 												{(ctx) => (

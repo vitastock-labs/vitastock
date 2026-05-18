@@ -15,8 +15,8 @@ function NotFoundPage() {
 						mix-blend-overlay blur-3xl"
 				/>
 				<span
-					className="absolute left-[96px] -z-1 size-full bg-vitastock-226-100-84/10 mix-blend-overlay
-						blur-3xl"
+					className="absolute left-[96px] -z-1 size-full bg-vitastock-primary-subtle/10
+						mix-blend-overlay blur-3xl"
 				/>
 
 				<div className="flex flex-col items-center gap-8">

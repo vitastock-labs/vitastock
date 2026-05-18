@@ -7,11 +7,11 @@
 /*-------------------*/
 @theme {
 	--color-vitastock-primary-main: hsl(222, 83%, 52%);
+	--color-vitastock-primary-dark: hsl(218, 100%, 39%);
 	--color-vitastock-primary-darker: hsl(226, 70%, 22%);
 	--color-vitastock-primary-glow: hsl(222, 95%, 65%);
-	--color-vitastock-primary-dark: hsl(218, 100%, 39%);
-	--color-vitastock-225-34-44: hsl(225, 34%, 44%);
-	--color-vitastock-226-100-84: hsl(226, 100%, 84%);
+	--color-vitastock-primary-light: hsl(225, 34%, 44%);
+	--color-vitastock-primary-subtle: hsl(226, 100%, 84%);
 
 	--color-vitastock-body-color: hsl(230, 12%, 30%);
 }

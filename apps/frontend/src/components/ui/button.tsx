@@ -65,7 +65,7 @@ const buttonVariants = tv({
 		theme: {
 			primary: "bg-vitastock-primary-main text-white hover:bg-vitastock-primary-main/90",
 
-			"primary-ghost": `bg-transparent text-vitastock-primary-main hover:bg-vitastock-226-100-84/50
+			"primary-ghost": `bg-transparent text-vitastock-primary-main hover:bg-vitastock-primary-subtle/50
 			hover:text-vitastock-primary-dark`,
 
 			"primary-outline": `border-[1.5px] border-vitastock-primary-main bg-transparent
