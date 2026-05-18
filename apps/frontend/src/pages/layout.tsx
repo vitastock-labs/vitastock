@@ -7,7 +7,7 @@ function RootLayout() {
 	useNavigationProgress();
 
 	return (
-		<div className="flex min-h-svh flex-col">
+		<div className="isolate flex min-h-svh flex-col">
 			<ScrollRestoration />
 			<Outlet />
 		</div>

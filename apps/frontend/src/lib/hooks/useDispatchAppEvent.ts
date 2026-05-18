@@ -1,7 +1,8 @@
-import { useEffectOnce } from "@zayne-labs/toolkit-react";
+import { useMountEffect } from "@zayne-labs/toolkit-react";
+import { APP_EVENTS } from "../constants/event";
 
 export const useDispatchAppEvent = () => {
-	useEffectOnce(() => {
-		document.dispatchEvent(new Event("app:ready"));
+	useMountEffect(() => {
+		document.dispatchEvent(new Event(APP_EVENTS.READY));
 	});
 };

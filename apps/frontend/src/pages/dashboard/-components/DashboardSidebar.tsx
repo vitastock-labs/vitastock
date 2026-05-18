@@ -59,7 +59,7 @@ function DashboardSidebar() {
 					<Logo
 						width={48}
 						classNames={{
-							base: "flex items-center gap-3 overflow-hidden",
+							base: "flex w-fit items-center gap-3 overflow-hidden",
 							image: "size-12",
 						}}
 					>
@@ -71,7 +71,10 @@ function DashboardSidebar() {
 						</h3>
 					</Logo>
 
-					<Sidebar.Trigger className="absolute top-8 -right-11 z-20 hover:text-vitastock-primary-dark" />
+					<Sidebar.Trigger
+						className="absolute top-8 -right-4 z-20 hover:text-vitastock-primary-main
+							in-data-[state=collapsed]:text-vitastock-primary-dark"
+					/>
 				</Sidebar.Header>
 
 				<Sidebar.Content className="px-3">

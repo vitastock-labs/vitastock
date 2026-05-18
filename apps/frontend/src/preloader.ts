@@ -1,4 +1,5 @@
 import { lockScroll, on } from "@zayne-labs/toolkit-core";
+import { APP_EVENTS } from "./lib/constants/event";
 
 const removePreloader = () => {
 	const preloaderElement = document.querySelector("#preloader");
@@ -9,15 +10,19 @@ const removePreloader = () => {
 
 	preloaderElement.classList.add("hidden");
 
+	const timeoutId = setTimeout(() => {
+		lockScroll({ lock: false, targetElement: () => document.documentElement });
+	}, 800);
+
 	on(
 		preloaderElement,
 		"transitionend",
 		() => {
 			preloaderElement.remove();
-			lockScroll({ lock: false, targetElement: () => document.documentElement });
+			clearTimeout(timeoutId);
 		},
 		{ once: true }
 	);
 };
 
-on(document, "app:ready" as never, removePreloader, { once: true });
+on(document, APP_EVENTS.READY as never, removePreloader, { once: true });

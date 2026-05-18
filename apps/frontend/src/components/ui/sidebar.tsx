@@ -330,7 +330,7 @@ function SidebarTrigger(props: React.ComponentProps<"button">) {
 			}}
 			{...restOfProps}
 		>
-			{children ?? <IconBox icon="lucide:panel-left" className="size-4" />}
+			{children ?? <IconBox icon="lucide:panel-left" className="size-4.5" />}
 			<span className="sr-only">Toggle Sidebar</span>
 		</button>
 	);
