@@ -1,0 +1,111 @@
+services:
+   vitastock-postgres-db:
+      image: postgres:18-alpine
+      container_name: vitastock-postgres-db
+      restart: unless-stopped
+      env_file:
+         - ./apps/backend/.env
+      environment:
+         POSTGRES_USER: postgres
+         POSTGRES_PASSWORD: postgres
+         POSTGRES_DB: vitastock
+      ports:
+         - "5433:5432"
+      volumes:
+         - vitastock-postgres-db-data:/var/lib/postgresql
+      networks:
+         - vitastock-network
+      healthcheck:
+         test: [CMD-SHELL, pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB]
+         interval: 10s
+         timeout: 5s
+         retries: 3
+         start_period: 10s
+
+   vitastock-db-setup:
+      build:
+         context: .
+         dockerfile: packages/db/Dockerfile
+      container_name: vitastock-db-setup
+      depends_on:
+         vitastock-postgres-db:
+            condition: service_healthy
+      env_file:
+         - ./apps/backend/.env
+      environment:
+         - DATABASE_URL_DEV=postgresql://postgres:postgres@vitastock-postgres-db:5432/vitastock
+      networks:
+         - vitastock-network
+      restart: no
+
+   vitastock-redis-cache:
+      image: redis:8-alpine
+      container_name: vitastock-redis-cache
+      restart: unless-stopped
+      ports:
+         - 6381:6379
+      command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+      networks:
+         - vitastock-network
+      healthcheck:
+         test: [CMD, redis-cli, ping]
+         interval: 10s
+         timeout: 5s
+         retries: 3
+         start_period: 5s
+
+   vitastock-redis-queue:
+      image: redis:8-alpine
+      container_name: vitastock-redis-queue
+      restart: unless-stopped
+      ports:
+         - 6382:6379
+      command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy noeviction
+      networks:
+         - vitastock-network
+      healthcheck:
+         test: [CMD, redis-cli, ping]
+         interval: 10s
+         timeout: 5s
+         retries: 3
+         start_period: 5s
+
+   vitastock-backend:
+      build:
+         context: .
+         dockerfile: apps/backend/Dockerfile
+      container_name: vitastock-backend
+      restart: unless-stopped
+      depends_on:
+         vitastock-postgres-db:
+            condition: service_healthy
+         vitastock-redis-cache:
+            condition: service_healthy
+         vitastock-redis-queue:
+            condition: service_healthy
+         vitastock-db-setup:
+            condition: service_completed_successfully
+      networks:
+         - vitastock-network
+      ports:
+         - 8000:8000
+      env_file:
+         - ./apps/backend/.env
+      environment:
+         - DATABASE_URL_DEV=postgresql://postgres:postgres@vitastock-postgres-db:5432/vitastock
+         - REDIS_CACHE_URL_DEV=redis://vitastock-redis-cache:6379
+         - REDIS_QUEUE_URL_DEV=redis://vitastock-redis-queue:6379
+
+      healthcheck:
+         test: [CMD, curl, -f, "http://localhost:8000"]
+         interval: 30s
+         timeout: 3s
+         start_period: 10s
+         retries: 3
+
+volumes:
+   vitastock-postgres-db-data:
+
+networks:
+   vitastock-network:
+      driver: bridge

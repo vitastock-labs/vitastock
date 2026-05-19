@@ -1,0 +1,104 @@
+meta {
+  name: session
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseURL}}/auth/session
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  # Get Session
+
+  Retrieves the current authenticated user's session data. Also handles silent token refresh if the access token is expired but refresh token is valid.
+
+  ## Authentication
+
+  Requires valid `zayneAccessToken` and `zayneRefreshToken` cookies.
+
+  ## Success Response (200 OK)
+
+  ```json
+  {
+    "status": "success",
+    "message": "Session fetched successfully",
+    "data": {
+      "user": {
+        "firstName": "John",
+        "lastName": "Doe",
+        "email": "doctor@example.com",
+        "avatar": "https://avatar.iran.liara.run/public/boy",
+        "role": "doctor",
+        "medicalLicense": "https://res.cloudinary.com/.../medical-cert.pdf",
+        "specialty": "Cardiology"
+      }
+    }
+  }
+  ```
+
+  **Note**:
+  - If access token is expired but refresh token is valid, a new access token is silently issued
+  - The new access token is set via `Set-Cookie` header
+  - Patient users will have `medicalLicense` and `specialty` as `null`
+
+  ## Error Response (401 Unauthorized)
+
+  If no valid session exists:
+
+  ```json
+  {
+    "status": "error",
+    "message": "Unauthorized"
+  }
+  ```
+
+  ## Error Response (401 Unauthorized - Session Expired)
+
+  If both access and refresh tokens are expired:
+
+  ```json
+  {
+    "status": "error",
+    "message": "Session expired, please log in again"
+  }
+  ```
+
+  ## Error Response (401 Unauthorized - Invalid Session)
+
+  If refresh token is not in user's whitelist (possible token reuse attack):
+
+  ```json
+  {
+    "status": "error",
+    "message": "Invalid session. Please log in again!"
+  }
+  ```
+
+  **Note**: This also clears all refresh tokens for the user, logging them out from all devices.
+
+  ## Error Response (401 Unauthorized - Account Suspended)
+
+  ```json
+  {
+    "status": "error",
+    "message": "Your account is currently suspended"
+  }
+  ```
+
+  ## Error Response (422 Unprocessable Entity - Email Unverified)
+
+  ```json
+  {
+    "status": "error",
+    "message": "Your email is yet to be verified"
+  }
+  ```
+}

@@ -1,0 +1,36 @@
+# Dependencies
+node_modules
+**/node_modules
+
+# Build outputs
+dist
+.turbo
+.next
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Test files
+testing*.ts
+test_*.txt
+
+# IDE and OS
+.vscode
+.idea
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Git
+.git
+.gitignore
+
+# Documentation
+README.md
+*.md
+
+# Bruno API client
+(bruno)-(vitastock)

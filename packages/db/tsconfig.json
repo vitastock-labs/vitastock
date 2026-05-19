@@ -1,0 +1,11 @@
+{
+	"extends": ["../../tsconfig.base.json", "@zayne-labs/tsconfig/bundler/no-dom/app"],
+
+	"compilerOptions": {
+		"paths": {
+			"@/*": ["./src/*"]
+		}
+	},
+
+	"include": ["src/**/*", "**/*"]
+}

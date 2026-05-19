@@ -1,0 +1,39 @@
+{
+	"name": "@vitastock/transactional",
+	"type": "module",
+	"version": "0.0.1",
+	"private": true,
+	"exports": {
+		"./emails": "./src/index.ts"
+	},
+	"scripts": {
+		"build": "tsdown",
+		"dev": "email dev --port 3001",
+		"lint:eslint": "eslint . --max-warnings 0",
+		"lint:format": "prettier --write .",
+		"lint:type-check": "tsc --pretty -p tsconfig.json"
+	},
+	"dependencies": {
+		"@react-email/ui": "6.1.5",
+		"@vitastock/shared": "workspace:*",
+		"@zayne-labs/toolkit-react": "0.12.54",
+		"@zayne-labs/toolkit-type-helpers": "0.12.54",
+		"react": "19.2.6",
+		"react-dom": "19.2.6",
+		"react-email": "6.1.5"
+	},
+	"devDependencies": {
+		"@total-typescript/ts-reset": "0.6.1",
+		"@types/react": "19.2.14",
+		"@types/react-dom": "19.2.3",
+		"@zayne-labs/prettier-config": "0.13.13",
+		"@zayne-labs/tsconfig": "0.13.13",
+		"prettier": "3.8.3",
+		"prettier-plugin-classnames": "0.10.1",
+		"prettier-plugin-merge": "0.10.1",
+		"prettier-plugin-tailwindcss": "0.8.0",
+		"tailwindcss": "4.3.0",
+		"tsdown": "0.22.0",
+		"typescript": "6.0.3"
+	}
+}

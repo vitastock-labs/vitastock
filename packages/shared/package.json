@@ -1,0 +1,27 @@
+{
+	"name": "@vitastock/shared",
+	"type": "module",
+	"private": true,
+	"exports": {
+		"./*": "./src/*.ts"
+	},
+	"scripts": {
+		"build": "tsdown",
+		"lint:eslint": "eslint . --max-warnings 0",
+		"lint:format": "prettier --write .",
+		"lint:type-check": "tsc --pretty -p tsconfig.json"
+	},
+	"dependencies": {
+		"@vitastock/db": "workspace:*",
+		"@vitastock/env": "workspace:*",
+		"@zayne-labs/callapi": "1.13.0",
+		"consola": "3.4.2",
+		"zod": "4.4.0"
+	},
+	"devDependencies": {
+		"@total-typescript/ts-reset": "0.6.1",
+		"@zayne-labs/tsconfig": "^0.13.13",
+		"tsdown": "0.22.0",
+		"typescript": "6.0.3"
+	}
+}

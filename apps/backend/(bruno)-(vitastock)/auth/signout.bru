@@ -1,0 +1,64 @@
+meta {
+  name: signout
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseURL}}/auth/signout
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  # Sign Out
+
+  Logs out the current user by clearing authentication cookies and removing the refresh token from the user's token array.
+
+  ## Authentication
+
+  Requires valid `zayneAccessToken` and `zayneRefreshToken` cookies.
+
+  ## Success Response (200 OK)
+
+  ```json
+  {
+    "status": "success",
+    "message": "Signed out successfully",
+    "data": null
+  }
+  ```
+
+  **Note**:
+  - Clears `zayneAccessToken` cookie
+  - Clears `zayneRefreshToken` cookie
+  - Removes the current refresh token from user's token array (invalidates this session)
+  - Other active sessions remain valid
+
+  ## Error Response (401 Unauthorized)
+
+  If no valid session exists:
+
+  ```json
+  {
+    "status": "error",
+    "message": "Unauthorized"
+  }
+  ```
+
+  ## Error Response (401 Unauthorized - Session Expired)
+
+  If both tokens are expired:
+
+  ```json
+  {
+    "status": "error",
+    "message": "Session expired, please log in again"
+  }
+  ```
+}

@@ -1,0 +1,18 @@
+meta {
+  name: auth
+  seq: 3
+}
+
+auth {
+  mode: inherit
+}
+
+docs {
+  Endpoints for handling authentication and session management.
+
+  Everything here uses cookie-based auth. Once signed in, the browser handles the `zayneVitaStockAccessToken` and `zayneVitaStockRefreshToken` automatically.
+
+  - **Signin**: Standard email/password flow.
+  - **Password**: Full flow for forgot/reset/change password. Changing/Resetting triggers a global sign-out.
+  - **Session**: Retrieve the currently authenticated user's details.
+}

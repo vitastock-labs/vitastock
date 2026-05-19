@@ -1,0 +1,43 @@
+# Development files
+.git
+.gitignore
+README.md
+DEV-GUIDE.md
+DOCKER.md
+
+# Frontend (not needed for backend)
+apps/frontend
+
+# Build artifacts
+**/dist
+**/build
+**/.next
+**/.turbo
+
+# Dependencies (will be installed in container)
+**/node_modules
+
+# Environment files (will be mounted)
+**/.env
+**/.env.*
+
+# IDE files
+.vscode
+.idea
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+**/*.log
+**/logs
+
+# Test files
+**/*.test.*
+**/*.spec.*
+**/tests
+**/__tests__
+
+# Documentation
+**/docs

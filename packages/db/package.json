@@ -1,0 +1,41 @@
+{
+	"name": "@vitastock/db",
+	"type": "module",
+	"private": true,
+	"exports": {
+		".": "./src/db.ts",
+		"./schema/*": "./src/schema/*.ts"
+	},
+	"scripts": {
+		"build": "tsdown",
+		"db:generate": "drizzle-kit generate",
+		"db:migrate": "cross-env DB_MIGRATING=true drizzle-kit migrate",
+		"db:push": "drizzle-kit push",
+		"db:seed": "cross-env DB_SEEDING=true tsx src/seed.ts",
+		"db:studio": "drizzle-kit studio",
+		"dev": "tsx watch src/db.ts",
+		"lint:eslint": "eslint . --max-warnings 0",
+		"lint:format": "prettier --write .",
+		"lint:type-check": "tsc --pretty -p tsconfig.json"
+	},
+	"dependencies": {
+		"@faker-js/faker": "^10.4.0",
+		"@node-rs/argon2": "^2.0.2",
+		"@vitastock/env": "workspace:*",
+		"@zayne-labs/tsconfig": "0.13.13",
+		"consola": "3.4.2",
+		"cross-env": "^10.1.0",
+		"drizzle-kit": "0.31.10",
+		"drizzle-orm": "0.45.2",
+		"drizzle-zod": "0.8.3",
+		"pg": "8.21.0",
+		"tsx": "4.22.2",
+		"zod": "4.4.0"
+	},
+	"devDependencies": {
+		"@total-typescript/ts-reset": "0.6.1",
+		"@types/pg": "8.20.0",
+		"tsdown": "0.22.0",
+		"typescript": "6.0.3"
+	}
+}

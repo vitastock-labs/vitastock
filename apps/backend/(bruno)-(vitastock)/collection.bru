@@ -1,0 +1,60 @@
+docs {
+  # VitaStock API Documentation
+
+  VitaStock is a comprehensive pharmacy inventory management platform.
+
+  ## Base URL
+
+  The base URL for all API requests is defined in the environment variables (e.g., `{{baseURL}}`).
+
+  ## Authentication
+
+  VitaStock uses a cookie-based authentication system with Access and Refresh tokens.
+
+  - **Access Token**: Short-lived JWT stored in the `zayneVitaStockAccessToken` cookie.
+  - **Refresh Token**: Long-lived JWT stored in the `zayneVitaStockRefreshToken` cookie, used to generate new access tokens.
+
+  ### Authentication Flow
+
+  1. **Signin**: Authenticate with email/password. Returns tokens via cookies.
+  2. **Session**: Retrieve current user details from the session.
+  3. **Password Management**: Forgot password, reset password, and change password features.
+
+  *Note: Users (Pharmacists and Admins) are provisioned via seeding or by an Admin (via the dashboard), there is no public signup endpoint.*
+
+  ## Security Features
+
+  - **Rate Limiting**: Authentication routes are rate-limited to prevent brute-force attacks.
+  - **Account Suspension**: Accounts are suspended after 3 failed password reset attempts or failed login attempts.
+  - **Token Rotation**: Refresh tokens are rotated on each use to prevent session hijacking.
+  - **Input Validation**: All requests are validated using Zod schemas on both frontend and backend.
+
+  ## Error Handling
+
+  The API returns a consistent error structure:
+
+  ```json
+  {
+    "status": "error",
+    "message": "Human-readable error message",
+    "errors": {
+      "field": ["specific error detail"]
+    }
+  }
+  ```
+
+  ### Common Status Codes
+
+  - `200 OK`: Request successful.
+  - `400 Bad Request`: Invalid input or state (e.g., expired token).
+  - `401 Unauthorized`: Authentication required or invalid credentials.
+  - `404 Not Found`: Requested resource doesn't exist.
+  - `429 Too Many Requests`: Rate limit exceeded.
+  - `500 Internal Server Error`: Unexpected server error.
+
+  ## Core Modules
+
+  - **Auth**: Signin, Session management, Password reset.
+  - **Workspaces**: Managing pharmacies (coming soon).
+  - **Inventory**: Managing stock (coming soon).
+}

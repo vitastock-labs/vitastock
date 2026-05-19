@@ -1,0 +1,122 @@
+meta {
+  name: signin
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseURL}}/auth/signin
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "email": "ian_wiza48@seeded.com",
+    "password": "Password@123"
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  # Sign In
+
+  Authenticates a user and returns access/refresh tokens via cookies.
+
+  ## Request Body
+
+  - `email` (string, required): User's email address
+  - `password` (string, required): User's password (minimum 8 characters)
+
+  ## Success Response (200 OK)
+
+  ```json
+  {
+    "status": "success",
+    "message": "Signed in successfully",
+    "data": {
+      "user": {
+        "firstName": "John",
+        "lastName": "Doe",
+        "email": "doctor@example.com",
+        "avatar": "https://avatar.iran.liara.run/public/boy",
+        "role": "doctor",
+        "medicalLicense": "https://res.cloudinary.com/.../medical-cert.pdf",
+        "specialty": "Cardiology"
+      }
+    }
+  }
+  ```
+
+  **Note**:
+  - Sets `zayneAccessToken` and `zayneRefreshToken` cookies
+  - Resets login retry count to 0
+  - Updates `lastLoginAt` timestamp
+  - Adds new refresh token to user's token array
+
+  ## Error Response (401 Unauthorized)
+
+  If email or password is incorrect:
+
+  ```json
+  {
+    "status": "error",
+    "message": "Email or password is incorrect"
+  }
+  ```
+
+  **Note**: Each failed login attempt increments the retry count.
+
+  ## Error Response (401 Unauthorized - Account Suspended)
+
+  If account is suspended:
+
+  ```json
+  {
+    "status": "error",
+    "message": "Your account is currently suspended"
+  }
+  ```
+
+  ## Error Response (401 Unauthorized - Login Retries Exceeded)
+
+  If user has failed login 3+ times within 12 hours:
+
+  ```json
+  {
+    "status": "error",
+    "message": "Login retries exceeded"
+  }
+  ```
+
+  **Note**:
+  - Login retry count resets after 12 hours from last login attempt
+  - Password reset email will be sent (TODO)
+
+  ## Error Response (422 Validation Error)
+
+  If email or password is missing:
+
+  ```json
+  {
+    "status": "error",
+    "message": "Validation Error: ✖ Required → at email | ✖ Required → at password",
+    "errors": {
+      "email": ["Required"],
+      "password": ["Required"]
+    }
+  }
+  ```
+
+  ## Security Features
+
+  - **Login retry limit**: Max 3 failed attempts within 12 hours
+  - **Account suspension**: Suspended accounts cannot sign in
+  - **Email verification**: Unverified emails receive verification prompt (TODO)
+  - **Token rotation**: New refresh token generated on each login
+  - **Secure cookies**: HttpOnly cookies for token storage
+}

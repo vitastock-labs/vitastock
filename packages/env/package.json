@@ -1,0 +1,26 @@
+{
+	"name": "@vitastock/env",
+	"type": "module",
+	"private": true,
+	"exports": {
+		"./backend": "./src/backend-env.ts",
+		"./frontend": "./src/frontend-env.ts"
+	},
+	"scripts": {
+		"build": "tsdown",
+		"lint:eslint": "eslint . --max-warnings 0",
+		"lint:format": "prettier --write .",
+		"lint:type-check": "tsc --pretty -p tsconfig.json"
+	},
+	"dependencies": {
+		"consola": "3.4.2",
+		"find-up-simple": "^1.0.1",
+		"zod": "4.4.0"
+	},
+	"devDependencies": {
+		"@total-typescript/ts-reset": "0.6.1",
+		"@zayne-labs/tsconfig": "^0.13.13",
+		"tsdown": "0.22.0",
+		"typescript": "6.0.3"
+	}
+}
