@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-VitaStock is a real-time pharmacy inventory and intelligence platform designed to improve stock visibility, track expiry dates, power workspace-based management, and provide actionable insights for healthcare providers.
+VitaStock is a real-time pharmacy inventory management system that helps pharmacies manage stock faster and with less stress — while automatically preventing errors, expiry, and stockouts.”
 
 ## Key Features
 
