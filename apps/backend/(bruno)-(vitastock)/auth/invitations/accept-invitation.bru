@@ -1,0 +1,83 @@
+meta {
+  name: accept-invitation
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseURL}}/auth/invitations/accept
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  # Accept Workspace Invitation
+
+  Accepts a workspace invitation and creates a new user account. This endpoint should be called by the invited user after clicking the invitation link in their email.
+
+  ## Request Body
+
+  - `token` (string, required): The invitation token from the email link
+
+  ## Success Response (200 OK)
+
+  ```json
+  {
+    "status": "success",
+    "message": "Invitation accepted successfully",
+    "data": {
+      "user": {
+        "id": "user-uuid",
+        "email": "pharmacist@example.com",
+        "name": "Jane Smith",
+        "role": "pharmacist",
+        "emailVerifiedAt": "2024-05-20T10:30:00Z",
+        "mustChangePassword": true
+      },
+      "workspace": {
+        "id": "workspace-uuid",
+        "name": "My Pharmacy"
+      }
+    }
+  }
+  ```
+
+  ## Error Responses
+
+  ### 400 Bad Request - Invalid or expired invitation
+
+  ```json
+  {
+    "status": "error",
+    "message": "Invalid or expired invitation"
+  }
+  ```
+
+  ### 400 Bad Request - User already exists
+
+  ```json
+  {
+    "status": "error",
+    "message": "A user with this email already exists"
+  }
+  ```
+
+  ## Notes
+
+  - Invitations expire after 7 days
+  - After acceptance, the user's email is marked as verified
+  - The `mustChangePassword` flag is set to true, requiring the user to change password on first login
+  - The temporary password provided during invitation can be used for the first login
+  - Rate limited to prevent brute-force attacks
+}

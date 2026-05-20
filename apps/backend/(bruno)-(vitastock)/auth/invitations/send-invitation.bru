@@ -1,0 +1,96 @@
+meta {
+  name: send-invitation
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseURL}}/auth/invitations
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "email": "pharmacist@example.com",
+    "name": "Jane Smith",
+    "role": "pharmacist",
+    "defaultPassword": "TempPassword@123"
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  # Send Workspace Invitation
+
+  Sends an invitation to a new user to join the workspace. Only workspace owners can send invitations.
+
+  ## Authentication
+
+  Requires valid session with owner role.
+
+  ## Request Body
+
+  - `email` (string, required): Email address of the person being invited
+  - `name` (string, required): Full name of the person being invited
+  - `role` (string, required): Role for the invited user (currently supports "pharmacist")
+  - `defaultPassword` (string, required): Temporary password for the invited user
+
+  ## Success Response (200 OK)
+
+  ```json
+  {
+    "status": "success",
+    "message": "Invitation sent successfully",
+    "data": {
+      "invitation": {
+        "id": "invitation-uuid",
+        "email": "pharmacist@example.com",
+        "role": "pharmacist",
+        "expiresAt": "2024-05-27T10:30:00Z"
+      }
+    }
+  }
+  ```
+
+  ## Error Responses
+
+  ### 400 Bad Request - User already exists
+
+  ```json
+  {
+    "status": "error",
+    "message": "A user with this email already exists"
+  }
+  ```
+
+  ### 400 Bad Request - Active invitation exists
+
+  ```json
+  {
+    "status": "error",
+    "message": "An active invitation already exists for this email"
+  }
+  ```
+
+  ### 401 Unauthorized - Not owner
+
+  ```json
+  {
+    "status": "error",
+    "message": "Only workspace owners can send invitations"
+  }
+  ```
+
+  ## Notes
+
+  - Invitations expire after 7 days
+  - An invitation email is sent to the provided email address with an acceptance link
+  - Only one active invitation per email can exist at a time
+  - The recipient must accept the invitation to create their account
+  - Rate limited to prevent abuse
+}

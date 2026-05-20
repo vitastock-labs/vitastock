@@ -1,28 +1,109 @@
 import { db } from "@vitastock/db";
-import { users } from "@vitastock/db/schema/auth";
+import {
+	emailVerificationCodes,
+	passwordResetTokens,
+	users,
+	workspaceInvitations,
+} from "@vitastock/db/schema/auth";
+import { workspaces } from "@vitastock/db/schema/workspaces";
 import { backendApiSchemaRoutes } from "@vitastock/shared/validation/backendApiSchema";
-import { differenceInHours, isPast } from "date-fns";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { pickKeys } from "@zayne-labs/toolkit-core";
+import { add, differenceInHours, isPast } from "date-fns";
+import { and, eq, gt, isNull, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { rateLimiter } from "hono-rate-limiter";
 import { authRateLimiterOptions } from "@/config/rateLimiterOptions";
 import { AppError, AppJsonResponse } from "@/lib/utils";
-import { authMiddleware, validateWithZodMiddleware } from "@/middleware";
+import { generateRandomBytes } from "@/lib/utils/random";
+import { authMiddleware, authorizeRoleMiddleware, validateWithZodMiddleware } from "@/middleware";
 import { AUTH_ERROR_MESSAGES } from "@/middleware/authMiddleware/constants";
 import { removeFromCache, setCache } from "@/services/cache";
-import { getNecessaryUserDetails } from "./services/common";
+import { getAuthResponseData } from "./services/common";
 import { deleteCookie, getCookie, setCookie } from "./services/cookie";
-import { sendPasswordResetEmail, sendResetPasswordCompleteEmail, TokenSchema } from "./services/emails";
-import { hashValue, verifyHashedValue } from "./services/hash";
+import {
+	sendPasswordResetEmail,
+	sendPharmacistInviteEmail,
+	sendResetPasswordCompleteEmail,
+	sendVerificationEmail,
+	TokenSchema,
+} from "./services/emails";
+import { hashToken, hashValue, verifyHashedValue } from "./services/hash";
 import {
 	decodeJwtToken,
 	generateAccessToken,
 	generateRefreshToken,
+	getRefreshTokenResultWithHash,
 	getUpdatedTokenResultArray,
 } from "./services/token";
 
 const authRoutes = new Hono()
 	.basePath("/auth")
+
+	.post(
+		"/signup",
+		rateLimiter(authRateLimiterOptions),
+		validateWithZodMiddleware("json", backendApiSchemaRoutes["@post/auth/signup"].body),
+		async (ctx) => {
+			const { email, name, password, pharmacyName } = ctx.req.valid("json");
+
+			const [existingUser] = await db
+				.select({ id: users.id })
+				.from(users)
+				.where(eq(users.email, email))
+				.limit(1);
+
+			if (existingUser) {
+				throw new AppError({
+					code: 400,
+					message: "User already exists",
+				});
+			}
+
+			const passwordHash = await hashValue(password);
+
+			const newUser = await db.transaction(async (tx) => {
+				const [insertedWorkspace] = await tx
+					.insert(workspaces)
+					.values({ name: pharmacyName })
+					.returning();
+
+				if (!insertedWorkspace) {
+					throw new AppError({
+						code: 500,
+						message: "Failed to create workspace",
+					});
+				}
+
+				const [insertedUser] = await tx
+					.insert(users)
+					.values({
+						email,
+						name,
+						passwordHash,
+						role: "owner",
+						workspaceId: insertedWorkspace.id,
+					})
+					.returning();
+
+				if (!insertedUser) {
+					throw new AppError({
+						code: 500,
+						message: "Failed to create user",
+					});
+				}
+
+				await sendVerificationEmail(insertedUser, tx as unknown as typeof db);
+
+				return insertedUser;
+			});
+
+			return AppJsonResponse(ctx, {
+				data: await getAuthResponseData(newUser),
+				message: "Account created successfully",
+				schema: backendApiSchemaRoutes["@post/auth/signup"].data,
+			});
+		}
+	)
 
 	.post(
 		"/signin",
@@ -62,6 +143,15 @@ const authRoutes = new Hono()
 				});
 			}
 
+			if (!currentUser.emailVerifiedAt) {
+				await sendVerificationEmail(currentUser, db);
+
+				throw new AppError({
+					code: 401,
+					message: AUTH_ERROR_MESSAGES.EMAIL_UNVERIFIED,
+				});
+			}
+
 			const hoursSinceLastLogin = differenceInHours(new Date(), currentUser.lastLoginAt);
 			const loginRetryWindowActive = hoursSinceLastLogin < 12;
 
@@ -73,6 +163,7 @@ const authRoutes = new Hono()
 			}
 
 			const newRefreshTokenResult = generateRefreshToken(currentUser);
+			const newRefreshTokenResultWithHash = getRefreshTokenResultWithHash(newRefreshTokenResult);
 
 			const updatedTokenArray = getUpdatedTokenResultArray({
 				currentUser,
@@ -84,7 +175,7 @@ const authRoutes = new Hono()
 				.set({
 					lastLoginAt: new Date(),
 					loginRetryCount: 0,
-					refreshTokenArray: [...updatedTokenArray, newRefreshTokenResult],
+					refreshTokenArray: [...updatedTokenArray, newRefreshTokenResultWithHash],
 				})
 				.where(eq(users.id, currentUser.id))
 				.returning();
@@ -98,7 +189,7 @@ const authRoutes = new Hono()
 
 			await setCache(`user:${updatedUser.id}`, updatedUser);
 
-			const newAccessTokenResult = generateAccessToken(currentUser);
+			const newAccessTokenResult = generateAccessToken(updatedUser);
 
 			setCookie(ctx, {
 				expires: newAccessTokenResult.expiresAt,
@@ -113,11 +204,116 @@ const authRoutes = new Hono()
 
 			return AppJsonResponse(ctx, {
 				data: {
-					tokens: { access: newAccessTokenResult, refresh: newRefreshTokenResult },
-					user: getNecessaryUserDetails(updatedUser),
+					...(await getAuthResponseData(updatedUser)),
+					tokens: {
+						access: newAccessTokenResult,
+						refresh: newRefreshTokenResult,
+					},
 				},
 				message: "Signed in successfully",
 				schema: backendApiSchemaRoutes["@post/auth/signin"].data,
+			});
+		}
+	)
+
+	.post(
+		"/verify-email",
+		rateLimiter(authRateLimiterOptions),
+		validateWithZodMiddleware("json", backendApiSchemaRoutes["@post/auth/verify-email"].body),
+		async (ctx) => {
+			const { code, email } = ctx.req.valid("json");
+
+			const [result] = await db
+				.select({
+					code: emailVerificationCodes.code,
+					expiresAt: emailVerificationCodes.expiresAt,
+					userId: emailVerificationCodes.userId,
+				})
+				.from(emailVerificationCodes)
+				.innerJoin(users, eq(emailVerificationCodes.userId, users.id))
+				.where(eq(users.email, email))
+				.limit(1);
+
+			if (!result) {
+				throw new AppError({
+					cause: "No user or verification code found",
+					code: 400,
+					message: "Invalid or expired verification code",
+				});
+			}
+
+			if (isPast(result.expiresAt)) {
+				await db
+					.delete(emailVerificationCodes)
+					.where(eq(emailVerificationCodes.userId, result.userId));
+
+				throw new AppError({
+					cause: "Verification code has expired",
+					code: 400,
+					message: "Invalid or expired verification code",
+				});
+			}
+
+			const isCodeValid = await verifyHashedValue(result.code, code);
+
+			if (!isCodeValid) {
+				throw new AppError({
+					cause: "Invalid verification code",
+					code: 400,
+					message: "Invalid or expired verification code",
+				});
+			}
+
+			const [updatedUser] = await db
+				.update(users)
+				.set({ emailVerifiedAt: new Date() })
+				.where(eq(users.id, result.userId))
+				.returning();
+
+			if (!updatedUser) {
+				throw new AppError({
+					code: 500,
+					message: "User update failed",
+				});
+			}
+
+			await db.delete(emailVerificationCodes).where(eq(emailVerificationCodes.userId, result.userId));
+
+			return AppJsonResponse(ctx, {
+				data: {
+					...(await getAuthResponseData(updatedUser)),
+				},
+				message: "Account successfully verified!",
+				schema: backendApiSchemaRoutes["@post/auth/verify-email"].data,
+			});
+		}
+	)
+
+	.post(
+		"/resend-verification-email",
+		rateLimiter(authRateLimiterOptions),
+		validateWithZodMiddleware(
+			"json",
+			backendApiSchemaRoutes["@post/auth/resend-verification-email"].body
+		),
+		async (ctx) => {
+			const { email } = ctx.req.valid("json");
+
+			const [existingUser] = await db
+				.select(pickKeys(users, ["id", "emailVerifiedAt", "email", "name"]))
+				.from(users)
+				.where(eq(users.email, email))
+				.limit(1);
+
+			// NOTE - Always respond generically to avoid user enumeration
+			if (existingUser && !existingUser.emailVerifiedAt) {
+				await sendVerificationEmail(existingUser, db);
+			}
+
+			return AppJsonResponse(ctx, {
+				data: null,
+				message: "Verification email sent successfully",
+				schema: backendApiSchemaRoutes["@post/auth/resend-verification-email"].data,
 			});
 		}
 	)
@@ -129,20 +325,25 @@ const authRoutes = new Hono()
 		async (ctx) => {
 			const { email } = ctx.req.valid("json");
 
-			const [existingUser] = await db
+			const [result] = await db
 				.select({
-					email: users.email,
-					firstName: users.firstName,
-					id: users.id,
-					passwordResetRetriedAt: users.passwordResetRetriedAt,
-					passwordResetRetryCount: users.passwordResetRetryCount,
+					token: {
+						retriedAt: passwordResetTokens.retriedAt,
+						retryCount: passwordResetTokens.retryCount,
+					},
+					user: {
+						email: users.email,
+						id: users.id,
+						name: users.name,
+					},
 				})
 				.from(users)
+				.leftJoin(passwordResetTokens, eq(users.id, passwordResetTokens.userId))
 				.where(eq(users.email, email))
 				.limit(1);
 
 			// NOTE - Always respond generically to avoid user enumeration
-			if (!existingUser) {
+			if (!result) {
 				return AppJsonResponse(ctx, {
 					data: null,
 					message: `Password reset link sent to ${email}`,
@@ -151,15 +352,18 @@ const authRoutes = new Hono()
 			}
 
 			const hoursSincePasswordRetryWindowStart =
-				existingUser.passwordResetRetriedAt ?
-					differenceInHours(new Date(), existingUser.passwordResetRetriedAt)
-				:	null;
+				result.token?.retriedAt ? differenceInHours(new Date(), result.token.retriedAt) : null;
 
 			const passwordResetWindowActive =
 				hoursSincePasswordRetryWindowStart !== null && hoursSincePasswordRetryWindowStart < 24;
 
-			if (existingUser.passwordResetRetryCount >= 3 && passwordResetWindowActive) {
-				await db.update(users).set({ suspendedAt: new Date() }).where(eq(users.id, existingUser.id));
+			if (result.token && result.token.retryCount >= 3 && passwordResetWindowActive) {
+				await db
+					.update(users)
+					.set({
+						suspendedAt: new Date(),
+					})
+					.where(eq(users.id, result.user.id));
 
 				throw new AppError({
 					code: 401,
@@ -167,24 +371,7 @@ const authRoutes = new Hono()
 				});
 			}
 
-			await db.transaction(async (tx) => {
-				const [updatedUser] = await tx
-					.update(users)
-					.set({
-						passwordResetRetriedAt:
-							passwordResetWindowActive ? existingUser.passwordResetRetriedAt : new Date(),
-						passwordResetRetryCount:
-							passwordResetWindowActive ? sql`${users.passwordResetRetryCount} + 1` : 1,
-					})
-					.where(eq(users.id, existingUser.id))
-					.returning({ email: users.email, firstName: users.firstName, id: users.id });
-
-				if (!updatedUser) {
-					throw new AppError({ code: 500, message: "Failed to update user" });
-				}
-
-				await sendPasswordResetEmail(updatedUser, tx as unknown as typeof db);
-			});
+			await sendPasswordResetEmail(result.user, db, passwordResetWindowActive);
 
 			return AppJsonResponse(ctx, {
 				data: null,
@@ -193,6 +380,7 @@ const authRoutes = new Hono()
 			});
 		}
 	)
+
 	.post(
 		"/reset-password",
 		rateLimiter(authRateLimiterOptions),
@@ -203,7 +391,7 @@ const authRoutes = new Hono()
 			const decodedPayload = decodeJwtToken(token, {
 				onValidationError: (error) => {
 					throw new AppError({
-						cause: error.message,
+						cause: `Invalid reset token payload: ${error.message}`,
 						code: 400,
 						message: "Invalid or expired reset token",
 					});
@@ -211,55 +399,73 @@ const authRoutes = new Hono()
 				schema: TokenSchema,
 			});
 
+			const hashedIncomingToken = hashToken(decodedPayload.token);
+
 			const [result] = await db
 				.select({
-					email: users.email,
-					firstName: users.firstName,
-					id: users.id,
-					passwordResetToken: users.passwordResetToken,
-					passwordResetTokenExpiresAt: users.passwordResetTokenExpiresAt,
+					token: {
+						expiresAt: passwordResetTokens.expiresAt,
+						id: passwordResetTokens.id,
+					},
+					user: {
+						email: users.email,
+						id: users.id,
+						name: users.name,
+					},
 				})
-				.from(users)
-				.where(and(eq(users.passwordResetToken, decodedPayload.token), isNull(users.suspendedAt)))
+				.from(passwordResetTokens)
+				.innerJoin(users, eq(passwordResetTokens.userId, users.id))
+				.where(and(eq(passwordResetTokens.tokenHash, hashedIncomingToken), isNull(users.suspendedAt)))
 				.limit(1);
 
-			if (!result?.passwordResetToken || !result.passwordResetTokenExpiresAt) {
-				throw new AppError({ code: 400, message: "Invalid or expired reset token" });
+			if (!result?.token) {
+				throw new AppError({
+					cause: "No user or reset token found",
+					code: 400,
+					message: "Invalid or expired reset token",
+				});
 			}
 
-			if (isPast(result.passwordResetTokenExpiresAt)) {
-				await db
-					.update(users)
-					.set({ passwordResetToken: null, passwordResetTokenExpiresAt: null })
-					.where(eq(users.id, result.id));
+			if (isPast(result.token.expiresAt)) {
+				await db.delete(passwordResetTokens).where(eq(passwordResetTokens.id, result.token.id));
 
-				throw new AppError({ code: 400, message: "Invalid or expired reset token" });
+				throw new AppError({
+					cause: "Reset token has expired",
+					code: 400,
+					message: "Invalid or expired reset token",
+				});
 			}
 
 			const newPasswordHash = await hashValue(newPassword);
 
-			const [updatedUser] = await db
-				.update(users)
-				.set({
-					passwordChangedAt: new Date(),
-					passwordHash: newPasswordHash,
-					passwordResetRetriedAt: null,
-					passwordResetRetryCount: 0,
-					passwordResetToken: null,
-					passwordResetTokenExpiresAt: null,
-					refreshTokenArray: [],
-					suspendedAt: null,
-				})
-				.where(eq(users.id, result.id))
-				.returning({ email: users.email, firstName: users.firstName, id: users.id });
+			const [updatedUser] = await db.transaction(async (tx) => {
+				const [userUpdate] = await tx
+					.update(users)
+					.set({
+						passwordChangedAt: new Date(),
+						passwordHash: newPasswordHash,
+						// Sign out from all devices
+						refreshTokenArray: [],
+						suspendedAt: null,
+					})
+					.where(eq(users.id, result.user.id))
+					.returning({ email: users.email, id: users.id, name: users.name });
+
+				await tx.delete(passwordResetTokens).where(eq(passwordResetTokens.id, result.token.id));
+
+				return [userUpdate];
+			});
 
 			if (!updatedUser) {
-				throw new AppError({ code: 400, message: "Password reset failed" });
+				throw new AppError({
+					code: 400,
+					message: "Password reset failed",
+				});
 			}
 
 			await Promise.all([
 				removeFromCache(`user:${updatedUser.id}`),
-				sendResetPasswordCompleteEmail({ email: updatedUser.email, firstName: updatedUser.firstName }),
+				sendResetPasswordCompleteEmail({ email: updatedUser.email, name: updatedUser.name }),
 			]);
 
 			return AppJsonResponse(ctx, {
@@ -269,7 +475,189 @@ const authRoutes = new Hono()
 			});
 		}
 	)
+
+	.post(
+		"/invitations/accept",
+		rateLimiter(authRateLimiterOptions),
+		validateWithZodMiddleware("json", backendApiSchemaRoutes["@post/auth/invitations/accept"].body),
+		async (ctx) => {
+			const { token } = ctx.req.valid("json");
+
+			const tokenHash = hashToken(token);
+
+			const [invitationResult] = await db
+				.select({
+					acceptedAt: workspaceInvitations.acceptedAt,
+					email: workspaceInvitations.email,
+					expiresAt: workspaceInvitations.expiresAt,
+					id: workspaceInvitations.id,
+					name: workspaceInvitations.name,
+					passwordHash: workspaceInvitations.passwordHash,
+					role: workspaceInvitations.role,
+					workspaceId: workspaceInvitations.workspaceId,
+				})
+				.from(workspaceInvitations)
+				.innerJoin(workspaces, eq(workspaceInvitations.workspaceId, workspaces.id))
+				.where(eq(workspaceInvitations.tokenHash, tokenHash))
+				.limit(1);
+
+			if (!invitationResult || invitationResult.acceptedAt || isPast(invitationResult.expiresAt)) {
+				throw new AppError({
+					code: 400,
+					message: "Invalid or expired invitation",
+				});
+			}
+
+			const [existingUser] = await db
+				.select({ id: users.id })
+				.from(users)
+				.where(eq(users.email, invitationResult.email))
+				.limit(1);
+
+			if (existingUser) {
+				throw new AppError({
+					code: 400,
+					message: "A user with this email already exists",
+				});
+			}
+
+			const newUser = await db.transaction(async (tx) => {
+				const [insertedUser] = await tx
+					.insert(users)
+					.values({
+						email: invitationResult.email,
+						emailVerifiedAt: new Date(),
+						mustChangePassword: true,
+						name: invitationResult.name,
+						passwordHash: invitationResult.passwordHash,
+						role: "pharmacist",
+						temporaryPasswordIssuedAt: new Date(),
+						workspaceId: invitationResult.workspaceId,
+					})
+					.returning();
+
+				if (!insertedUser) {
+					throw new AppError({
+						code: 500,
+						message: "Failed to create invited user",
+					});
+				}
+
+				await tx
+					.update(workspaceInvitations)
+					.set({ acceptedAt: new Date() })
+					.where(eq(workspaceInvitations.id, invitationResult.id));
+
+				return insertedUser;
+			});
+
+			return AppJsonResponse(ctx, {
+				data: await getAuthResponseData(newUser),
+				message: "Invitation accepted successfully",
+				schema: backendApiSchemaRoutes["@post/auth/invitations/accept"].data,
+			});
+		}
+	)
+
 	.use(authMiddleware)
+
+	.post(
+		"/invitations",
+		authorizeRoleMiddleware(["owner"]),
+		rateLimiter(authRateLimiterOptions),
+		validateWithZodMiddleware("json", backendApiSchemaRoutes["@post/auth/invitations"].body),
+		async (ctx) => {
+			const { defaultPassword, email, name, role } = ctx.req.valid("json");
+
+			const currentUser = ctx.get("currentUser");
+			const currentWorkspace = ctx.get("currentWorkspace");
+
+			const [existingUser] = await db
+				.select({ id: users.id })
+				.from(users)
+				.where(eq(users.email, email))
+				.limit(1);
+
+			if (existingUser) {
+				throw new AppError({
+					code: 400,
+					message: "A user with this email already exists",
+				});
+			}
+
+			const [activeInvitation] = await db
+				.select({ id: workspaceInvitations.id })
+				.from(workspaceInvitations)
+				.where(
+					and(
+						eq(workspaceInvitations.email, email),
+						eq(workspaceInvitations.workspaceId, currentUser.workspaceId),
+						gt(workspaceInvitations.expiresAt, new Date()),
+						isNull(workspaceInvitations.acceptedAt)
+					)
+				)
+				.limit(1);
+
+			if (activeInvitation) {
+				throw new AppError({
+					code: 400,
+					message: "An active invitation already exists for this email",
+				});
+			}
+
+			const invitationToken = generateRandomBytes();
+
+			const passwordHash = await hashValue(defaultPassword);
+
+			const tokenHash = hashToken(invitationToken);
+
+			const expiresAt = add(new Date(), { days: 7 });
+
+			const [insertedInvitation] = await db
+				.insert(workspaceInvitations)
+				.values({
+					email,
+					expiresAt,
+					invitedByUserId: currentUser.id,
+					name,
+					passwordHash,
+					role,
+					tokenHash,
+					workspaceId: currentUser.workspaceId,
+				})
+				.returning();
+
+			if (!insertedInvitation) {
+				throw new AppError({
+					code: 500,
+					message: "Failed to create invitation",
+				});
+			}
+
+			await sendPharmacistInviteEmail({
+				defaultPassword,
+				email,
+				inviterEmail: currentUser.email,
+				name,
+				token: invitationToken,
+				workspaceName: currentWorkspace.name,
+			});
+
+			return AppJsonResponse(ctx, {
+				data: {
+					invitation: {
+						email: insertedInvitation.email,
+						expiresAt: insertedInvitation.expiresAt,
+						id: insertedInvitation.id,
+						role,
+					},
+				},
+				message: "Invitation sent successfully",
+				schema: backendApiSchemaRoutes["@post/auth/invitations"].data,
+			});
+		}
+	)
+
 	.post("/signout", async (ctx) => {
 		const currentUser = ctx.get("currentUser");
 
@@ -314,11 +702,12 @@ const authRoutes = new Hono()
 		});
 	})
 
-	.get("/session", (ctx) => {
+	.get("/session", async (ctx) => {
 		const currentUser = ctx.get("currentUser");
+		const currentWorkspace = ctx.get("currentWorkspace");
 
 		return AppJsonResponse(ctx, {
-			data: { user: getNecessaryUserDetails(currentUser) },
+			data: await getAuthResponseData(currentUser, currentWorkspace),
 			message: "Session fetched successfully",
 			schema: backendApiSchemaRoutes["@get/auth/session"].data,
 		});
@@ -349,9 +738,11 @@ const authRoutes = new Hono()
 			const [updatedUser] = await db
 				.update(users)
 				.set({
+					mustChangePassword: false,
 					passwordChangedAt: new Date(),
 					passwordHash: newPasswordHash,
 					refreshTokenArray: updatedTokenArray,
+					temporaryPasswordIssuedAt: null,
 				})
 				.where(eq(users.id, currentUser.id))
 				.returning();

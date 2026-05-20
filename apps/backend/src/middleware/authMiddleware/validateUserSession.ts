@@ -1,4 +1,5 @@
 /* eslint-disable import/no-named-as-default-member */
+
 import { db } from "@vitastock/db";
 import { users, type SelectUserType } from "@vitastock/db/schema/auth";
 import type { UnionDiscriminator } from "@zayne-labs/toolkit-type-helpers";
@@ -68,6 +69,8 @@ const getAndVerifyUserFromToken = async (options: VerifyOptions) => {
 		});
 	}
 
+	const requestContextValue = requestContext.get();
+
 	// == At this point, the refresh token is still valid but is not in the refreshTokenArray (whitelist)
 	// == So it can be seen as a token reuse situation
 	// == So clear the refreshTokenArray to log the user out from all devices including current device, greatly diminishing the risk of another token reuse attack
@@ -75,7 +78,7 @@ const getAndVerifyUserFromToken = async (options: VerifyOptions) => {
 		warnAboutTokenReuse({
 			compromisedRefreshToken: zayneRefreshToken,
 			compromisedUser: currentUser,
-			requestUserAgent: requestContext.get().userAgent ?? "unknown",
+			requestUserAgent: requestContextValue.userAgent ?? "unknown",
 		});
 
 		await Promise.all([
@@ -96,12 +99,19 @@ const getAndVerifyUserFromToken = async (options: VerifyOptions) => {
 		});
 	}
 
-	// if (!currentUser.emailVerifiedAt) {
-	// 	throw new AppError({
-	// 		code: 422,
-	// 		message: AUTH_ERROR_MESSAGES.EMAIL_UNVERIFIED,
-	// 	});
-	// }
+	if (!currentUser.emailVerifiedAt) {
+		throw new AppError({
+			code: 422,
+			message: AUTH_ERROR_MESSAGES.EMAIL_UNVERIFIED,
+		});
+	}
+
+	if (currentUser.mustChangePassword && !requestContextValue.path.endsWith("/auth/change-password")) {
+		throw new AppError({
+			code: 403,
+			message: AUTH_ERROR_MESSAGES.PASSWORD_CHANGE_REQUIRED,
+		});
+	}
 
 	// TODO csrf protection
 	// TODO browser client fingerprinting
@@ -119,7 +129,10 @@ type NewSession = {
  */
 export const refreshUserSession = async (zayneRefreshToken: string): Promise<NewSession> => {
 	try {
-		const currentUser = await getAndVerifyUserFromToken({ variant: "refreshToken", zayneRefreshToken });
+		const currentUser = await getAndVerifyUserFromToken({
+			variant: "refreshToken",
+			zayneRefreshToken,
+		});
 
 		const newZayneAccessTokenResult = generateAccessToken(currentUser);
 

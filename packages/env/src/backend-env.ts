@@ -21,9 +21,11 @@ export const backendEnvSchema = z.object({
 	DB_MIGRATING: stringBoolean.default(false),
 	DB_SEEDING: stringBoolean.default(false),
 	EMAIL_APP_PASSWORD: z.string(),
-	EMAIL_APP_PASSWORD_DEV: z.literal("RwRhRUYeranPd4caCS").default("RwRhRUYeranPd4caCS"),
+	EMAIL_APP_PASSWORD_DEV: z.literal("YWdGtMC5WuvXFExr9P").default("YWdGtMC5WuvXFExr9P"),
 	EMAIL_USER: z.email(),
-	EMAIL_USER_DEV: z.literal("bella.schroeder@ethereal.email").default("bella.schroeder@ethereal.email"),
+	EMAIL_USER_DEV: z
+		.literal("emilio.connelly70@ethereal.email")
+		.default("emilio.connelly70@ethereal.email"),
 	LOG_LEVEL: z.literal(["debug", "info", "warn", "error", "fatal", "silent"]).default("info"),
 	NODE_ENV: z.literal(["development", "production"]).default("development"),
 	PORT: z.coerce.number().default(8000),

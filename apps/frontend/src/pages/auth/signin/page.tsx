@@ -1,5 +1,4 @@
 import { useForm } from "react-hook-form";
-import { IconBox } from "@/components/common/IconBox";
 import { Logo } from "@/components/common/Logo";
 import { NavLink } from "@/components/common/NavLink";
 import { Button } from "@/components/ui";
@@ -51,26 +50,19 @@ function SigninPage() {
 						</Form.Field>
 					</div>
 
-					<div className="flex flex-col gap-4">
-						<Form.Submit asChild={true}>
-							{(formState) => (
-								<Button
-									isDisabled={formState.isSubmitting}
-									isLoading={formState.isSubmitting}
-									theme="primary"
-									size="full-width"
-									className="font-bold"
-								>
-									Sign in
-								</Button>
-							)}
-						</Form.Submit>
-
-						<Button theme="secondary-outline" size="full-width" className="gap-2 font-bold">
-							<IconBox icon="devicon:google" className="size-5" />
-							<p>Sign in with Google</p>
-						</Button>
-					</div>
+					<Form.Submit asChild={true}>
+						{(formState) => (
+							<Button
+								isDisabled={formState.isSubmitting}
+								isLoading={formState.isSubmitting}
+								theme="primary"
+								size="full-width"
+								className="font-bold"
+							>
+								Sign in
+							</Button>
+						)}
+					</Form.Submit>
 
 					<p className="text-center text-[14px]">
 						I don't have an account.{" "}

@@ -1,15 +1,19 @@
 import type { db } from "@vitastock/db";
-import { emailVerificationCodes, users, type SelectUserType } from "@vitastock/db/schema/auth";
+import {
+	emailVerificationCodes,
+	passwordResetTokens,
+	type SelectUserType,
+} from "@vitastock/db/schema/auth";
 import { add } from "date-fns";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { generateRandom6DigitCode, generateRandomBytes } from "@/lib/utils/random";
 import { addEmailToQueue } from "@/services/queues";
-import { hashValue } from "./hash";
+import { hashToken, hashValue } from "./hash";
 import { encodeJwtToken } from "./token";
 
 export const sendVerificationEmail = async (
-	user: Pick<SelectUserType, "email" | "firstName" | "id">,
+	user: Pick<SelectUserType, "email" | "id" | "name">,
 	dbClient: typeof db
 ) => {
 	const rawCode = generateRandom6DigitCode();
@@ -18,18 +22,26 @@ export const sendVerificationEmail = async (
 
 	const codeExpiry = add(new Date(), { minutes: 15 });
 
-	await dbClient.delete(emailVerificationCodes).where(eq(emailVerificationCodes.userId, user.id));
-
-	await dbClient.insert(emailVerificationCodes).values({
-		code: hashedCode,
-		expiresAt: codeExpiry,
-		userId: user.id,
-	});
+	await dbClient
+		.insert(emailVerificationCodes)
+		.values({
+			code: hashedCode,
+			expiresAt: codeExpiry,
+			userId: user.id,
+		})
+		.onConflictDoUpdate({
+			set: {
+				code: hashedCode,
+				createdAt: new Date(),
+				expiresAt: codeExpiry,
+			},
+			target: emailVerificationCodes.userId,
+		});
 
 	await addEmailToQueue({
 		data: {
 			email: user.email,
-			name: user.firstName,
+			name: user.name,
 			to: user.email,
 			validationCode: rawCode,
 		},
@@ -45,8 +57,9 @@ export const TokenSchema = z.object({
 });
 
 export const sendPasswordResetEmail = async (
-	user: Pick<SelectUserType, "email" | "firstName" | "id">,
-	dbClient: typeof db
+	user: Pick<SelectUserType, "email" | "id" | "name">,
+	dbClient: typeof db,
+	passwordResetWindowActive: boolean
 ) => {
 	const rawToken = generateRandomBytes();
 
@@ -54,37 +67,75 @@ export const sendPasswordResetEmail = async (
 
 	const encodedToken = encodeJwtToken({ token: rawToken }, { schema: TokenSchema });
 
+	const hashedToken = hashToken(rawToken);
+
 	await dbClient
-		.update(users)
-		.set({ passwordResetToken: rawToken, passwordResetTokenExpiresAt: tokenExpiry })
-		.where(eq(users.id, user.id));
+		.insert(passwordResetTokens)
+		.values({
+			email: user.email,
+			expiresAt: tokenExpiry,
+			retriedAt: new Date(),
+			retryCount: 1,
+			tokenHash: hashedToken,
+			userId: user.id,
+		})
+		.onConflictDoUpdate({
+			set: {
+				createdAt: new Date(),
+				expiresAt: tokenExpiry,
+				retriedAt: passwordResetWindowActive ? passwordResetTokens.retriedAt : new Date(),
+				retryCount: passwordResetWindowActive ? sql`${passwordResetTokens.retryCount} + 1` : 1,
+				tokenHash: hashedToken,
+			},
+			target: passwordResetTokens.userId,
+		});
 
 	await addEmailToQueue({
 		data: {
-			name: user.firstName,
+			name: user.name,
 			priority: "high",
 			to: user.email,
 			token: encodedToken,
 		},
 		onError: async () => {
-			await dbClient
-				.update(users)
-				.set({ passwordResetToken: null, passwordResetTokenExpiresAt: null })
-				.where(eq(users.id, user.id));
+			await dbClient.delete(passwordResetTokens).where(eq(passwordResetTokens.userId, user.id));
 		},
 		type: "resetPassword",
 	});
 };
 
-export const sendResetPasswordCompleteEmail = async (
-	user: Pick<SelectUserType, "email" | "firstName">
-) => {
+export const sendResetPasswordCompleteEmail = async (user: Pick<SelectUserType, "email" | "name">) => {
 	await addEmailToQueue({
 		data: {
-			name: user.firstName,
+			name: user.name,
 			priority: "high",
 			to: user.email,
 		},
 		type: "resetPasswordComplete",
+	});
+};
+
+export const sendPharmacistInviteEmail = async (options: {
+	defaultPassword: string;
+	email: string;
+	inviterEmail: string;
+	name: string;
+	token: string;
+	workspaceName: string;
+}) => {
+	const { defaultPassword, email, inviterEmail, name, token, workspaceName } = options;
+
+	await addEmailToQueue({
+		data: {
+			defaultPassword,
+			email,
+			inviterEmail,
+			name,
+			priority: "high",
+			to: email,
+			token,
+			workspaceName,
+		},
+		type: "pharmacistInvite",
 	});
 };

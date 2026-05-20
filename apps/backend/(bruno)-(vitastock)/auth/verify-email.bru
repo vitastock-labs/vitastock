@@ -1,0 +1,74 @@
+meta {
+  name: verify-email
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseURL}}/auth/verify-email
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "email": "pharmacist@example.com",
+    "code": "123456"
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  # Verify Email
+
+  Verifies the user's email address using a verification code sent to their email.
+
+  ## Request Body
+
+  - `email` (string, required): User's email address
+  - `code` (string, required): The verification code from the email
+
+  ## Success Response (200 OK)
+
+  ```json
+  {
+    "status": "success",
+    "message": "Account successfully verified!",
+    "data": {
+      "user": {
+        "id": "user-uuid",
+        "email": "pharmacist@example.com",
+        "name": "John Doe",
+        "role": "owner",
+        "emailVerifiedAt": "2024-05-20T10:30:00Z",
+        "suspendedAt": null
+      },
+      "workspace": {
+        "id": "workspace-uuid",
+        "name": "My Pharmacy"
+      }
+    }
+  }
+  ```
+
+  ## Error Response (400 Bad Request)
+
+  If verification code is invalid or expired:
+
+  ```json
+  {
+    "status": "error",
+    "message": "Invalid or expired verification code"
+  }
+  ```
+
+  ## Notes
+
+  - Verification codes expire after 24 hours
+  - After successful verification, user can sign in
+  - Rate limited to prevent brute-force attacks
+}

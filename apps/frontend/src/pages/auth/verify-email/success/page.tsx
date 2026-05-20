@@ -13,11 +13,11 @@ function VerifyEmailSuccessPage() {
 
 				<div className="flex flex-col items-center gap-4 text-center">
 					<h1 className="text-[30px] font-extrabold text-black">Email Verified</h1>
-					<p className="text-base">Your account is ready. You can now access your dashboard.</p>
+					<p className="text-base">Your account is ready. Sign in to access your dashboard.</p>
 				</div>
 
 				<Button theme="primary" size="full-width" className="font-semibold">
-					<NavLink to="/dashboard">Go to Dashboard</NavLink>
+					<NavLink to="/auth/signin">Go to Sign In</NavLink>
 				</Button>
 			</section>
 		</Main>

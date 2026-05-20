@@ -8,7 +8,6 @@ export default zayne(
 			"apps/frontend/next-env.d.ts",
 			"apps/frontend/.monicon/**",
 			"packages/db/src/migrations/**/*",
-			"packages/transactional/**",
 		],
 		type: "app-strict",
 		comments: {

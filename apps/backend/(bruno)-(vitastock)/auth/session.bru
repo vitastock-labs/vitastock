@@ -22,7 +22,7 @@ docs {
 
   ## Authentication
 
-  Requires valid `zayneAccessToken` and `zayneRefreshToken` cookies.
+  Requires valid `zayneVitaStockAccessToken` and `zayneVitaStockRefreshToken` cookies.
 
   ## Success Response (200 OK)
 
@@ -32,13 +32,21 @@ docs {
     "message": "Session fetched successfully",
     "data": {
       "user": {
-        "firstName": "John",
-        "lastName": "Doe",
-        "email": "doctor@example.com",
-        "avatar": "https://avatar.iran.liara.run/public/boy",
-        "role": "doctor",
-        "medicalLicense": "https://res.cloudinary.com/.../medical-cert.pdf",
-        "specialty": "Cardiology"
+        "id": "user-uuid",
+        "name": "John Doe",
+        "email": "pharmacist@example.com",
+        "role": "owner",
+        "emailVerifiedAt": "2024-05-20T10:30:00Z",
+        "mustChangePassword": false,
+        "workspaceId": "workspace-uuid"
+      },
+      "workspace": {
+        "id": "workspace-uuid",
+        "name": "My Pharmacy",
+        "alertEmail": "alerts@pharmacy.com",
+        "lowStockThreshold": 10,
+        "nearExpiryDays": 30,
+        "timezone": "UTC"
       }
     }
   }
@@ -47,7 +55,8 @@ docs {
   **Note**:
   - If access token is expired but refresh token is valid, a new access token is silently issued
   - The new access token is set via `Set-Cookie` header
-  - Patient users will have `medicalLicense` and `specialty` as `null`
+  - Cache is used for faster response if available
+}
 
   ## Error Response (401 Unauthorized)
 

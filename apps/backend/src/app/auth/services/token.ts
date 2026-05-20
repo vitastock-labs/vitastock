@@ -10,6 +10,7 @@ import jwt from "jsonwebtoken";
 import { z } from "zod";
 import { ENVIRONMENT } from "@/config/env";
 import { getValidatedValue, type GetValidatedValueExtraOptions } from "@/lib/utils";
+import { hashToken } from "./hash";
 
 type JwtOptions<TExtraOptions> = TExtraOptions & {
 	expiresIn?: number;
@@ -68,10 +69,14 @@ export const decodeJwtToken = <
 	return validPayload;
 };
 
+type TokenResult = Omit<SelectUserType["refreshTokenArray"][number], "tokenHash"> & {
+	token: string;
+};
+
 export const generateAccessToken = (
 	user: SelectUserType,
 	options?: Pick<EncodeJwtOptions, "expiresIn">
-): SelectUserType["refreshTokenArray"][number] => {
+): TokenResult => {
 	const { expiresIn = ENVIRONMENT.ACCESS_JWT_EXPIRES_IN } = options ?? {};
 
 	const payload = pickKeys(user, ["id"]);
@@ -88,7 +93,7 @@ export const generateAccessToken = (
 export const generateRefreshToken = (
 	user: SelectUserType,
 	options?: Pick<EncodeJwtOptions, "expiresIn">
-): SelectUserType["refreshTokenArray"][number] => {
+): TokenResult => {
 	const { expiresIn = ENVIRONMENT.REFRESH_JWT_EXPIRES_IN } = options ?? {};
 
 	const payload = pickKeys(user, ["id"]);
@@ -101,12 +106,19 @@ export const generateRefreshToken = (
 
 	return { expiresAt, issuedAt, token: refreshToken };
 };
+export const getRefreshTokenResultWithHash = (
+	refreshTokenResult: TokenResult
+): Omit<TokenResult, "token"> & { tokenHash: string } => {
+	const { expiresAt, issuedAt, token } = refreshTokenResult;
+
+	return { expiresAt, issuedAt, tokenHash: hashToken(token) };
+};
 
 export const isTokenInWhitelist = (
 	refreshTokenArray: SelectUserType["refreshTokenArray"],
 	zayneRefreshToken: string
 ) => {
-	return refreshTokenArray.some((item) => item.token === zayneRefreshToken);
+	return refreshTokenArray.some((item) => item.tokenHash === hashToken(zayneRefreshToken));
 };
 
 export const warnAboutTokenReuse = (options: {
@@ -119,7 +131,7 @@ export const warnAboutTokenReuse = (options: {
 	const error = new Error("Possible token reuse detected!", {
 		cause: {
 			compromisedRefreshToken,
-			compromisedUserDetails: pickKeys(compromisedUser, ["id", "email", "fullName", "role"]),
+			compromisedUserDetails: pickKeys(compromisedUser, ["id", "email", "name", "role"]),
 			userAgent: requestUserAgent,
 		},
 	});
@@ -143,10 +155,12 @@ export const getUpdatedTokenResultArray = (
 	}
 
 	return currentUser.refreshTokenArray.filter((item) => {
-		if (isPast(item.expiresAt)) return false;
+		if (isPast(item.expiresAt)) {
+			return false;
+		}
 
 		return variant === "remove-current" ?
-				item.token !== zayneRefreshToken
-			:	item.token === zayneRefreshToken;
+				item.tokenHash !== hashToken(zayneRefreshToken)
+			:	item.tokenHash === hashToken(zayneRefreshToken);
 	});
 };

@@ -20,24 +20,29 @@ const getTemplateFn =
 
 export const TEMPLATE_LOOKUP = defineEnumDeep(
 	{
+		pharmacistInvite: {
+			from: "VitaStock <donotreply@vitastock.com>",
+			subject: "You have been invited to join VitaStock",
+			template: getTemplateFn(import("../emails/PharmacistInviteEmail")),
+		},
 		resetPassword: {
-			from: "MedInfo <donotreply@medical-info.com>",
+			from: "Vitastock <donotreply@vitastock.com>",
 			subject: "Reset your password",
 			template: getTemplateFn(import("../emails/ResetPasswordEmail")),
 		},
 		resetPasswordComplete: {
-			from: "MedInfo <donotreply@medical-info.com>",
+			from: "Vitastock <donotreply@vitastock.com>",
 			subject: "Password Reset Successful",
 			template: getTemplateFn(import("../emails/ResetPasswordCompleteEmail")),
 		},
 		verifyEmail: {
-			from: "MedInfo <donotreply@medical-info.com>",
+			from: "Vitastock <donotreply@vitastock.com>",
 			subject: "Verify your email address",
 			template: getTemplateFn(import("../emails/VerifyEmail")),
 		},
 		welcomeEmail: {
-			from: "MedInfo <donotreply@medical-info.com>",
-			subject: "Welcome to MedInfo",
+			from: "Vitastock <donotreply@vitastock.com>",
+			subject: "Welcome to Vitastock",
 			template: getTemplateFn(import("../emails/WelcomeEmail")),
 		},
 	},

@@ -40,20 +40,43 @@ docs {
     "message": "Signed in successfully",
     "data": {
       "user": {
-        "firstName": "John",
-        "lastName": "Doe",
-        "email": "doctor@example.com",
-        "avatar": "https://avatar.iran.liara.run/public/boy",
-        "role": "doctor",
-        "medicalLicense": "https://res.cloudinary.com/.../medical-cert.pdf",
-        "specialty": "Cardiology"
+        "id": "user-uuid",
+        "name": "John Doe",
+        "email": "pharmacist@example.com",
+        "role": "owner",
+        "emailVerifiedAt": "2024-05-20T10:30:00Z",
+        "mustChangePassword": false,
+        "workspaceId": "workspace-uuid"
+      },
+      "workspace": {
+        "id": "workspace-uuid",
+        "name": "My Pharmacy",
+        "alertEmail": "alerts@pharmacy.com",
+        "lowStockThreshold": 10,
+        "nearExpiryDays": 30,
+        "timezone": "UTC"
+      },
+      "tokens": {
+        "access": {
+          "token": "eyJhbGciOiJIUzI1NiIs...",
+          "expiresAt": "2024-05-20T11:30:00Z"
+        },
+        "refresh": {
+          "token": "eyJhbGciOiJIUzI1NiIs...",
+          "expiresAt": "2024-05-27T10:30:00Z"
+        }
       }
     }
   }
   ```
 
+  ## Cookies Set
+
+  - `zayneVitaStockAccessToken`: Short-lived JWT (1 hour)
+  - `zayneVitaStockRefreshToken`: Long-lived JWT (7 days)
+
   **Note**:
-  - Sets `zayneAccessToken` and `zayneRefreshToken` cookies
+  - Sets `zayneVitaStockAccessToken` and `zayneVitaStockRefreshToken` cookies
   - Resets login retry count to 0
   - Updates `lastLoginAt` timestamp
   - Adds new refresh token to user's token array
@@ -82,6 +105,19 @@ docs {
   }
   ```
 
+  ## Error Response (401 Unauthorized - Email Not Verified)
+
+  If email is not verified:
+
+  ```json
+  {
+    "status": "error",
+    "message": "Please verify your email address before signing in"
+  }
+  ```
+
+  A verification email will be automatically resent.
+
   ## Error Response (401 Unauthorized - Login Retries Exceeded)
 
   If user has failed login 3+ times within 12 hours:
@@ -95,9 +131,8 @@ docs {
 
   **Note**:
   - Login retry count resets after 12 hours from last login attempt
-  - Password reset email will be sent (TODO)
-
-  ## Error Response (422 Validation Error)
+  - Rate limited to prevent brute-force attacks
+}
 
   If email or password is missing:
 

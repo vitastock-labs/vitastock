@@ -5,16 +5,16 @@ import { consola } from "consola";
 import { seedUsers, seedWorkspaces } from "./seeders";
 
 const runSeeders = async () => {
-	consola.info("🌱 Seeding started...");
+	consola.info("Seeding started...");
 
 	try {
 		const seededWorkspaces = await seedWorkspaces();
 		await seedUsers(seededWorkspaces);
 
-		consola.success("✅ Seeding completed!");
+		consola.success("Seeding completed!");
 		process.exit(0);
 	} catch (error) {
-		consola.error("❌ Seeding failed:", error);
+		consola.error("Seeding failed:", error);
 		process.exit(1);
 	}
 };

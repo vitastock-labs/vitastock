@@ -5,6 +5,7 @@ export const AUTH_ERROR_MESSAGES = defineEnum({
 	EMAIL_UNVERIFIED: "Your email is yet to be verified",
 	GENERIC_ERROR: "An error occurred. Please log in again",
 	INVALID_SESSION: "Invalid session. Please log in again",
+	PASSWORD_CHANGE_REQUIRED: "Password change required",
 	SESSION_EXPIRED: "Session expired. Please log in again",
 	SESSION_NOT_EXIST: "Session doesn't exist. Please log in",
 });

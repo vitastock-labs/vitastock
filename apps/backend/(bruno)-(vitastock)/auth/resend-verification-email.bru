@@ -1,0 +1,50 @@
+meta {
+  name: resend-verification-email
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseURL}}/auth/resend-verification-email
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "email": "pharmacist@example.com"
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  # Resend Verification Email
+
+  Resends the verification email if the user hasn't verified their email yet.
+
+  ## Request Body
+
+  - `email` (string, required): User's email address
+
+  ## Success Response (200 OK)
+
+  ```json
+  {
+    "status": "success",
+    "message": "Verification email sent successfully",
+    "data": null
+  }
+  ```
+
+  ## Notes
+
+  - This endpoint responds generically for security (user enumeration prevention)
+  - Only sends if the email exists AND is not yet verified
+  - If email doesn't exist or is already verified, still returns success message
+  - Rate limited to prevent abuse
+  - New verification code is generated with fresh expiration
+}

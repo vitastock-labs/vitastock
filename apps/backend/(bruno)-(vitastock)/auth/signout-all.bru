@@ -1,0 +1,56 @@
+meta {
+  name: signout-all
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseURL}}/auth/signout/all
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  # Sign Out From All Devices
+
+  Logs out the user from all active sessions by clearing all refresh tokens and authentication cookies.
+
+  ## Authentication
+
+  Requires valid `zayneVitaStockAccessToken` and `zayneVitaStockRefreshToken` cookies.
+
+  ## Success Response (200 OK)
+
+  ```json
+  {
+    "status": "success",
+    "message": "Signed out from all devices successfully",
+    "data": null
+  }
+  ```
+
+  ## Error Response (401 Unauthorized)
+
+  If no valid session exists:
+
+  ```json
+  {
+    "status": "error",
+    "message": "Unauthorized"
+  }
+  ```
+
+  ## Notes
+
+  - Clears `zayneVitaStockAccessToken` cookie on current device
+  - Clears `zayneVitaStockRefreshToken` cookie on current device
+  - Removes ALL refresh tokens from user's token array
+  - Invalidates all active sessions across all devices
+  - User must sign in again on any device to continue using the application
+  - Cache entry for user is cleared
+}

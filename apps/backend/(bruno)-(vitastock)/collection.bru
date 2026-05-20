@@ -16,11 +16,14 @@ docs {
 
   ### Authentication Flow
 
-  1. **Signin**: Authenticate with email/password. Returns tokens via cookies.
-  2. **Session**: Retrieve current user details from the session.
-  3. **Password Management**: Forgot password, reset password, and change password features.
+  1. **Signup**: Create a new workspace and user account. A verification email will be sent.
+  2. **Verify Email**: Verify email using the code from the verification email.
+  3. **Signin**: Authenticate with email/password. Returns tokens via cookies.
+  4. **Session**: Retrieve current user details from the session.
+  5. **Password Management**: Forgot password, reset password, and change password features.
+  6. **Invitations**: Workspace owners can invite new pharmacists to join.
 
-  *Note: Users (Pharmacists and Admins) are provisioned via seeding or by an Admin (via the dashboard), there is no public signup endpoint.*
+  *Note: Pharmacists are provisioned via invitations from workspace owners, or through the signup flow.*
 
   ## Security Features
 
@@ -54,7 +57,8 @@ docs {
 
   ## Core Modules
 
-  - **Auth**: Signin, Session management, Password reset.
+  - **Auth**: Signup, Email verification, Signin, Session management, Password management, Workspace invitations.
+  - **Health Check**: Server status endpoint.
   - **Workspaces**: Managing pharmacies (coming soon).
   - **Inventory**: Managing stock (coming soon).
 }

@@ -1,0 +1,79 @@
+meta {
+  name: signup
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseURL}}/auth/signup
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "email": "pharmacist@example.com",
+    "name": "John Doe",
+    "password": "Password@123",
+    "pharmacyName": "My Pharmacy"
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  # Sign Up
+
+  Creates a new user account and workspace. A verification email will be sent to the provided email address.
+
+  ## Request Body
+
+  - `email` (string, required): User's email address (must be unique)
+  - `name` (string, required): User's full name
+  - `password` (string, required): Password (minimum 8 characters, must contain uppercase, lowercase, and special character)
+  - `pharmacyName` (string, required): Name of the pharmacy/workspace
+
+  ## Success Response (200 OK)
+
+  ```json
+  {
+    "status": "success",
+    "message": "Account created successfully",
+    "data": {
+      "user": {
+        "id": "user-uuid",
+        "email": "pharmacist@example.com",
+        "name": "John Doe",
+        "role": "owner",
+        "emailVerifiedAt": null,
+        "suspendedAt": null
+      },
+      "workspace": {
+        "id": "workspace-uuid",
+        "name": "My Pharmacy"
+      }
+    }
+  }
+  ```
+
+  ## Error Response (400 Bad Request)
+
+  If user already exists:
+
+  ```json
+  {
+    "status": "error",
+    "message": "User already exists"
+  }
+  ```
+
+  ## Notes
+
+  - User role is set to "owner" for the new workspace
+  - Email verification is required before signing in
+  - A verification email is automatically sent to the provided email address
+  - Rate limited to prevent abuse
+}

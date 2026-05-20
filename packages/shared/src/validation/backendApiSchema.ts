@@ -1,3 +1,9 @@
+import {
+	InsertUserSchema,
+	SelectUserSchema,
+	SelectWorkspaceInvitationSchema,
+} from "@vitastock/db/schema/auth";
+import { InsertWorkspaceSchema, SelectWorkspaceSchema } from "@vitastock/db/schema/workspaces";
 import type { InferAllMainRouteKeys, InferAllMainRoutes } from "@zayne-labs/callapi";
 import { fallBackRouteSchemaKey } from "@zayne-labs/callapi/constants";
 import { defineSchema, defineSchemaRoutes } from "@zayne-labs/callapi/utils";
@@ -42,15 +48,32 @@ const TokenObjectSchema = z.object({
 	token: z.string(),
 });
 
-const UserSchema = z.object({
-	email: z.string(),
-	firstName: z.string(),
-	fullName: z.string(),
-	id: z.string(),
-	lastName: z.string(),
-	role: z.enum(["pharmacist", "admin"]),
-	workspaceId: z.string(),
+export const SignUpSchema = InsertUserSchema.pick({
+	email: true,
+	name: true,
+}).extend({
+	email: z.email("Please enter a valid email"),
+	name: z.string().min(1, "Name is required"),
+	password: PasswordSchema,
+	pharmacyName: InsertWorkspaceSchema.shape.name.min(1, "Pharmacy name is required"),
 });
+
+const withMatchingPasswordFields = <
+	TPasswordKey extends "newPassword" | "password",
+	TConfirmPasswordKey extends "confirmNewPassword" | "confirmPassword",
+	TSchema extends z.ZodObject<Record<TConfirmPasswordKey | TPasswordKey, z.ZodType>>,
+>(options: {
+	confirmPasswordKey: TConfirmPasswordKey;
+	passwordKey: TPasswordKey;
+	schema: TSchema;
+}) => {
+	const { confirmPasswordKey, passwordKey, schema } = options;
+
+	return schema.refine((data) => data[passwordKey as never] === data[confirmPasswordKey as never], {
+		error: "Passwords do not match",
+		path: [confirmPasswordKey],
+	});
+};
 
 const defaultSchemaRoute = defineSchemaRoutes({
 	[fallBackRouteSchemaKey]: {
@@ -58,72 +81,148 @@ const defaultSchemaRoute = defineSchemaRoutes({
 	},
 });
 
-const authRoutes = () =>
-	defineSchemaRoutes({
+const authRoutes = () => {
+	const UserSchema = SelectUserSchema.pick({
+		email: true,
+		emailVerifiedAt: true,
+		id: true,
+		mustChangePassword: true,
+		name: true,
+		role: true,
+		workspaceId: true,
+	});
+
+	const WorkspaceSchema = SelectWorkspaceSchema.pick({
+		alertEmail: true,
+		id: true,
+		lowStockThreshold: true,
+		name: true,
+		nearExpiryDays: true,
+		timezone: true,
+	});
+
+	const InvitationSchema = SelectWorkspaceInvitationSchema.pick({
+		email: true,
+		expiresAt: true,
+		id: true,
+	}).extend({
+		role: UserSchema.shape.role.extract(["pharmacist"]),
+	});
+
+	const AuthTokensSchema = z.object({
+		access: TokenObjectSchema,
+		refresh: TokenObjectSchema,
+	});
+
+	const AuthDataSchema = z.object({
+		user: UserSchema,
+		workspace: WorkspaceSchema,
+	});
+
+	const AuthSuccessResponseSchema = withBaseSuccessResponse(AuthDataSchema);
+
+	const NullSuccessResponseSchema = withBaseSuccessResponse(z.null());
+
+	return defineSchemaRoutes({
 		"@get/auth/session": {
+			data: AuthSuccessResponseSchema,
+		},
+
+		"@patch/auth/change-password": {
+			body: withMatchingPasswordFields({
+				confirmPasswordKey: "confirmNewPassword",
+				passwordKey: "newPassword",
+				schema: z.object({
+					confirmNewPassword: PasswordSchema,
+					currentPassword: z.string().min(1, "Current password is required"),
+					newPassword: PasswordSchema,
+				}),
+			}),
+			data: NullSuccessResponseSchema,
+		},
+
+		"@post/auth/forgot-password": {
+			body: SignUpSchema.pick({ email: true }),
+			data: NullSuccessResponseSchema,
+		},
+
+		"@post/auth/invitations": {
+			body: SignUpSchema.pick({
+				email: true,
+				name: true,
+			}).extend({
+				defaultPassword: PasswordSchema,
+				role: UserSchema.shape.role.extract(["pharmacist"]),
+			}),
 			data: withBaseSuccessResponse(
 				z.object({
-					user: UserSchema,
+					invitation: InvitationSchema,
 				})
 			),
 		},
 
-		"@patch/auth/change-password": {
-			body: z
-				.object({
-					confirmNewPassword: PasswordSchema,
-					currentPassword: z.string().min(1, "Current password is required"),
-					newPassword: PasswordSchema,
-				})
-				.refine((d) => d.newPassword === d.confirmNewPassword, {
-					message: "Passwords do not match",
-					path: ["confirmNewPassword"],
-				}),
-			data: withBaseSuccessResponse(z.null()),
+		"@post/auth/invitations/accept": {
+			body: z.object({
+				token: z.string().min(1, "Invitation token is required"),
+			}),
+			data: AuthSuccessResponseSchema,
 		},
 
-		"@post/auth/forgot-password": {
-			body: z.object({
-				email: z.email("Please enter a valid email"),
-			}),
-			data: withBaseSuccessResponse(z.null()),
+		"@post/auth/resend-verification-email": {
+			body: SignUpSchema.pick({ email: true }),
+			data: NullSuccessResponseSchema,
 		},
 
 		"@post/auth/reset-password": {
-			body: z
-				.object({
+			body: withMatchingPasswordFields({
+				confirmPasswordKey: "confirmNewPassword",
+				passwordKey: "newPassword",
+				schema: z.object({
 					confirmNewPassword: PasswordSchema,
 					newPassword: PasswordSchema,
 					token: z.string().min(1, "Reset token is required"),
-				})
-				.refine((d) => d.newPassword === d.confirmNewPassword, {
-					message: "Passwords do not match",
-					path: ["confirmNewPassword"],
 				}),
-			data: withBaseSuccessResponse(z.null()),
+			}),
+			data: NullSuccessResponseSchema,
 		},
 
 		"@post/auth/signin": {
-			body: z.object({
-				email: z.email("Please enter a valid email"),
-				password: PasswordSchema,
+			body: SignUpSchema.pick({
+				email: true,
+				password: true,
 			}),
 			data: withBaseSuccessResponse(
 				z.object({
-					tokens: z.object({
-						access: TokenObjectSchema,
-						refresh: TokenObjectSchema,
-					}),
+					tokens: AuthTokensSchema,
 					user: UserSchema,
+					workspace: WorkspaceSchema,
 				})
 			),
 		},
 
 		"@post/auth/signout": {
-			data: withBaseSuccessResponse(z.null()),
+			data: NullSuccessResponseSchema,
+		},
+
+		"@post/auth/signup": {
+			body: withMatchingPasswordFields({
+				confirmPasswordKey: "confirmPassword",
+				passwordKey: "password",
+				schema: SignUpSchema.extend({
+					confirmPassword: PasswordSchema,
+				}),
+			}),
+			data: AuthSuccessResponseSchema,
+		},
+
+		"@post/auth/verify-email": {
+			body: SignUpSchema.pick({ email: true }).extend({
+				code: z.string().length(6, "Code must be 6 digits long"),
+			}),
+			data: AuthSuccessResponseSchema,
 		},
 	});
-
+};
 export const backendApiSchema = defineSchema(
 	{
 		...defaultSchemaRoute,

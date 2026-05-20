@@ -8,7 +8,7 @@ import { Main } from "../-components/Main";
 function SettingsPage() {
 	const form = useForm({
 		defaultValues: {
-			email: "admin@vitastock.com",
+			email: "owner@vitastock.com",
 			emailAlerts: true,
 			lowStockThreshold: 20,
 			pharmacyName: "Central Branch Pharmacy",

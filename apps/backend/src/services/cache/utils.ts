@@ -3,12 +3,7 @@ import { consola } from "consola";
 import { differenceInSeconds } from "date-fns";
 import { initializeRedisCacheClient, redisCacheClient } from "./cacheClient";
 
-type CacheKeyType = UnmaskType<
-	| `doctor-vectors:${string}`
-	| `health-tip:${string}`
-	| `refresh-token:${string}:${string}`
-	| `user:${string}`
->;
+type CacheKeyType = UnmaskType<`user:${string}` | `workspace:${string}`>;
 
 export const setCache = async (
 	key: CacheKeyType,

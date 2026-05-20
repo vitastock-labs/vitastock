@@ -12,7 +12,26 @@ docs {
 
   Everything here uses cookie-based auth. Once signed in, the browser handles the `zayneVitaStockAccessToken` and `zayneVitaStockRefreshToken` automatically.
 
-  - **Signin**: Standard email/password flow.
-  - **Password**: Full flow for forgot/reset/change password. Changing/Resetting triggers a global sign-out.
+  ## Account Management
+
+  - **Signup**: Create a new workspace and user account.
+  - **Verify Email**: Verify email address using verification code.
+  - **Resend Verification Email**: Request a new verification email if needed.
+  - **Signin**: Standard email/password authentication.
   - **Session**: Retrieve the currently authenticated user's details.
+
+  ## Password Management
+
+  - **Forgot Password**: Request a password reset link.
+  - **Reset Password**: Reset password using the reset token from email.
+  - **Change Password**: Change password for authenticated user.
+
+  ## Session Management
+
+  - **Signout**: Log out from current device.
+  - **Signout All**: Log out from all active sessions.
+
+  ## Workspace Management
+
+  - **Invitations**: Send and accept workspace invitations.
 }

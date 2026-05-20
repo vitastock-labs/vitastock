@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
 type RequestContext = {
+	path: string;
 	userAgent: string | undefined;
 };
 

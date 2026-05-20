@@ -14,25 +14,25 @@ export function ResetPasswordEmail(props: ResetPasswordEmailProps) {
 	const resetURL = `${FRONTEND_URL}/auth/reset-password?${new URLSearchParams({ token }).toString()}`;
 
 	return (
-		<BaseLayout preview="Reset your MedInfo password">
+		<BaseLayout preview="Reset your VitaStock password">
 			<Heading
-				className="mb-6 text-center text-2xl font-semibold tracking-tight text-medinfo-primary-main"
+				className="mb-6 text-center text-2xl font-semibold tracking-tight text-vitastock-primary-main"
 			>
 				Reset Your Password
 			</Heading>
 
-			<Text className="mb-4 text-center text-base/relaxed text-medinfo-body-color">
-				Hello <span className="font-semibold text-medinfo-primary-darker">{name}</span>,
+			<Text className="mb-4 text-center text-base/relaxed text-vitastock-body-color">
+				Hello <span className="font-semibold text-vitastock-primary-darker">{name}</span>,
 			</Text>
 
-			<Text className="mb-4 text-center text-base/relaxed text-medinfo-body-color">
-				We received a request to reset your MedInfo password. Click the button below to choose a new
+			<Text className="mb-4 text-center text-base/relaxed text-vitastock-body-color">
+				We received a request to reset your VitaStock password. Click the button below to choose a new
 				password. This link expires in <strong>20 minutes</strong>.
 			</Text>
 
 			<Section className="my-8 text-center">
 				<Button
-					className="inline-block rounded-full bg-medinfo-primary-main px-10 py-4 text-sm
+					className="inline-block rounded-full bg-vitastock-primary-main px-10 py-4 text-sm
 						font-semibold text-white no-underline shadow-md"
 					href={resetURL}
 				>
@@ -40,7 +40,7 @@ export function ResetPasswordEmail(props: ResetPasswordEmailProps) {
 				</Button>
 			</Section>
 
-			<Text className="mb-0 text-center text-sm/relaxed text-medinfo-dark-4">
+			<Text className="mb-0 text-center text-sm/relaxed text-slate-500">
 				If you didn't request a password reset, you can safely ignore this email. Your password will
 				not be changed.
 			</Text>
@@ -49,7 +49,7 @@ export function ResetPasswordEmail(props: ResetPasswordEmailProps) {
 }
 
 ResetPasswordEmail.PreviewProps = {
-	name: "Dr. Doe",
+	name: "Jane Doe",
 	token: "abc123",
 } satisfies ResetPasswordEmailProps;
 
