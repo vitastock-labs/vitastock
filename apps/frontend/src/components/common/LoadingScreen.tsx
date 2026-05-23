@@ -1,6 +1,4 @@
-import { lockScroll } from "@zayne-labs/toolkit-core";
 import { AnimatePresence, motion } from "motion/react";
-import { useLayoutEffect } from "react";
 import { ForWithWrapper } from "./for";
 import { Logo } from "./Logo";
 import { Show } from "./show";
@@ -12,10 +10,6 @@ type LoadingScreenProps = {
 
 function LoadingScreen(props: LoadingScreenProps) {
 	const { isVisible = true, loadingText } = props;
-
-	useLayoutEffect(() => {
-		lockScroll({ lock: isVisible });
-	}, [isVisible]);
 
 	return (
 		<AnimatePresence>
