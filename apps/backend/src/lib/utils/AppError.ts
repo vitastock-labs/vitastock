@@ -1,21 +1,35 @@
+import type { AuthErrorAppCodeType } from "@vitastock/shared/constants";
 import type { ErrorCodesUnion } from "@/constants";
 
 // import type { ContentfulStatusCode } from "hono/utils/http-status";
 
 class AppError extends Error {
+	appCode?: AuthErrorAppCodeType;
 	errors?: unknown;
 	errorStatus: string;
-	statusCode: ErrorCodesUnion;
+	realReason?: string;
 	// statusCode: ContentfulStatusCode;
 
-	constructor(options: ErrorOptions & { code: ErrorCodesUnion; errors?: unknown; message: string }) {
-		const { cause, code: statusCode, errors, message } = options;
+	statusCode: ErrorCodesUnion;
+
+	constructor(
+		options: ErrorOptions & {
+			appCode?: AuthErrorAppCodeType;
+			code: ErrorCodesUnion;
+			errors?: unknown;
+			message: string;
+			realReason?: string;
+		}
+	) {
+		const { appCode, cause, code: statusCode, errors, message, realReason } = options;
 
 		super(message, { cause });
 
+		this.appCode = appCode;
 		this.statusCode = statusCode;
 		this.errorStatus = String(statusCode).startsWith("5") ? "Failed" : "Error";
 		this.errors = errors;
+		this.realReason = realReason;
 	}
 
 	static override isError(error: unknown): error is AppError {

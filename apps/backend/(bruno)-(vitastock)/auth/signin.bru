@@ -12,7 +12,7 @@ post {
 
 body:json {
   {
-    "email": "ian_wiza48@seeded.com",
+    "email": "owner.seeded-alpha-pharmacy@seeded.com",
     "password": "Password@123"
   }
 }
@@ -25,7 +25,7 @@ settings {
 docs {
   # Sign In
 
-  Authenticates a user and returns access/refresh tokens via cookies.
+  Authenticates a verified owner or pharmacist and returns access/refresh tokens via cookies.
 
   ## Request Body
 
@@ -78,8 +78,8 @@ docs {
   **Note**:
   - Sets `zayneVitaStockAccessToken` and `zayneVitaStockRefreshToken` cookies
   - Resets login retry count to 0
-  - Updates `lastLoginAt` timestamp
   - Adds new refresh token to user's token array
+  - If `mustChangePassword` is true, the frontend should show the forced password-change modal before routing to workspace screens
 
   ## Error Response (401 Unauthorized)
 
@@ -132,8 +132,6 @@ docs {
   **Note**:
   - Login retry count resets after 12 hours from last login attempt
   - Rate limited to prevent brute-force attacks
-}
-
   If email or password is missing:
 
   ```json
@@ -151,7 +149,7 @@ docs {
 
   - **Login retry limit**: Max 3 failed attempts within 12 hours
   - **Account suspension**: Suspended accounts cannot sign in
-  - **Email verification**: Unverified emails receive verification prompt (TODO)
+  - **Email verification**: Unverified owners cannot sign in
   - **Token rotation**: New refresh token generated on each login
   - **Secure cookies**: HttpOnly cookies for token storage
 }

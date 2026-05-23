@@ -15,7 +15,7 @@ function NavBar() {
 		<header
 			ref={observedElementRef}
 			className={cnJoin(
-				`sticky top-0 z-500 flex h-[72px] w-full items-center justify-between px-8
+				`sticky inset-[0_0_auto_0] z-500 flex h-[72px] w-full items-center justify-between px-8
 				transition-[box-shadow,background-color] duration-300 ease-[ease]`,
 				isScrolled && "bg-white/80 shadow-[0_1px_2px_hsl(0,0%,0%,0.05)] backdrop-blur-xl"
 			)}

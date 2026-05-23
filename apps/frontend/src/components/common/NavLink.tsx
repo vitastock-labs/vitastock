@@ -3,6 +3,8 @@ import { isFunction } from "@zayne-labs/toolkit-type-helpers";
 import { NavLink as NavLinkPrimitive, useLocation } from "react-router";
 import { cnMerge } from "@/lib/utils/cn";
 
+export type MainAppRoutes = string & {};
+
 function NavLink(
 	props: InferProps<typeof NavLinkPrimitive> & { transitionType?: "no-transition" | "regular" }
 ) {

@@ -108,7 +108,7 @@ function LoadingScreen(props: LoadingScreenProps) {
 										]}
 										className="absolute top-35 flex gap-1 whitespace-nowrap"
 										renderItem={(item, index) => (
-											<motion.span
+											<motion.h2
 												key={`char-${index}`}
 												initial={{ opacity: 0, y: 10 }}
 												animate={{ opacity: 1, y: 0 }}
@@ -117,11 +117,11 @@ function LoadingScreen(props: LoadingScreenProps) {
 													duration: 0.5,
 													ease: "easeOut",
 												}}
-												className="text-[11px] font-bold tracking-[0.25em]
+												className="text-base font-bold tracking-[0.25em]
 													text-vitastock-body-color/30 uppercase"
 											>
 												{item.segment === " " ? "\u00A0" : item.segment}
-											</motion.span>
+											</motion.h2>
 										)}
 									/>
 								)}

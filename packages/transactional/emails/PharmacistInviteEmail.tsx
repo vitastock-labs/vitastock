@@ -8,12 +8,13 @@ export type PharmacistInviteEmailProps = {
 	email: string;
 	inviterEmail: string;
 	name: string;
+	role: string;
 	token: string;
 	workspaceName: string;
 };
 
 export function PharmacistInviteEmail(props: PharmacistInviteEmailProps) {
-	const { defaultPassword, email, inviterEmail, name, token, workspaceName } = props;
+	const { defaultPassword, email, inviterEmail, name, role, token, workspaceName } = props;
 
 	const invitationUrl = `${FRONTEND_URL}/auth/invitations/accept?${new URLSearchParams({ token }).toString()}`;
 
@@ -30,7 +31,8 @@ export function PharmacistInviteEmail(props: PharmacistInviteEmailProps) {
 			</Text>
 
 			<Text className="mb-4 text-center text-base/relaxed text-vitastock-body-color">
-				{inviterEmail} invited you to join the {workspaceName} workspace on VitaStock.
+				{inviterEmail} invited you to join the {workspaceName} workspace with the role of {role} on
+				VitaStock.
 			</Text>
 
 			<Text className="mb-6 text-center text-base/relaxed text-vitastock-body-color">
@@ -70,6 +72,7 @@ PharmacistInviteEmail.PreviewProps = {
 	email: "pharmacist@example.com",
 	inviterEmail: "owner@example.com",
 	name: "Amina Yusuf",
+	role: "pharmacist",
 	token: "example-token",
 	workspaceName: "Greenleaf Pharmacy",
 } satisfies PharmacistInviteEmailProps;

@@ -56,7 +56,6 @@ docs {
   - If access token is expired but refresh token is valid, a new access token is silently issued
   - The new access token is set via `Set-Cookie` header
   - Cache is used for faster response if available
-}
 
   ## Error Response (401 Unauthorized)
 
@@ -110,4 +109,15 @@ docs {
     "message": "Your email is yet to be verified"
   }
   ```
+
+  ## Error Response (403 Forbidden - Password Change Required)
+
+  ```json
+  {
+    "status": "error",
+    "message": "Password change required"
+  }
+  ```
+
+  **Note**: Invited pharmacists with `mustChangePassword = true` cannot access session or workspace routes until `PATCH /auth/change-password` succeeds.
 }

@@ -4,6 +4,7 @@ import {
 	passwordResetTokens,
 	type SelectUserType,
 } from "@vitastock/db/schema/auth";
+import type { EmailJobOptions } from "@vitastock/transactional/emails";
 import { add } from "date-fns";
 import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -13,7 +14,7 @@ import { hashToken, hashValue } from "./hash";
 import { encodeJwtToken } from "./token";
 
 export const sendVerificationEmail = async (
-	user: Pick<SelectUserType, "email" | "id" | "name">,
+	user: Pick<SelectUserType, "email" | "fullName" | "id">,
 	dbClient: typeof db
 ) => {
 	const rawCode = generateRandom6DigitCode();
@@ -41,7 +42,7 @@ export const sendVerificationEmail = async (
 	await addEmailToQueue({
 		data: {
 			email: user.email,
-			name: user.name,
+			name: user.fullName,
 			to: user.email,
 			validationCode: rawCode,
 		},
@@ -57,7 +58,7 @@ export const TokenSchema = z.object({
 });
 
 export const sendPasswordResetEmail = async (
-	user: Pick<SelectUserType, "email" | "id" | "name">,
+	user: Pick<SelectUserType, "email" | "fullName" | "id">,
 	dbClient: typeof db,
 	passwordResetWindowActive: boolean
 ) => {
@@ -92,7 +93,7 @@ export const sendPasswordResetEmail = async (
 
 	await addEmailToQueue({
 		data: {
-			name: user.name,
+			name: user.fullName,
 			priority: "high",
 			to: user.email,
 			token: encodedToken,
@@ -104,10 +105,10 @@ export const sendPasswordResetEmail = async (
 	});
 };
 
-export const sendResetPasswordCompleteEmail = async (user: Pick<SelectUserType, "email" | "name">) => {
+export const sendResetPasswordCompleteEmail = async (user: Pick<SelectUserType, "email" | "fullName">) => {
 	await addEmailToQueue({
 		data: {
-			name: user.name,
+			name: user.fullName,
 			priority: "high",
 			to: user.email,
 		},
@@ -115,15 +116,10 @@ export const sendResetPasswordCompleteEmail = async (user: Pick<SelectUserType, 
 	});
 };
 
-export const sendPharmacistInviteEmail = async (options: {
-	defaultPassword: string;
-	email: string;
-	inviterEmail: string;
-	name: string;
-	token: string;
-	workspaceName: string;
-}) => {
-	const { defaultPassword, email, inviterEmail, name, token, workspaceName } = options;
+export const sendPharmacistInviteEmail = async (
+	options: Omit<Extract<EmailJobOptions, { type: "pharmacistInvite" }>["data"], "priority" | "to">
+) => {
+	const { defaultPassword, email, inviterEmail, name, role, token, workspaceName } = options;
 
 	await addEmailToQueue({
 		data: {
@@ -132,6 +128,7 @@ export const sendPharmacistInviteEmail = async (options: {
 			inviterEmail,
 			name,
 			priority: "high",
+			role,
 			to: email,
 			token,
 			workspaceName,

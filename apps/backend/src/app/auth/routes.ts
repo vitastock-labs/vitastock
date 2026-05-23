@@ -6,6 +6,7 @@ import {
 	workspaceInvitations,
 } from "@vitastock/db/schema/auth";
 import { workspaces } from "@vitastock/db/schema/workspaces";
+import { AUTH_ERRORS } from "@vitastock/shared/constants";
 import { backendApiSchemaRoutes } from "@vitastock/shared/validation/backendApiSchema";
 import { pickKeys } from "@zayne-labs/toolkit-core";
 import { add, differenceInHours, isPast } from "date-fns";
@@ -16,7 +17,6 @@ import { authRateLimiterOptions } from "@/config/rateLimiterOptions";
 import { AppError, AppJsonResponse } from "@/lib/utils";
 import { generateRandomBytes } from "@/lib/utils/random";
 import { authMiddleware, authorizeRoleMiddleware, validateWithZodMiddleware } from "@/middleware";
-import { AUTH_ERROR_MESSAGES } from "@/middleware/authMiddleware/constants";
 import { removeFromCache, setCache } from "@/services/cache";
 import { getAuthResponseData } from "./services/common";
 import { deleteCookie, getCookie, setCookie } from "./services/cookie";
@@ -44,7 +44,7 @@ const authRoutes = new Hono()
 		rateLimiter(authRateLimiterOptions),
 		validateWithZodMiddleware("json", backendApiSchemaRoutes["@post/auth/signup"].body),
 		async (ctx) => {
-			const { email, name, password, pharmacyName } = ctx.req.valid("json");
+			const { email, fullName, password, pharmacyName } = ctx.req.valid("json");
 
 			const [existingUser] = await db
 				.select({ id: users.id })
@@ -78,7 +78,7 @@ const authRoutes = new Hono()
 					.insert(users)
 					.values({
 						email,
-						name,
+						fullName,
 						passwordHash,
 						role: "owner",
 						workspaceId: insertedWorkspace.id,
@@ -130,16 +130,17 @@ const authRoutes = new Hono()
 					.where(eq(users.id, currentUser.id));
 
 				throw new AppError({
-					cause: "Invalid password",
 					code: 401,
 					message: "Email or password is incorrect",
+					realReason: "Invalid password",
 				});
 			}
 
 			if (currentUser.suspendedAt) {
 				throw new AppError({
+					appCode: AUTH_ERRORS.ACCOUNT_SUSPENDED.appCode,
 					code: 401,
-					message: AUTH_ERROR_MESSAGES.ACCOUNT_SUSPENDED,
+					message: AUTH_ERRORS.ACCOUNT_SUSPENDED.message,
 				});
 			}
 
@@ -147,8 +148,9 @@ const authRoutes = new Hono()
 				await sendVerificationEmail(currentUser, db);
 
 				throw new AppError({
+					appCode: AUTH_ERRORS.EMAIL_UNVERIFIED.appCode,
 					code: 401,
-					message: AUTH_ERROR_MESSAGES.EMAIL_UNVERIFIED,
+					message: AUTH_ERRORS.EMAIL_UNVERIFIED.message,
 				});
 			}
 
@@ -236,9 +238,9 @@ const authRoutes = new Hono()
 
 			if (!result) {
 				throw new AppError({
-					cause: "No user or verification code found",
 					code: 400,
 					message: "Invalid or expired verification code",
+					realReason: "No user or verification code found",
 				});
 			}
 
@@ -248,9 +250,9 @@ const authRoutes = new Hono()
 					.where(eq(emailVerificationCodes.userId, result.userId));
 
 				throw new AppError({
-					cause: "Verification code has expired",
 					code: 400,
 					message: "Invalid or expired verification code",
+					realReason: "Verification code has expired",
 				});
 			}
 
@@ -258,9 +260,9 @@ const authRoutes = new Hono()
 
 			if (!isCodeValid) {
 				throw new AppError({
-					cause: "Invalid verification code",
 					code: 400,
 					message: "Invalid or expired verification code",
+					realReason: "Invalid verification code",
 				});
 			}
 
@@ -300,7 +302,7 @@ const authRoutes = new Hono()
 			const { email } = ctx.req.valid("json");
 
 			const [existingUser] = await db
-				.select(pickKeys(users, ["id", "emailVerifiedAt", "email", "name"]))
+				.select(pickKeys(users, ["id", "emailVerifiedAt", "email", "fullName"]))
 				.from(users)
 				.where(eq(users.email, email))
 				.limit(1);
@@ -333,8 +335,8 @@ const authRoutes = new Hono()
 					},
 					user: {
 						email: users.email,
+						fullName: users.fullName,
 						id: users.id,
-						name: users.name,
 					},
 				})
 				.from(users)
@@ -391,9 +393,9 @@ const authRoutes = new Hono()
 			const decodedPayload = decodeJwtToken(token, {
 				onValidationError: (error) => {
 					throw new AppError({
-						cause: `Invalid reset token payload: ${error.message}`,
 						code: 400,
 						message: "Invalid or expired reset token",
+						realReason: `Invalid reset token payload: ${error.message}`,
 					});
 				},
 				schema: TokenSchema,
@@ -409,8 +411,8 @@ const authRoutes = new Hono()
 					},
 					user: {
 						email: users.email,
+						fullName: users.fullName,
 						id: users.id,
-						name: users.name,
 					},
 				})
 				.from(passwordResetTokens)
@@ -420,9 +422,9 @@ const authRoutes = new Hono()
 
 			if (!result?.token) {
 				throw new AppError({
-					cause: "No user or reset token found",
 					code: 400,
 					message: "Invalid or expired reset token",
+					realReason: "No user or reset token found",
 				});
 			}
 
@@ -430,9 +432,9 @@ const authRoutes = new Hono()
 				await db.delete(passwordResetTokens).where(eq(passwordResetTokens.id, result.token.id));
 
 				throw new AppError({
-					cause: "Reset token has expired",
 					code: 400,
 					message: "Invalid or expired reset token",
+					realReason: "Reset token has expired",
 				});
 			}
 
@@ -449,7 +451,7 @@ const authRoutes = new Hono()
 						suspendedAt: null,
 					})
 					.where(eq(users.id, result.user.id))
-					.returning({ email: users.email, id: users.id, name: users.name });
+					.returning();
 
 				await tx.delete(passwordResetTokens).where(eq(passwordResetTokens.id, result.token.id));
 
@@ -465,7 +467,7 @@ const authRoutes = new Hono()
 
 			await Promise.all([
 				removeFromCache(`user:${updatedUser.id}`),
-				sendResetPasswordCompleteEmail({ email: updatedUser.email, name: updatedUser.name }),
+				sendResetPasswordCompleteEmail({ email: updatedUser.email, fullName: updatedUser.fullName }),
 			]);
 
 			return AppJsonResponse(ctx, {
@@ -488,11 +490,11 @@ const authRoutes = new Hono()
 			const [invitationResult] = await db
 				.select({
 					acceptedAt: workspaceInvitations.acceptedAt,
-					email: workspaceInvitations.email,
+					defaultPasswordHash: workspaceInvitations.defaultPasswordHash,
 					expiresAt: workspaceInvitations.expiresAt,
 					id: workspaceInvitations.id,
-					name: workspaceInvitations.name,
-					passwordHash: workspaceInvitations.passwordHash,
+					inviteeEmail: workspaceInvitations.inviteeEmail,
+					inviteeName: workspaceInvitations.inviteeName,
 					role: workspaceInvitations.role,
 					workspaceId: workspaceInvitations.workspaceId,
 				})
@@ -511,7 +513,7 @@ const authRoutes = new Hono()
 			const [existingUser] = await db
 				.select({ id: users.id })
 				.from(users)
-				.where(eq(users.email, invitationResult.email))
+				.where(eq(users.email, invitationResult.inviteeEmail))
 				.limit(1);
 
 			if (existingUser) {
@@ -525,11 +527,11 @@ const authRoutes = new Hono()
 				const [insertedUser] = await tx
 					.insert(users)
 					.values({
-						email: invitationResult.email,
+						email: invitationResult.inviteeEmail,
 						emailVerifiedAt: new Date(),
+						fullName: invitationResult.inviteeName,
 						mustChangePassword: true,
-						name: invitationResult.name,
-						passwordHash: invitationResult.passwordHash,
+						passwordHash: invitationResult.defaultPasswordHash,
 						role: "pharmacist",
 						temporaryPasswordIssuedAt: new Date(),
 						workspaceId: invitationResult.workspaceId,
@@ -590,7 +592,7 @@ const authRoutes = new Hono()
 				.from(workspaceInvitations)
 				.where(
 					and(
-						eq(workspaceInvitations.email, email),
+						eq(workspaceInvitations.inviteeEmail, email),
 						eq(workspaceInvitations.workspaceId, currentUser.workspaceId),
 						gt(workspaceInvitations.expiresAt, new Date()),
 						isNull(workspaceInvitations.acceptedAt)
@@ -607,7 +609,7 @@ const authRoutes = new Hono()
 
 			const invitationToken = generateRandomBytes();
 
-			const passwordHash = await hashValue(defaultPassword);
+			const defaultPasswordHash = await hashValue(defaultPassword);
 
 			const tokenHash = hashToken(invitationToken);
 
@@ -616,11 +618,11 @@ const authRoutes = new Hono()
 			const [insertedInvitation] = await db
 				.insert(workspaceInvitations)
 				.values({
-					email,
+					defaultPasswordHash,
 					expiresAt,
 					invitedByUserId: currentUser.id,
-					name,
-					passwordHash,
+					inviteeEmail: email,
+					inviteeName: name,
 					role,
 					tokenHash,
 					workspaceId: currentUser.workspaceId,
@@ -639,6 +641,7 @@ const authRoutes = new Hono()
 				email,
 				inviterEmail: currentUser.email,
 				name,
+				role,
 				token: invitationToken,
 				workspaceName: currentWorkspace.name,
 			});
@@ -646,9 +649,10 @@ const authRoutes = new Hono()
 			return AppJsonResponse(ctx, {
 				data: {
 					invitation: {
-						email: insertedInvitation.email,
 						expiresAt: insertedInvitation.expiresAt,
 						id: insertedInvitation.id,
+						inviteeEmail: insertedInvitation.inviteeEmail,
+						inviteeName: insertedInvitation.inviteeName,
 						role,
 					},
 				},
@@ -724,7 +728,10 @@ const authRoutes = new Hono()
 			const isValidPassword = await verifyHashedValue(currentUser.passwordHash, currentPassword);
 
 			if (!isValidPassword) {
-				throw new AppError({ code: 401, message: "Current password is incorrect" });
+				throw new AppError({
+					code: 401,
+					message: "Current password is incorrect",
+				});
 			}
 
 			const newPasswordHash = await hashValue(newPassword);

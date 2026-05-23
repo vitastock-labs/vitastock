@@ -2,6 +2,7 @@
 
 import { db } from "@vitastock/db";
 import { users, type SelectUserType } from "@vitastock/db/schema/auth";
+import { AUTH_ERRORS } from "@vitastock/shared/constants";
 import type { UnionDiscriminator } from "@zayne-labs/toolkit-type-helpers";
 import { eq } from "drizzle-orm";
 /* eslint-disable import/default */
@@ -16,7 +17,6 @@ import {
 import { ENVIRONMENT } from "@/config/env";
 import { AppError } from "@/lib/utils";
 import { getFromCache, removeFromCache } from "@/services/cache";
-import { AUTH_ERROR_MESSAGES } from "./constants";
 import { requestContext } from "./requestContext";
 
 type VerifyOptions = UnionDiscriminator<
@@ -35,8 +35,9 @@ type VerifyOptions = UnionDiscriminator<
 
 const handleTokenValidationError = () => {
 	throw new AppError({
+		appCode: AUTH_ERRORS.SESSION_NOT_EXIST.appCode,
 		code: 401,
-		message: AUTH_ERROR_MESSAGES.SESSION_NOT_EXIST,
+		message: AUTH_ERRORS.SESSION_NOT_EXIST.message,
 	});
 };
 
@@ -64,8 +65,9 @@ const getAndVerifyUserFromToken = async (options: VerifyOptions) => {
 
 	if (!currentUser) {
 		throw new AppError({
+			appCode: AUTH_ERRORS.SESSION_NOT_EXIST.appCode,
 			code: 401,
-			message: AUTH_ERROR_MESSAGES.SESSION_NOT_EXIST,
+			message: AUTH_ERRORS.SESSION_NOT_EXIST.message,
 		});
 	}
 
@@ -87,29 +89,33 @@ const getAndVerifyUserFromToken = async (options: VerifyOptions) => {
 		]);
 
 		throw new AppError({
+			appCode: AUTH_ERRORS.INVALID_SESSION.appCode,
 			code: 401,
-			message: AUTH_ERROR_MESSAGES.INVALID_SESSION,
+			message: AUTH_ERRORS.INVALID_SESSION.message,
 		});
 	}
 
 	if (currentUser.suspendedAt) {
 		throw new AppError({
+			appCode: AUTH_ERRORS.ACCOUNT_SUSPENDED.appCode,
 			code: 401,
-			message: AUTH_ERROR_MESSAGES.ACCOUNT_SUSPENDED,
+			message: AUTH_ERRORS.ACCOUNT_SUSPENDED.message,
 		});
 	}
 
 	if (!currentUser.emailVerifiedAt) {
 		throw new AppError({
+			appCode: AUTH_ERRORS.EMAIL_UNVERIFIED.appCode,
 			code: 422,
-			message: AUTH_ERROR_MESSAGES.EMAIL_UNVERIFIED,
+			message: AUTH_ERRORS.EMAIL_UNVERIFIED.message,
 		});
 	}
 
 	if (currentUser.mustChangePassword && !requestContextValue.path.endsWith("/auth/change-password")) {
 		throw new AppError({
+			appCode: AUTH_ERRORS.PASSWORD_CHANGE_REQUIRED.appCode,
 			code: 403,
-			message: AUTH_ERROR_MESSAGES.PASSWORD_CHANGE_REQUIRED,
+			message: AUTH_ERRORS.PASSWORD_CHANGE_REQUIRED.message,
 		});
 	}
 
@@ -143,9 +149,10 @@ export const refreshUserSession = async (zayneRefreshToken: string): Promise<New
 	} catch (error) {
 		if (error instanceof jwt.JsonWebTokenError || error instanceof jwt.TokenExpiredError) {
 			throw new AppError({
+				appCode: AUTH_ERRORS.SESSION_EXPIRED.appCode,
 				cause: error,
 				code: 401,
-				message: AUTH_ERROR_MESSAGES.SESSION_EXPIRED,
+				message: AUTH_ERRORS.SESSION_EXPIRED.message,
 			});
 		}
 
@@ -154,9 +161,10 @@ export const refreshUserSession = async (zayneRefreshToken: string): Promise<New
 		}
 
 		throw new AppError({
+			appCode: AUTH_ERRORS.SESSION_VALIDATION_FAILED.appCode,
 			cause: error,
 			code: 401,
-			message: AUTH_ERROR_MESSAGES.GENERIC_ERROR,
+			message: AUTH_ERRORS.SESSION_VALIDATION_FAILED.message,
 		});
 	}
 };
@@ -182,8 +190,9 @@ const validateUserSession = async (
 
 	if (!zayneRefreshToken) {
 		throw new AppError({
+			appCode: AUTH_ERRORS.SESSION_NOT_EXIST.appCode,
 			code: 401,
-			message: AUTH_ERROR_MESSAGES.SESSION_NOT_EXIST,
+			message: AUTH_ERRORS.SESSION_NOT_EXIST.message,
 		});
 	}
 
@@ -212,9 +221,10 @@ const validateUserSession = async (
 		}
 
 		throw new AppError({
+			appCode: AUTH_ERRORS.SESSION_VALIDATION_FAILED.appCode,
 			cause: error,
 			code: 401,
-			message: AUTH_ERROR_MESSAGES.GENERIC_ERROR,
+			message: AUTH_ERRORS.SESSION_VALIDATION_FAILED.message,
 		});
 	}
 };

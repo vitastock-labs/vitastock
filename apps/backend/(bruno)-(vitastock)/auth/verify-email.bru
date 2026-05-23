@@ -12,7 +12,7 @@ post {
 
 body:json {
   {
-    "email": "pharmacist@example.com",
+    "email": "owner@example.com",
     "code": "123456"
   }
 }
@@ -25,11 +25,11 @@ settings {
 docs {
   # Verify Email
 
-  Verifies the user's email address using a verification code sent to their email.
+  Verifies the owner's email address using a verification code sent to their email. This endpoint does not create a login session; the owner signs in after successful verification.
 
   ## Request Body
 
-  - `email` (string, required): User's email address
+  - `email` (string, required): Owner's email address
   - `code` (string, required): The verification code from the email
 
   ## Success Response (200 OK)
@@ -41,15 +41,20 @@ docs {
     "data": {
       "user": {
         "id": "user-uuid",
-        "email": "pharmacist@example.com",
+        "email": "owner@example.com",
         "name": "John Doe",
         "role": "owner",
         "emailVerifiedAt": "2024-05-20T10:30:00Z",
-        "suspendedAt": null
+        "mustChangePassword": false,
+        "workspaceId": "workspace-uuid"
       },
       "workspace": {
         "id": "workspace-uuid",
-        "name": "My Pharmacy"
+        "name": "My Pharmacy",
+        "alertEmail": null,
+        "lowStockThreshold": 10,
+        "nearExpiryDays": 30,
+        "timezone": "UTC"
       }
     }
   }
@@ -68,7 +73,7 @@ docs {
 
   ## Notes
 
-  - Verification codes expire after 24 hours
-  - After successful verification, user can sign in
+  - After successful verification, the owner can sign in
+  - No access or refresh cookies are set by this endpoint
   - Rate limited to prevent brute-force attacks
 }

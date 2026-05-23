@@ -12,9 +12,10 @@ post {
 
 body:json {
   {
-    "email": "pharmacist@example.com",
+    "email": "owner@example.com",
     "name": "John Doe",
     "password": "Password@123",
+    "confirmPassword": "Password@123",
     "pharmacyName": "My Pharmacy"
   }
 }
@@ -27,13 +28,14 @@ settings {
 docs {
   # Sign Up
 
-  Creates a new user account and workspace. A verification email will be sent to the provided email address.
+  Creates a new owner account and workspace. A verification email will be sent to the provided email address. No auth cookies are issued until the owner verifies their email and signs in.
 
   ## Request Body
 
-  - `email` (string, required): User's email address (must be unique)
-  - `name` (string, required): User's full name
-  - `password` (string, required): Password (minimum 8 characters, must contain uppercase, lowercase, and special character)
+  - `email` (string, required): Owner's email address (must be unique)
+  - `name` (string, required): Owner's full name
+  - `password` (string, required): Password (minimum 8 characters)
+  - `confirmPassword` (string, required): Must match `password`
   - `pharmacyName` (string, required): Name of the pharmacy/workspace
 
   ## Success Response (200 OK)
@@ -45,15 +47,20 @@ docs {
     "data": {
       "user": {
         "id": "user-uuid",
-        "email": "pharmacist@example.com",
+        "email": "owner@example.com",
         "name": "John Doe",
         "role": "owner",
         "emailVerifiedAt": null,
-        "suspendedAt": null
+        "mustChangePassword": false,
+        "workspaceId": "workspace-uuid"
       },
       "workspace": {
         "id": "workspace-uuid",
-        "name": "My Pharmacy"
+        "name": "My Pharmacy",
+        "alertEmail": null,
+        "lowStockThreshold": 10,
+        "nearExpiryDays": 30,
+        "timezone": "UTC"
       }
     }
   }
@@ -74,6 +81,7 @@ docs {
 
   - User role is set to "owner" for the new workspace
   - Email verification is required before signing in
+  - Verification does not sign the owner in; call `POST /auth/signin` after verification
   - A verification email is automatically sent to the provided email address
   - Rate limited to prevent abuse
 }

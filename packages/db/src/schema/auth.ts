@@ -8,11 +8,11 @@ export const users = pg.pgTable(
 		createdAt: pg.timestamp({ withTimezone: true }).notNull().defaultNow(),
 		email: pg.text().notNull().unique(),
 		emailVerifiedAt: pg.timestamp({ withTimezone: true }),
+		fullName: pg.text().notNull(),
 		id: pg.uuid().defaultRandom().primaryKey(),
 		lastLoginAt: pg.timestamp({ withTimezone: true }).notNull().defaultNow(),
 		loginRetryCount: pg.integer().notNull().default(0),
 		mustChangePassword: pg.boolean().notNull().default(false),
-		name: pg.text().notNull(),
 		passwordChangedAt: pg.timestamp({ withTimezone: true }),
 		passwordHash: pg.text().notNull(),
 		refreshTokenArray: pg
@@ -50,15 +50,15 @@ export const workspaceInvitations = pg.pgTable(
 	{
 		acceptedAt: pg.timestamp({ withTimezone: true }),
 		createdAt: pg.timestamp({ withTimezone: true }).notNull().defaultNow(),
-		email: pg.text().notNull(),
+		defaultPasswordHash: pg.text().notNull(),
 		expiresAt: pg.timestamp({ withTimezone: true }).notNull(),
 		id: pg.uuid().defaultRandom().primaryKey(),
 		invitedByUserId: pg
 			.uuid()
 			.notNull()
 			.references(() => users.id, { onDelete: "cascade" }),
-		name: pg.text().notNull(),
-		passwordHash: pg.text().notNull(),
+		inviteeEmail: pg.text().notNull(),
+		inviteeName: pg.text().notNull(),
 		role: pg
 			.text({ enum: ["pharmacist", "owner"] })
 			.notNull()
@@ -75,7 +75,7 @@ export const workspaceInvitations = pg.pgTable(
 			.references(() => workspaces.id, { onDelete: "cascade" }),
 	},
 	(table) => [
-		pg.index("workspace_invitation_email_index").on(table.email),
+		pg.index("workspace_invitation_email_index").on(table.inviteeEmail),
 		pg.index("workspace_invitation_workspace_index").on(table.workspaceId),
 	]
 );

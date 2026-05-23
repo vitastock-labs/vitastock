@@ -33,7 +33,7 @@ export const seedUsers = async (seededWorkspaces: SeededWorkspaces) => {
 		const fixedOwner: InsertUserType = {
 			email: `owner.${slug}@seeded.com`,
 			emailVerifiedAt: new Date(),
-			name: `Owner ${workspace.name}`,
+			fullName: `Owner ${workspace.name}`,
 			passwordHash,
 			role: "owner",
 			workspaceId: workspace.id,
@@ -42,7 +42,7 @@ export const seedUsers = async (seededWorkspaces: SeededWorkspaces) => {
 		const fixedPharmacist: InsertUserType = {
 			email: `pharmacist.${slug}@seeded.com`,
 			emailVerifiedAt: new Date(),
-			name: `Pharmacist ${workspace.name}`,
+			fullName: `Pharmacist ${workspace.name}`,
 			passwordHash,
 			role: "pharmacist",
 			workspaceId: workspace.id,
@@ -54,7 +54,7 @@ export const seedUsers = async (seededWorkspaces: SeededWorkspaces) => {
 			return {
 				email: `pharmacist.${pharmacistNumber}.${slug}@seeded.com`,
 				emailVerifiedAt: new Date(),
-				name: `Pharmacist ${pharmacistNumber} ${workspace.name}`,
+				fullName: `Pharmacist ${pharmacistNumber} ${workspace.name}`,
 				passwordHash,
 				role: "pharmacist",
 				workspaceId: workspace.id,

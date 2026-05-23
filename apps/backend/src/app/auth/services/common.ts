@@ -9,7 +9,7 @@ import { getFromCache } from "@/services/cache";
 
 export const necessaryUserDetails = defineEnum([
 	"id",
-	"name",
+	"fullName",
 	"email",
 	"emailVerifiedAt",
 	"mustChangePassword",

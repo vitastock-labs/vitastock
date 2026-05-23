@@ -1,14 +1,54 @@
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+	SignUpSchema as SignUpSchemaPrimitive,
+	withMatchingPasswordFields,
+} from "@vitastock/shared/validation/backendApiSchema";
 import { useForm } from "react-hook-form";
+import { useNavigate } from "react-router";
 import { Logo } from "@/components/common/Logo";
 import { NavLink } from "@/components/common/NavLink";
 import { Button } from "@/components/ui";
 import { Form } from "@/components/ui/form";
+import { callBackendApiForQuery } from "@/lib/api/callBackendApi";
+import { sessionQuery } from "@/lib/react-query/queryOptions";
 import { Main } from "../-components/Main";
 
-function SignupPage() {
-	const form = useForm({});
+const SignUpSchema = withMatchingPasswordFields({
+	confirmPasswordKey: "confirmPassword",
+	passwordKey: "password",
+	schema: SignUpSchemaPrimitive.safeExtend({
+		confirmPassword: SignUpSchemaPrimitive.shape.password,
+	}),
+});
 
-	const onSubmit = form.handleSubmit(() => {});
+function SignupPage() {
+	const form = useForm({
+		defaultValues: {
+			confirmPassword: "",
+			email: "",
+			fullName: "",
+			password: "",
+			pharmacyName: "",
+		},
+		resolver: zodResolver(SignUpSchema),
+	});
+
+	const navigate = useNavigate();
+	const queryClient = useQueryClient();
+
+	const onSubmit = form.handleSubmit(async (data) => {
+		await callBackendApiForQuery("@post/auth/signup", {
+			body: data,
+
+			onSuccess: async (ctx) => {
+				await queryClient.invalidateQueries(sessionQuery());
+				void navigate(
+					`/auth/verify-email?${new URLSearchParams({ email: ctx.data.data.user.email })}`
+				);
+			},
+		});
+	});
 
 	return (
 		<Main>
@@ -22,7 +62,15 @@ function SignupPage() {
 
 				<Form.Root form={form} onSubmit={(event) => void onSubmit(event)} className="w-full gap-8">
 					<div className="flex flex-col gap-4">
-						<Form.Field control={form.control} name="pharmacy_name">
+						<Form.Field control={form.control} name="fullName">
+							<Form.Input
+								placeholder="Full Name"
+								className="h-[50px] rounded-[8px] bg-[hsl(210,9%,96%)] p-4"
+							/>
+							<Form.ErrorMessage />
+						</Form.Field>
+
+						<Form.Field control={form.control} name="pharmacyName">
 							<Form.Input
 								placeholder="Pharmacy Name"
 								className="h-[50px] rounded-[8px] bg-[hsl(210,9%,96%)] p-4"

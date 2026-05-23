@@ -131,7 +131,7 @@ export const warnAboutTokenReuse = (options: {
 	const error = new Error("Possible token reuse detected!", {
 		cause: {
 			compromisedRefreshToken,
-			compromisedUserDetails: pickKeys(compromisedUser, ["id", "email", "name", "role"]),
+			compromisedUserDetails: pickKeys(compromisedUser, ["id", "email", "fullName", "role"]),
 			userAgent: requestUserAgent,
 		},
 	});

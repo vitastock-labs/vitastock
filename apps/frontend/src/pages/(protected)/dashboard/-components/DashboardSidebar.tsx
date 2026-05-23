@@ -45,6 +45,7 @@ function DashboardSidebar() {
 			sidebarWidth="256px"
 			sidebarWidthIcon="68px"
 			className="shrink-0 transition-[width] duration-300 ease-in-out
+				in-data-[app-state=ready]:animate-slide-from-left
 				data-[state=collapsed]:w-(--sidebar-width-icon) data-[state=expanded]:w-(--sidebar-width)"
 		>
 			<Sidebar.Root
@@ -87,9 +88,9 @@ function DashboardSidebar() {
 										<Sidebar.MenuButton tooltip={item.title} asChild={true}>
 											<NavLink
 												to={item.href}
-												className="h-11
-													gap-3 px-3.5 text-[14px]
-													font-medium transition-colors hover:bg-black/5 hover:text-vitastock-primary-dark data-[active=true]:bg-vitastock-primary-subtle/70
+												className="h-11 gap-3 px-3.5 text-[14px] font-medium transition-colors
+													hover:bg-black/5 hover:text-vitastock-primary-dark
+													data-[active=true]:bg-vitastock-primary-subtle/70
 													data-[active=true]:text-vitastock-primary-dark
 													data-[active=true]:hover:bg-vitastock-primary-subtle/90
 													data-[active=true]:hover:text-vitastock-primary-dark"

@@ -1,7 +1,11 @@
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
 import { For } from "@/components/common/for";
 import { IconBox } from "@/components/common/IconBox";
 import { Badge, Table } from "@/components/ui";
 import { Button } from "@/components/ui/button";
+import { sessionQuery } from "@/lib/react-query/queryOptions";
 import { cnJoin } from "@/lib/utils/cn";
 import { Main } from "./-components/Main";
 
@@ -19,9 +23,13 @@ function DashboardPage() {
 export default DashboardPage;
 
 function DashboardHeader() {
+	const sessionQueryResult = useQuery(sessionQuery());
+
 	return (
 		<header className="flex flex-col gap-1.5">
-			<h1 className="text-[30px] font-extrabold tracking-tight text-black">Hello, Spring Care</h1>
+			<h1 className="text-[30px] font-extrabold tracking-tight text-black">
+				Hello, {sessionQueryResult.data?.workspace.name}
+			</h1>
 			<p className="text-[15px] font-medium text-vitastock-body-color/80">Welcome back!</p>
 		</header>
 	);

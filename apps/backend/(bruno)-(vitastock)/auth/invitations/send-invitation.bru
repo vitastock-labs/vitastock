@@ -27,7 +27,7 @@ settings {
 docs {
   # Send Workspace Invitation
 
-  Sends an invitation to a new user to join the workspace. Only workspace owners can send invitations.
+  Sends an invitation to a pharmacist to join the current workspace. Only workspace owners can send invitations.
 
   ## Authentication
 
@@ -37,8 +37,8 @@ docs {
 
   - `email` (string, required): Email address of the person being invited
   - `name` (string, required): Full name of the person being invited
-  - `role` (string, required): Role for the invited user (currently supports "pharmacist")
-  - `defaultPassword` (string, required): Temporary password for the invited user
+  - `role` (string, optional): Role for the invited user. Defaults to and currently only supports "pharmacist"
+  - `defaultPassword` (string, required): Default password the pharmacist will use for first sign in (minimum 8 characters)
 
   ## Success Response (200 OK)
 
@@ -77,20 +77,22 @@ docs {
   }
   ```
 
-  ### 401 Unauthorized - Not owner
+  ### 403 Forbidden - Not owner
 
   ```json
   {
     "status": "error",
-    "message": "Only workspace owners can send invitations"
+    "message": "Access Denied"
   }
   ```
 
   ## Notes
 
   - Invitations expire after 7 days
-  - An invitation email is sent to the provided email address with an acceptance link
-  - Only one active invitation per email can exist at a time
-  - The recipient must accept the invitation to create their account
+  - An invitation email is sent with an acceptance link and the default password
+  - The default password is stored only as a hash; plaintext exists only in the request and outgoing email
+  - Only one active invitation per email can exist per workspace at a time
+  - The recipient must accept the invitation to create their account, then sign in with the default password
+  - Invited pharmacists must change their password before accessing workspace routes
   - Rate limited to prevent abuse
 }

@@ -1,16 +1,50 @@
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useMutation } from "@tanstack/react-query";
+import { backendApiSchemaRoutes } from "@vitastock/shared/validation/backendApiSchema";
 import { REGEXP_ONLY_DIGITS } from "input-otp";
 import { Fragment } from "react";
 import { useForm } from "react-hook-form";
+import { useNavigate, useSearchParams } from "react-router";
 import { For } from "@/components/common/for";
 import { IconBox } from "@/components/common/IconBox";
 import { Button, InputOTP } from "@/components/ui";
 import { Form } from "@/components/ui/form";
+import { callBackendApiForQuery } from "@/lib/api/callBackendApi";
+import { resendVerificationEmailMutation } from "@/lib/react-query/mutationOptions";
 import { Main } from "../-components/Main";
 
-function VerifyEmailPage() {
-	const form = useForm({});
+const VerifyEmailSchema = backendApiSchemaRoutes["@post/auth/verify-email"].body.pick({ code: true });
 
-	const onSubmit = form.handleSubmit(() => {});
+function VerifyEmailPage() {
+	const [searchParams] = useSearchParams();
+	const email = searchParams.get("email") ?? "";
+	const code = searchParams.get("code") ?? "";
+
+	const form = useForm({
+		defaultValues: {
+			code,
+		},
+		resolver: zodResolver(VerifyEmailSchema),
+	});
+
+	const navigate = useNavigate();
+
+	const onSubmit = form.handleSubmit(async (data) => {
+		await callBackendApiForQuery("@post/auth/verify-email", {
+			body: { ...data, email },
+			meta: { toast: { success: true } },
+
+			onSuccess: () => {
+				void navigate("/auth/signin");
+			},
+		});
+	});
+
+	const resendCodeMutationResult = useMutation(resendVerificationEmailMutation());
+
+	const handleResendCode = () => {
+		resendCodeMutationResult.mutate({ email });
+	};
 
 	return (
 		<Main>
@@ -78,7 +112,13 @@ function VerifyEmailPage() {
 
 					<div className="flex flex-col items-center gap-2 text-center">
 						<p className="text-[14px]">Didn't receive the code?</p>
-						<Button theme="secondary-outline" className="h-9">
+						<Button
+							theme="secondary-outline"
+							className="h-9"
+							isLoading={resendCodeMutationResult.isPending}
+							disabled={resendCodeMutationResult.isPending}
+							onClick={handleResendCode}
+						>
 							Resend Code
 						</Button>
 					</div>

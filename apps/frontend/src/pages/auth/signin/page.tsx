@@ -1,14 +1,50 @@
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useQueryClient } from "@tanstack/react-query";
+import { backendApiSchemaRoutes } from "@vitastock/shared/validation/backendApiSchema";
 import { useForm } from "react-hook-form";
+import { useNavigate } from "react-router";
 import { Logo } from "@/components/common/Logo";
 import { NavLink } from "@/components/common/NavLink";
 import { Button } from "@/components/ui";
 import { Form } from "@/components/ui/form";
+import { callBackendApiForQuery } from "@/lib/api/callBackendApi";
+import { sessionQuery } from "@/lib/react-query/queryOptions";
 import { Main } from "../-components/Main";
 
-function SigninPage() {
-	const form = useForm({});
+const SignInSchema = backendApiSchemaRoutes["@post/auth/signin"].body;
 
-	const onSubmit = form.handleSubmit(() => {});
+function SigninPage() {
+	const form = useForm({
+		defaultValues: {
+			email: "",
+			password: "",
+		},
+		resolver: zodResolver(SignInSchema),
+	});
+
+	const navigate = useNavigate();
+	const queryClient = useQueryClient();
+
+	const onSubmit = form.handleSubmit(async (data) => {
+		await callBackendApiForQuery("@post/auth/signin", {
+			body: data,
+
+			onResponseError: (ctx) => {
+				const isEmailUnverifiedError =
+					ctx.response.status === 401 && ctx.error.errorData.appCode === "EMAIL_UNVERIFIED";
+
+				if (isEmailUnverifiedError) {
+					void navigate(`/auth/verify-email?${new URLSearchParams({ email: data.email })}`);
+				}
+			},
+
+			onSuccess: async () => {
+				await queryClient.invalidateQueries(sessionQuery());
+
+				void navigate(`/dashboard`);
+			},
+		});
+	});
 
 	return (
 		<Main>

@@ -4,6 +4,7 @@ import {
 	SelectWorkspaceInvitationSchema,
 } from "@vitastock/db/schema/auth";
 import { InsertWorkspaceSchema, SelectWorkspaceSchema } from "@vitastock/db/schema/workspaces";
+import { AUTH_ERROR_APP_CODES } from "@vitastock/shared/constants";
 import type { InferAllMainRouteKeys, InferAllMainRoutes } from "@zayne-labs/callapi";
 import { fallBackRouteSchemaKey } from "@zayne-labs/callapi/constants";
 import { defineSchema, defineSchemaRoutes } from "@zayne-labs/callapi/utils";
@@ -16,6 +17,7 @@ const BaseSuccessResponseSchema = z.object({
 });
 
 const BaseErrorResponseSchema = z.object({
+	appCode: z.literal(AUTH_ERROR_APP_CODES).optional(),
 	errors: z.record(z.string(), z.array(z.string())).optional(),
 	message: z.string(),
 	status: z.literal("error"),
@@ -43,22 +45,24 @@ const withBaseErrorResponse = <T extends z.ZodType = typeof BaseErrorResponseSch
 
 const PasswordSchema = z.string().min(8, "Password must be at least 8 characters long");
 
+const stringWithDateValidation = () => z.preprocess((v: string) => new Date(v), z.date());
+
 const TokenObjectSchema = z.object({
-	expiresAt: z.preprocess((v: string) => new Date(v), z.date()),
+	expiresAt: stringWithDateValidation(),
 	token: z.string(),
 });
 
 export const SignUpSchema = InsertUserSchema.pick({
 	email: true,
-	name: true,
+	fullName: true,
 }).extend({
 	email: z.email("Please enter a valid email"),
-	name: z.string().min(1, "Name is required"),
+	fullName: z.string().min(1, "Name is required"),
 	password: PasswordSchema,
 	pharmacyName: InsertWorkspaceSchema.shape.name.min(1, "Pharmacy name is required"),
 });
 
-const withMatchingPasswordFields = <
+export const withMatchingPasswordFields = <
 	TPasswordKey extends "newPassword" | "password",
 	TConfirmPasswordKey extends "confirmNewPassword" | "confirmPassword",
 	TSchema extends z.ZodObject<Record<TConfirmPasswordKey | TPasswordKey, z.ZodType>>,
@@ -85,11 +89,13 @@ const authRoutes = () => {
 	const UserSchema = SelectUserSchema.pick({
 		email: true,
 		emailVerifiedAt: true,
+		fullName: true,
 		id: true,
 		mustChangePassword: true,
-		name: true,
 		role: true,
 		workspaceId: true,
+	}).extend({
+		emailVerifiedAt: stringWithDateValidation().nullable(),
 	});
 
 	const WorkspaceSchema = SelectWorkspaceSchema.pick({
@@ -99,14 +105,6 @@ const authRoutes = () => {
 		name: true,
 		nearExpiryDays: true,
 		timezone: true,
-	});
-
-	const InvitationSchema = SelectWorkspaceInvitationSchema.pick({
-		email: true,
-		expiresAt: true,
-		id: true,
-	}).extend({
-		role: UserSchema.shape.role.extract(["pharmacist"]),
 	});
 
 	const AuthTokensSchema = z.object({
@@ -149,14 +147,21 @@ const authRoutes = () => {
 		"@post/auth/invitations": {
 			body: SignUpSchema.pick({
 				email: true,
-				name: true,
 			}).extend({
 				defaultPassword: PasswordSchema,
+				name: z.string().min(1, "Name is required"),
 				role: UserSchema.shape.role.extract(["pharmacist"]),
 			}),
 			data: withBaseSuccessResponse(
 				z.object({
-					invitation: InvitationSchema,
+					invitation: SelectWorkspaceInvitationSchema.pick({
+						expiresAt: true,
+						id: true,
+						inviteeEmail: true,
+						inviteeName: true,
+					}).extend({
+						role: SelectWorkspaceInvitationSchema.shape.role.extract(["pharmacist"]),
+					}),
 				})
 			),
 		},
@@ -205,13 +210,7 @@ const authRoutes = () => {
 		},
 
 		"@post/auth/signup": {
-			body: withMatchingPasswordFields({
-				confirmPasswordKey: "confirmPassword",
-				passwordKey: "password",
-				schema: SignUpSchema.extend({
-					confirmPassword: PasswordSchema,
-				}),
-			}),
+			body: SignUpSchema,
 			data: AuthSuccessResponseSchema,
 		},
 

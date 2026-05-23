@@ -1,3 +1,4 @@
+import { pickKeys } from "@zayne-labs/toolkit-core";
 import { consola } from "consola";
 import type { ErrorHandler } from "hono";
 import type { HTTPException } from "hono/http-exception";
@@ -14,12 +15,14 @@ const errorHandler: ErrorHandler<BlankEnv> = (error: AppError | Error | HTTPExce
 	const errorInfo = {
 		status: "error",
 		message: modifiedError.message,
+		...(modifiedError.appCode && { appCode: modifiedError.appCode }),
 		...(Boolean(modifiedError.errors) && { errors: modifiedError.errors }),
 	};
 
 	consola.error(`${error.name}:`, {
 		...errorInfo,
-		...(Boolean(modifiedError.cause) && { cause: modifiedError.cause }),
+		...(Boolean(modifiedError.realReason) && pickKeys(modifiedError, ["realReason"])),
+		...(Boolean(modifiedError.cause) && pickKeys(modifiedError, ["cause"])),
 		stack: modifiedError.stack,
 	});
 

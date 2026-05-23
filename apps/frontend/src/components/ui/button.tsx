@@ -5,8 +5,7 @@ import type { Prettify } from "@zayne-labs/toolkit-type-helpers";
 import { tv, type VariantProps } from "tailwind-variants";
 import { Slot } from "@/components/common/slot";
 import { cnJoin } from "@/lib/utils/cn";
-import { ImageOnline } from "../common/Image";
-import { spinnerIcon } from "../icons";
+import { SpinnerIcon } from "../icons/SpinnerIcon";
 
 export type ButtonProps = InferProps<"button">
 	& Prettify<
@@ -119,9 +118,8 @@ function Button<TElement extends React.ElementType = "button">(
 				:	children}
 			</Slot.Slottable>
 			<span className={cnJoin(loadingStyle === "replace-content" && "[grid-area:1/1]")}>
-				<ImageOnline layout="fullWidth" src={spinnerIcon} alt="spinner" className="size-5" />
+				<SpinnerIcon className="size-5" />
 			</span>
-			``
 		</>
 	);
 

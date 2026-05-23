@@ -4,8 +4,7 @@ import { sharedEnvSchema } from "./shared-env";
 export const frontendEnvSchema = sharedEnvSchema;
 
 export const getFrontendEnv = () => {
-	// eslint-disable-next-line node/no-process-env
-	const result = frontendEnvSchema.safeParse(process.env);
+	const result = frontendEnvSchema.safeParse({});
 
 	if (!result.success) {
 		const missingKeys = Object.keys(z.flattenError(result.error).fieldErrors);
@@ -23,3 +22,13 @@ export const getFrontendEnv = () => {
 
 	return result.data;
 };
+
+declare global {
+	// eslint-disable-next-line ts-eslint/consistent-type-definitions, ts-eslint/no-empty-object-type
+	interface ImportMetaEnv extends Record<string, string> {}
+
+	// eslint-disable-next-line ts-eslint/consistent-type-definitions
+	interface ImportMeta {
+		readonly env: ImportMetaEnv;
+	}
+}

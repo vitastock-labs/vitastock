@@ -1,6 +1,5 @@
-import { lazy, Suspense } from "react";
+import { lazy } from "react";
 import { createBrowserRouter, createRoutesFromElements, Route, RouterProvider } from "react-router";
-import { LoadingScreen } from "./components/common/LoadingScreen";
 import { SonnerToaster } from "./components/common/Toaster";
 import ErrorPage from "./pages/error";
 import RootLayout from "./pages/layout";
@@ -10,7 +9,8 @@ import { Providers } from "./Providers";
 /* Layouts */
 const HomeLayout = lazy(() => import("./pages/(home)/layout"));
 const AuthLayout = lazy(() => import("./pages/auth/layout"));
-const DashboardLayout = lazy(() => import("./pages/dashboard/layout"));
+const ProtectedLayout = lazy(() => import("./pages/(protected)/layout"));
+const DashboardLayout = lazy(() => import("./pages/(protected)/dashboard/layout"));
 
 const routes = createRoutesFromElements(
 	<Route Component={RootLayout} errorElement={<ErrorPage />}>
@@ -43,21 +43,29 @@ const routes = createRoutesFromElements(
 			/>
 		</Route>
 
-		<Route Component={DashboardLayout}>
-			<Route path="/dashboard" Component={lazy(() => import("./pages/dashboard/page"))} />
-			<Route
-				path="/dashboard/inventory"
-				Component={lazy(() => import("./pages/dashboard/inventory/page"))}
-			/>
-			<Route
-				path="/dashboard/reports"
-				Component={lazy(() => import("./pages/dashboard/reports/page"))}
-			/>
-			<Route path="/dashboard/alerts" Component={lazy(() => import("./pages/dashboard/alerts/page"))} />
-			<Route
-				path="/dashboard/settings"
-				Component={lazy(() => import("./pages/dashboard/settings/page"))}
-			/>
+		<Route Component={ProtectedLayout}>
+			<Route Component={DashboardLayout}>
+				<Route
+					path="/dashboard"
+					Component={lazy(() => import("./pages/(protected)/dashboard/page"))}
+				/>
+				<Route
+					path="/dashboard/inventory"
+					Component={lazy(() => import("./pages/(protected)/dashboard/inventory/page"))}
+				/>
+				<Route
+					path="/dashboard/reports"
+					Component={lazy(() => import("./pages/(protected)/dashboard/reports/page"))}
+				/>
+				<Route
+					path="/dashboard/alerts"
+					Component={lazy(() => import("./pages/(protected)/dashboard/alerts/page"))}
+				/>
+				<Route
+					path="/dashboard/settings"
+					Component={lazy(() => import("./pages/(protected)/dashboard/settings/page"))}
+				/>
+			</Route>
 		</Route>
 
 		{/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
@@ -70,9 +78,9 @@ const browserRouter = createBrowserRouter(routes);
 export function Router() {
 	return (
 		<Providers>
-			<Suspense fallback={<LoadingScreen />}>
-				<RouterProvider router={browserRouter} />
-			</Suspense>
+			{/* <Suspense fallback={<LoadingScreen />}> */}
+			<RouterProvider router={browserRouter} />
+			{/* </Suspense> */}
 			<SonnerToaster />
 		</Providers>
 	);
