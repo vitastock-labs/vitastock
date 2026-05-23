@@ -7,7 +7,7 @@
 	align-items: center;
 	justify-content: center;
 	overflow: hidden;
-	transition: opacity 1.5s cubic-bezier(0.76, 0, 0.24, 1) forwards;
+	transition: opacity 1.5s cubic-bezier(0.76, 0, 0.24, 1);
 	pointer-events: none;
 	background-color: #ffffff;
 }

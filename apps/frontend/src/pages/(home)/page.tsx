@@ -40,8 +40,8 @@ function HeroSection() {
 			className="flex w-full flex-col items-center px-[clamp(24px,7vw,100px)] pt-20 pb-16 text-black"
 		>
 			<h1
-				className="max-w-[18ch] animate-fade-up text-center text-[72px]/[1.05] font-extrabold
-					tracking-[-0.035em] text-balance delay-60"
+				className="max-w-[18ch] text-center text-[72px]/[1.05] font-extrabold tracking-[-0.035em]
+					text-balance delay-60"
 			>
 				The <span className="font-fraunces text-vitastock-primary-main italic">fastest way</span> to
 				manage pharmacy stock, without the{" "}
@@ -49,14 +49,14 @@ function HeroSection() {
 			</h1>
 
 			<p
-				className="mt-8 max-w-[600px] animate-fade-up text-center text-[19px] leading-relaxed
-					font-medium text-vitastock-body-color/80 delay-120"
+				className="mt-8 max-w-[600px] text-center text-[19px] leading-relaxed font-medium
+					text-vitastock-body-color/80 delay-120"
 			>
 				VitaStock is a browser-based inventory workflow built for busy pharmacies that want faster
 				tracking and more reliable records.
 			</p>
 
-			<div className="mt-9 flex animate-fade-up flex-col items-center gap-4 delay-180">
+			<div className="mt-9 flex flex-col items-center gap-4 delay-180">
 				<Button
 					className="h-[56px] rounded-full px-10 text-lg
 						shadow-[0_20px_60px_-10px_theme(--color-vitastock-primary-dark/0.35)]"
@@ -168,15 +168,15 @@ function ProblemSection() {
 				The Problem
 			</p>
 			<h2
-				className="mt-4 max-w-[15ch] animate-fade-up text-center text-[64px]/[1.1] font-extrabold
-					tracking-[-0.03em] text-balance delay-60"
+				className="mt-4 max-w-[15ch] text-center text-[64px]/[1.1] font-extrabold tracking-[-0.03em]
+					text-balance delay-60"
 			>
 				Managing inventory shouldn't feel{" "}
 				<span className="font-fraunces text-vitastock-primary-main italic">this hard.</span>
 			</h2>
 			<p
-				className="mt-6 max-w-[640px] animate-fade-up text-center text-[18px] leading-relaxed
-					font-medium text-vitastock-body-color/80 delay-120"
+				className="mt-6 max-w-[640px] text-center text-[18px] leading-relaxed font-medium
+					text-vitastock-body-color/80 delay-120"
 			>
 				Between serving patients and handling daily operations, keeping track of stock manually leads
 				to mistakes, delays, and lost revenue.
@@ -190,9 +190,8 @@ function ProblemSection() {
 						<li
 							key={problem.title}
 							className={cnJoin(
-								`relative flex animate-fade-up flex-col justify-between overflow-hidden rounded-3xl
-								border p-7 transition-all delay-120 duration-300 hover:-translate-y-1
-								hover:shadow-md`,
+								`relative flex flex-col justify-between overflow-hidden rounded-3xl border p-7
+								transition-all delay-120 duration-300 hover:-translate-y-1 hover:shadow-md`,
 								problem.classNames.card
 							)}
 						>
@@ -305,8 +304,8 @@ function SolutionSection() {
 				</p>
 
 				<h2
-					className="mt-3 max-w-[15ch] animate-fade-up text-[64px]/[1.1] font-extrabold
-						tracking-[-0.03em] text-balance delay-60"
+					className="mt-3 max-w-[15ch] text-[64px]/[1.1] font-extrabold tracking-[-0.03em]
+						text-balance delay-60"
 				>
 					A <span className="font-fraunces text-vitastock-primary-main italic">simpler way</span> to
 					manage pharmacy inventory
@@ -385,8 +384,8 @@ function HowItWorksSection() {
 					How it works
 				</p>
 				<h2
-					className="max-w-[18ch] animate-fade-up text-center text-[64px]/[1.1] font-extrabold
-						tracking-[-0.03em] text-balance delay-60"
+					className="max-w-[18ch] text-center text-[64px]/[1.1] font-extrabold tracking-[-0.03em]
+						text-balance delay-60"
 				>
 					Set up in minutes.{" "}
 					<span className="font-fraunces text-vitastock-primary-main italic">Use it every day.</span>
@@ -482,8 +481,8 @@ function FeaturesSection() {
 				</p>
 
 				<h2
-					className="max-w-[20ch] animate-fade-up text-[56px]/[1.1] font-extrabold tracking-[-0.02em]
-						text-balance delay-60"
+					className="max-w-[20ch] text-[56px]/[1.1] font-extrabold tracking-[-0.02em] text-balance
+						delay-60"
 				>
 					Everything you need to keep{" "}
 					<span
@@ -569,10 +568,7 @@ function FinalCTASection() {
 					py-[64px]"
 			>
 				<article className="w-full">
-					<h2
-						className="animate-fade-up text-[56px]/[1.1] font-extrabold tracking-[-0.02em]
-							text-balance delay-60"
-					>
+					<h2 className="text-[56px]/[1.1] font-extrabold tracking-[-0.02em] text-balance delay-60">
 						Run your pharmacy{" "}
 						<span className="font-fraunces text-vitastock-primary-main italic">
 							with confidence.
