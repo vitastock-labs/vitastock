@@ -1,6 +1,7 @@
 import { isObject, type Awaitable, type UnmaskType } from "@zayne-labs/toolkit-type-helpers";
 import { consola } from "consola";
 import { differenceInSeconds } from "date-fns";
+import * as superjson from "superjson";
 import { initializeRedisCacheClient, redisCacheClient } from "./cacheClient";
 
 type CacheKeyType = UnmaskType<`user:${string}` | `workspace:${string}`>;
@@ -21,7 +22,8 @@ export const setCache = async (
 		throw new Error("Invalid value provided");
 	}
 
-	const resolvedValue = isObject(value) && !(value instanceof Buffer) ? JSON.stringify(value) : value;
+	const resolvedValue =
+		isObject(value) && !(value instanceof Buffer) ? superjson.stringify(value) : value;
 
 	const ttl = expiry instanceof Date ? differenceInSeconds(expiry, new Date()) : expiry;
 
@@ -56,11 +58,11 @@ export const getFromCache = async <TCacheResult>(
 		const rawCachedData = await redisCacheClient.get(key);
 
 		if (rawCachedData) {
-			const parsedCachedData = JSON.parse(rawCachedData);
+			const parsedCachedData = superjson.parse<TCacheResult>(rawCachedData);
 
 			consola.info(`[CACHE HIT] for key ${key}`);
 
-			return parsedCachedData as TCacheResult;
+			return parsedCachedData;
 		}
 
 		consola.info(`[CACHE MISS] for key ${key}`);
@@ -79,6 +81,7 @@ export const getFromCache = async <TCacheResult>(
 			`[CACHE ERROR] for key ${key}. Client Status: isOpen=${redisCacheClient.isOpen}, isReady=${redisCacheClient.isReady}`,
 			error
 		);
+
 		throw error;
 	}
 };

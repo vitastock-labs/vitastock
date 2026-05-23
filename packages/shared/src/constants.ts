@@ -10,6 +10,10 @@ export const AUTH_ERRORS = defineEnum(
 			appCode: "EMAIL_UNVERIFIED",
 			message: "Your email is yet to be verified",
 		},
+		INSUFFICIENT_PERMISSIONS: {
+			appCode: "INSUFFICIENT_PERMISSIONS",
+			message: "You do not have permission to perform this action",
+		},
 		INVALID_SESSION: {
 			appCode: "INVALID_SESSION",
 			message: "Invalid session. Please log in again",

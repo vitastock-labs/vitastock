@@ -1,6 +1,10 @@
+import { defineEnum } from "@zayne-labs/toolkit-type-helpers";
 import * as pg from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
+import { z } from "zod";
 import { workspaces } from "./workspaces";
+
+const ROLES = defineEnum(["owner", "admin", "pharmacist"]);
 
 export const users = pg.pgTable(
 	"users",
@@ -20,7 +24,7 @@ export const users = pg.pgTable(
 			.notNull()
 			.$type<Array<{ expiresAt: Date; issuedAt: Date; tokenHash: string }>>()
 			.default([]),
-		role: pg.text({ enum: ["pharmacist", "owner"] }).notNull(),
+		role: pg.text({ enum: ROLES }).notNull(),
 		suspendedAt: pg.timestamp({ withTimezone: true }),
 		temporaryPasswordIssuedAt: pg.timestamp({ withTimezone: true }),
 		updatedAt: pg
@@ -39,7 +43,10 @@ export const users = pg.pgTable(
 	]
 );
 
-export const InsertUserSchema = createInsertSchema(users);
+export const InsertUserSchema = createInsertSchema(users, {
+	email: () => z.email("Please enter a valid email"),
+	fullName: (schema) => schema.min(1, "Name is required"),
+});
 export const SelectUserSchema = createSelectSchema(users);
 
 export type InsertUserType = typeof users.$inferInsert;
@@ -59,10 +66,7 @@ export const workspaceInvitations = pg.pgTable(
 			.references(() => users.id, { onDelete: "cascade" }),
 		inviteeEmail: pg.text().notNull(),
 		inviteeName: pg.text().notNull(),
-		role: pg
-			.text({ enum: ["pharmacist", "owner"] })
-			.notNull()
-			.default("pharmacist"),
+		role: pg.text({ enum: ROLES }).notNull().default("pharmacist"),
 		tokenHash: pg.text().notNull().unique(),
 		updatedAt: pg
 			.timestamp({ withTimezone: true })
@@ -80,7 +84,10 @@ export const workspaceInvitations = pg.pgTable(
 	]
 );
 
-export const InsertWorkspaceInvitationSchema = createInsertSchema(workspaceInvitations);
+export const InsertWorkspaceInvitationSchema = createInsertSchema(workspaceInvitations, {
+	inviteeEmail: () => z.email("Please enter a valid email"),
+	inviteeName: (schema) => schema.min(1, "Name is required"),
+});
 export const SelectWorkspaceInvitationSchema = createSelectSchema(workspaceInvitations);
 
 export type InsertWorkspaceInvitationType = typeof workspaceInvitations.$inferInsert;

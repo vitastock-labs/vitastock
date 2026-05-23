@@ -5,16 +5,17 @@ import { BaseLayout } from "../src/layouts/BaseLayout";
 
 export type PharmacistInviteEmailProps = {
 	defaultPassword: string;
-	email: string;
-	inviterEmail: string;
-	name: string;
+	invitedByEmail: string;
+	inviteeEmail: string;
+	inviteeName: string;
 	role: string;
 	token: string;
 	workspaceName: string;
 };
 
 export function PharmacistInviteEmail(props: PharmacistInviteEmailProps) {
-	const { defaultPassword, email, inviterEmail, name, role, token, workspaceName } = props;
+	const { defaultPassword, invitedByEmail, inviteeEmail, inviteeName, role, token, workspaceName } =
+		props;
 
 	const invitationUrl = `${FRONTEND_URL}/auth/invitations/accept?${new URLSearchParams({ token }).toString()}`;
 
@@ -27,16 +28,16 @@ export function PharmacistInviteEmail(props: PharmacistInviteEmailProps) {
 			</Heading>
 
 			<Text className="mb-4 text-center text-base/relaxed text-vitastock-body-color">
-				Hello <span className="font-semibold text-vitastock-primary-darker">{name}</span>,
+				Hello <span className="font-semibold text-vitastock-primary-darker">{inviteeName}</span>,
 			</Text>
 
 			<Text className="mb-4 text-center text-base/relaxed text-vitastock-body-color">
-				{inviterEmail} invited you to join the {workspaceName} workspace with the role of {role} on
+				{invitedByEmail} invited you to join the {workspaceName} workspace with the role of {role} on
 				VitaStock.
 			</Text>
 
 			<Text className="mb-6 text-center text-base/relaxed text-vitastock-body-color">
-				Accept the invitation, then sign in with {email} and this temporary password:
+				Accept the invitation, then sign in with {inviteeEmail} and this temporary password:
 			</Text>
 
 			<Text
@@ -69,9 +70,9 @@ export function PharmacistInviteEmail(props: PharmacistInviteEmailProps) {
 
 PharmacistInviteEmail.PreviewProps = {
 	defaultPassword: "VS-Default123",
-	email: "pharmacist@example.com",
-	inviterEmail: "owner@example.com",
-	name: "Amina Yusuf",
+	invitedByEmail: "owner@example.com",
+	inviteeEmail: "pharmacist@example.cuf",
+	inviteeName: "Amina Yusom",
 	role: "pharmacist",
 	token: "example-token",
 	workspaceName: "Greenleaf Pharmacy",

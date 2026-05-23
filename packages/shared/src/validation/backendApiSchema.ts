@@ -1,5 +1,6 @@
 import {
 	InsertUserSchema,
+	InsertWorkspaceInvitationSchema,
 	SelectUserSchema,
 	SelectWorkspaceInvitationSchema,
 } from "@vitastock/db/schema/auth";
@@ -45,10 +46,8 @@ const withBaseErrorResponse = <T extends z.ZodType = typeof BaseErrorResponseSch
 
 const PasswordSchema = z.string().min(8, "Password must be at least 8 characters long");
 
-const stringWithDateValidation = () => z.preprocess((v: string) => new Date(v), z.date());
-
 const TokenObjectSchema = z.object({
-	expiresAt: stringWithDateValidation(),
+	expiresAt: z.date(),
 	token: z.string(),
 });
 
@@ -56,10 +55,8 @@ export const SignUpSchema = InsertUserSchema.pick({
 	email: true,
 	fullName: true,
 }).extend({
-	email: z.email("Please enter a valid email"),
-	fullName: z.string().min(1, "Name is required"),
 	password: PasswordSchema,
-	pharmacyName: InsertWorkspaceSchema.shape.name.min(1, "Pharmacy name is required"),
+	pharmacyName: InsertWorkspaceSchema.shape.name,
 });
 
 export const withMatchingPasswordFields = <
@@ -86,7 +83,7 @@ const defaultSchemaRoute = defineSchemaRoutes({
 });
 
 const authRoutes = () => {
-	const UserSchema = SelectUserSchema.pick({
+	const UserDetailsSchema = SelectUserSchema.pick({
 		email: true,
 		emailVerifiedAt: true,
 		fullName: true,
@@ -94,11 +91,9 @@ const authRoutes = () => {
 		mustChangePassword: true,
 		role: true,
 		workspaceId: true,
-	}).extend({
-		emailVerifiedAt: stringWithDateValidation().nullable(),
 	});
 
-	const WorkspaceSchema = SelectWorkspaceSchema.pick({
+	const WorkspaceDetailsSchema = SelectWorkspaceSchema.pick({
 		alertEmail: true,
 		id: true,
 		lowStockThreshold: true,
@@ -113,8 +108,15 @@ const authRoutes = () => {
 	});
 
 	const AuthDataSchema = z.object({
-		user: UserSchema,
-		workspace: WorkspaceSchema,
+		user: UserDetailsSchema,
+		workspace: WorkspaceDetailsSchema,
+	});
+
+	const InvitationDataSchema = z.object({
+		defaultPassword: PasswordSchema,
+		inviteeEmail: InsertWorkspaceInvitationSchema.shape.inviteeEmail,
+		inviteeName: InsertWorkspaceInvitationSchema.shape.inviteeName,
+		role: UserDetailsSchema.shape.role.exclude(["owner"]),
 	});
 
 	const AuthSuccessResponseSchema = withBaseSuccessResponse(AuthDataSchema);
@@ -144,33 +146,24 @@ const authRoutes = () => {
 			data: NullSuccessResponseSchema,
 		},
 
-		"@post/auth/invitations": {
-			body: SignUpSchema.pick({
-				email: true,
-			}).extend({
-				defaultPassword: PasswordSchema,
-				name: z.string().min(1, "Name is required"),
-				role: UserSchema.shape.role.extract(["pharmacist"]),
-			}),
-			data: withBaseSuccessResponse(
-				z.object({
-					invitation: SelectWorkspaceInvitationSchema.pick({
-						expiresAt: true,
-						id: true,
-						inviteeEmail: true,
-						inviteeName: true,
-					}).extend({
-						role: SelectWorkspaceInvitationSchema.shape.role.extract(["pharmacist"]),
-					}),
-				})
-			),
-		},
-
 		"@post/auth/invitations/accept": {
 			body: z.object({
 				token: z.string().min(1, "Invitation token is required"),
 			}),
 			data: AuthSuccessResponseSchema,
+		},
+
+		"@post/auth/invitations/send": {
+			body: InvitationDataSchema,
+			data: withBaseSuccessResponse(
+				z.object({
+					invitation: InvitationDataSchema.pick({
+						inviteeEmail: true,
+						inviteeName: true,
+						role: true,
+					}).extend(SelectWorkspaceInvitationSchema.pick({ expiresAt: true }).shape),
+				})
+			),
 		},
 
 		"@post/auth/resend-verification-email": {
@@ -199,8 +192,8 @@ const authRoutes = () => {
 			data: withBaseSuccessResponse(
 				z.object({
 					tokens: AuthTokensSchema,
-					user: UserSchema,
-					workspace: WorkspaceSchema,
+					user: UserDetailsSchema,
+					workspace: WorkspaceDetailsSchema,
 				})
 			),
 		},

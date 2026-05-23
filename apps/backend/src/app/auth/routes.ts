@@ -47,7 +47,7 @@ const authRoutes = new Hono()
 			const { email, fullName, password, pharmacyName } = ctx.req.valid("json");
 
 			const [existingUser] = await db
-				.select({ id: users.id })
+				.select(pickKeys(users, ["id"]))
 				.from(users)
 				.where(eq(users.email, email))
 				.limit(1);
@@ -226,11 +226,7 @@ const authRoutes = new Hono()
 			const { code, email } = ctx.req.valid("json");
 
 			const [result] = await db
-				.select({
-					code: emailVerificationCodes.code,
-					expiresAt: emailVerificationCodes.expiresAt,
-					userId: emailVerificationCodes.userId,
-				})
+				.select(pickKeys(emailVerificationCodes, ["code", "expiresAt", "userId"]))
 				.from(emailVerificationCodes)
 				.innerJoin(users, eq(emailVerificationCodes.userId, users.id))
 				.where(eq(users.email, email))
@@ -329,15 +325,8 @@ const authRoutes = new Hono()
 
 			const [result] = await db
 				.select({
-					token: {
-						retriedAt: passwordResetTokens.retriedAt,
-						retryCount: passwordResetTokens.retryCount,
-					},
-					user: {
-						email: users.email,
-						fullName: users.fullName,
-						id: users.id,
-					},
+					token: pickKeys(passwordResetTokens, ["retriedAt", "retryCount"]),
+					user: pickKeys(users, ["email", "fullName", "id"]),
 				})
 				.from(users)
 				.leftJoin(passwordResetTokens, eq(users.id, passwordResetTokens.userId))
@@ -405,15 +394,8 @@ const authRoutes = new Hono()
 
 			const [result] = await db
 				.select({
-					token: {
-						expiresAt: passwordResetTokens.expiresAt,
-						id: passwordResetTokens.id,
-					},
-					user: {
-						email: users.email,
-						fullName: users.fullName,
-						id: users.id,
-					},
+					token: pickKeys(passwordResetTokens, ["expiresAt", "id"]),
+					user: pickKeys(users, ["email", "fullName", "id"]),
 				})
 				.from(passwordResetTokens)
 				.innerJoin(users, eq(passwordResetTokens.userId, users.id))
@@ -488,16 +470,18 @@ const authRoutes = new Hono()
 			const tokenHash = hashToken(token);
 
 			const [invitationResult] = await db
-				.select({
-					acceptedAt: workspaceInvitations.acceptedAt,
-					defaultPasswordHash: workspaceInvitations.defaultPasswordHash,
-					expiresAt: workspaceInvitations.expiresAt,
-					id: workspaceInvitations.id,
-					inviteeEmail: workspaceInvitations.inviteeEmail,
-					inviteeName: workspaceInvitations.inviteeName,
-					role: workspaceInvitations.role,
-					workspaceId: workspaceInvitations.workspaceId,
-				})
+				.select(
+					pickKeys(workspaceInvitations, [
+						"acceptedAt",
+						"defaultPasswordHash",
+						"expiresAt",
+						"id",
+						"inviteeEmail",
+						"inviteeName",
+						"role",
+						"workspaceId",
+					])
+				)
 				.from(workspaceInvitations)
 				.innerJoin(workspaces, eq(workspaceInvitations.workspaceId, workspaces.id))
 				.where(eq(workspaceInvitations.tokenHash, tokenHash))
@@ -511,7 +495,7 @@ const authRoutes = new Hono()
 			}
 
 			const [existingUser] = await db
-				.select({ id: users.id })
+				.select(pickKeys(users, ["id"]))
 				.from(users)
 				.where(eq(users.email, invitationResult.inviteeEmail))
 				.limit(1);
@@ -564,20 +548,20 @@ const authRoutes = new Hono()
 	.use(authMiddleware)
 
 	.post(
-		"/invitations",
-		authorizeRoleMiddleware(["owner"]),
+		"/invitations/send",
+		authorizeRoleMiddleware(["owner", "admin"]),
 		rateLimiter(authRateLimiterOptions),
-		validateWithZodMiddleware("json", backendApiSchemaRoutes["@post/auth/invitations"].body),
+		validateWithZodMiddleware("json", backendApiSchemaRoutes["@post/auth/invitations/send"].body),
 		async (ctx) => {
-			const { defaultPassword, email, name, role } = ctx.req.valid("json");
+			const { defaultPassword, inviteeEmail, inviteeName, role } = ctx.req.valid("json");
 
 			const currentUser = ctx.get("currentUser");
 			const currentWorkspace = ctx.get("currentWorkspace");
 
 			const [existingUser] = await db
-				.select({ id: users.id })
+				.select(pickKeys(users, ["id"]))
 				.from(users)
-				.where(eq(users.email, email))
+				.where(eq(users.email, inviteeEmail))
 				.limit(1);
 
 			if (existingUser) {
@@ -588,11 +572,11 @@ const authRoutes = new Hono()
 			}
 
 			const [activeInvitation] = await db
-				.select({ id: workspaceInvitations.id })
+				.select(pickKeys(workspaceInvitations, ["id"]))
 				.from(workspaceInvitations)
 				.where(
 					and(
-						eq(workspaceInvitations.inviteeEmail, email),
+						eq(workspaceInvitations.inviteeEmail, inviteeEmail),
 						eq(workspaceInvitations.workspaceId, currentUser.workspaceId),
 						gt(workspaceInvitations.expiresAt, new Date()),
 						isNull(workspaceInvitations.acceptedAt)
@@ -621,8 +605,8 @@ const authRoutes = new Hono()
 					defaultPasswordHash,
 					expiresAt,
 					invitedByUserId: currentUser.id,
-					inviteeEmail: email,
-					inviteeName: name,
+					inviteeEmail,
+					inviteeName,
 					role,
 					tokenHash,
 					workspaceId: currentUser.workspaceId,
@@ -638,9 +622,9 @@ const authRoutes = new Hono()
 
 			await sendPharmacistInviteEmail({
 				defaultPassword,
-				email,
-				inviterEmail: currentUser.email,
-				name,
+				invitedByEmail: currentUser.email,
+				inviteeEmail,
+				inviteeName,
 				role,
 				token: invitationToken,
 				workspaceName: currentWorkspace.name,
@@ -649,15 +633,12 @@ const authRoutes = new Hono()
 			return AppJsonResponse(ctx, {
 				data: {
 					invitation: {
-						expiresAt: insertedInvitation.expiresAt,
-						id: insertedInvitation.id,
-						inviteeEmail: insertedInvitation.inviteeEmail,
-						inviteeName: insertedInvitation.inviteeName,
+						...pickKeys(insertedInvitation, ["expiresAt", "id", "inviteeEmail", "inviteeName"]),
 						role,
 					},
 				},
 				message: "Invitation sent successfully",
-				schema: backendApiSchemaRoutes["@post/auth/invitations"].data,
+				schema: backendApiSchemaRoutes["@post/auth/invitations/send"].data,
 			});
 		}
 	)

@@ -119,17 +119,18 @@ export const sendResetPasswordCompleteEmail = async (user: Pick<SelectUserType, 
 export const sendPharmacistInviteEmail = async (
 	options: Omit<Extract<EmailJobOptions, { type: "pharmacistInvite" }>["data"], "priority" | "to">
 ) => {
-	const { defaultPassword, email, inviterEmail, name, role, token, workspaceName } = options;
+	const { defaultPassword, invitedByEmail, inviteeEmail, inviteeName, role, token, workspaceName } =
+		options;
 
 	await addEmailToQueue({
 		data: {
 			defaultPassword,
-			email,
-			inviterEmail,
-			name,
+			invitedByEmail,
+			inviteeEmail,
+			inviteeName,
 			priority: "high",
 			role,
-			to: email,
+			to: inviteeEmail,
 			token,
 			workspaceName,
 		},

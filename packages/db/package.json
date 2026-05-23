@@ -22,6 +22,7 @@
 		"@faker-js/faker": "^10.4.0",
 		"@node-rs/argon2": "^2.0.2",
 		"@vitastock/env": "workspace:*",
+		"@zayne-labs/toolkit-type-helpers": "^0.12.54",
 		"@zayne-labs/tsconfig": "0.13.13",
 		"consola": "3.4.2",
 		"cross-env": "^10.1.0",

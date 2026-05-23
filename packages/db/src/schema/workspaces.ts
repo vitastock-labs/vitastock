@@ -16,7 +16,9 @@ export const workspaces = pg.pgTable("workspaces", {
 		.$onUpdate(() => new Date()),
 });
 
-export const InsertWorkspaceSchema = createInsertSchema(workspaces);
+export const InsertWorkspaceSchema = createInsertSchema(workspaces, {
+	name: (schema) => schema.min(1, "Pharmacy name is required"),
+});
 export const SelectWorkspaceSchema = createSelectSchema(workspaces);
 
 export type InsertWorkspaceType = typeof workspaces.$inferInsert;
