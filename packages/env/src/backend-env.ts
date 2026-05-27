@@ -27,6 +27,10 @@ export const backendEnvSchema = z.object({
 	EMAIL_USER_DEV: z
 		.literal("emilio.connelly70@ethereal.email")
 		.default("emilio.connelly70@ethereal.email"),
+	GOOGLE_AUTH_API_KEY: z.string(),
+	GOOGLE_AUTH_REFRESH_TOKEN: z.string(),
+	GOOGLE_CLIENT_ID: z.string(),
+	GOOGLE_CLIENT_SECRET: z.string(),
 	LOG_LEVEL: z.literal(["debug", "info", "warn", "error", "fatal", "silent"]).default("info"),
 	NODE_ENV: z.literal(["development", "production"]).default("development"),
 	PORT: z.coerce.number().default(8000),

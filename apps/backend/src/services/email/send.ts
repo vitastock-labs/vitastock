@@ -2,23 +2,35 @@ import { TEMPLATE_LOOKUP, type EmailJobOptions } from "@vitastock/transactional/
 import type { CallbackFn } from "@zayne-labs/toolkit-type-helpers";
 import { consola } from "consola";
 import * as nodemailer from "nodemailer";
+import type { Options as SmtpTransportOptions } from "nodemailer/lib/smtp-transport";
 import { ENVIRONMENT } from "@/config/env";
 
-const transporter = nodemailer.createTransport({
-	auth: {
-		pass:
-			ENVIRONMENT.NODE_ENV === "development" ?
-				ENVIRONMENT.EMAIL_APP_PASSWORD_DEV
-			:	ENVIRONMENT.EMAIL_APP_PASSWORD,
-		user: ENVIRONMENT.NODE_ENV === "development" ? ENVIRONMENT.EMAIL_USER_DEV : ENVIRONMENT.EMAIL_USER,
-	},
-	host: ENVIRONMENT.NODE_ENV === "development" ? "smtp.ethereal.email" : "smtp.gmail.com",
-	port: ENVIRONMENT.NODE_ENV === "development" ? 587 : undefined,
-	...(ENVIRONMENT.NODE_ENV === "production" && {
-		secure: true,
-		service: "Gmail",
-	}),
-});
+const getTransporterOptions = (): SmtpTransportOptions => {
+	if (ENVIRONMENT.NODE_ENV === "production") {
+		return {
+			auth: {
+				clientId: ENVIRONMENT.GOOGLE_CLIENT_ID,
+				clientSecret: ENVIRONMENT.GOOGLE_CLIENT_SECRET,
+				refreshToken: ENVIRONMENT.GOOGLE_AUTH_REFRESH_TOKEN,
+				type: "OAuth2",
+				user: ENVIRONMENT.EMAIL_USER,
+			},
+			service: "gmail",
+		};
+	}
+
+	return {
+		auth: {
+			pass: ENVIRONMENT.EMAIL_APP_PASSWORD_DEV,
+			user: ENVIRONMENT.EMAIL_USER_DEV,
+		},
+		host: "smtp.ethereal.email",
+		port: 587,
+		secure: false,
+	};
+};
+
+const transporter = nodemailer.createTransport(getTransporterOptions());
 
 export const sendEmail = async (options: EmailJobOptions) => {
 	const { data, type } = options;
@@ -31,12 +43,17 @@ export const sendEmail = async (options: EmailJobOptions) => {
 	>;
 
 	try {
-		await transporter.sendMail({
+		const info = await transporter.sendMail({
 			from: templateOptions.from,
 			html: await templateFn(data),
 			subject: templateOptions.subject,
 			to: data.to,
 		});
+
+		if (ENVIRONMENT.NODE_ENV === "development") {
+			consola.info("Email sent: %s", info);
+			consola.info("Preview URL: %s", nodemailer.getTestMessageUrl(info));
+		}
 	} catch (error) {
 		consola.error(new Error(`Failed to deliver '${type}' email to '${data.to}'`, { cause: error }));
 		throw error;

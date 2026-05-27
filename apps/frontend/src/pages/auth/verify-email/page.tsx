@@ -162,15 +162,9 @@ function ResendCountdown(props: { timer: ReturnType<typeof useTimer> }) {
 			<span className="inline-flex items-center gap-1">
 				<span>Resend in</span>
 				<Timer.Area className="inline-flex items-center font-semibold tabular-nums">
-					<Timer.Item asChild={true} type="minutes">
-						<span />
-					</Timer.Item>
-					<Timer.Separator asChild={true}>
-						<span>:</span>
-					</Timer.Separator>
-					<Timer.Item asChild={true} type="seconds">
-						<span />
-					</Timer.Item>
+					<Timer.Item type="minutes" />
+					<Timer.Separator>:</Timer.Separator>
+					<Timer.Item type="seconds" />
 				</Timer.Area>
 			</span>
 		</Timer.RootProvider>
