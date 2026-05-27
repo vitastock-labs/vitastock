@@ -5,7 +5,11 @@ import * as nodemailer from "nodemailer";
 import type { Options as SmtpTransportOptions } from "nodemailer/lib/smtp-transport";
 import { ENVIRONMENT } from "@/config/env";
 
-const getTransporterOptions = (): SmtpTransportOptions => {
+type NodeSmtpTransportOptions = SmtpTransportOptions & {
+	family?: 4 | 6;
+};
+
+const getTransporterOptions = (): NodeSmtpTransportOptions => {
 	if (ENVIRONMENT.NODE_ENV === "production") {
 		return {
 			auth: {
@@ -15,7 +19,14 @@ const getTransporterOptions = (): SmtpTransportOptions => {
 				type: "OAuth2",
 				user: ENVIRONMENT.EMAIL_USER,
 			},
-			service: "gmail",
+			connectionTimeout: 15_000,
+			family: 4,
+			greetingTimeout: 15_000,
+			host: "smtp.gmail.com",
+			port: 587,
+			requireTLS: true,
+			secure: false,
+			socketTimeout: 30_000,
 		};
 	}
 
