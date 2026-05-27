@@ -4,7 +4,8 @@ import { sharedEnvSchema } from "./shared-env";
 export const frontendEnvSchema = sharedEnvSchema;
 
 export const getFrontendEnv = () => {
-	const result = frontendEnvSchema.safeParse({});
+	// NOTE - Due to Vite's build process, we can't use process.env.NODE_ENV directly, so we use import.meta.env.
+	const result = frontendEnvSchema.safeParse(import.meta.env);
 
 	if (!result.success) {
 		const missingKeys = Object.keys(z.flattenError(result.error).fieldErrors);

@@ -32,7 +32,6 @@ export const backendEnvSchema = z.object({
 	GOOGLE_CLIENT_ID: z.string(),
 	GOOGLE_CLIENT_SECRET: z.string(),
 	LOG_LEVEL: z.literal(["debug", "info", "warn", "error", "fatal", "silent"]).default("info"),
-	NODE_ENV: z.literal(["development", "production"]).default("development"),
 	PORT: z.coerce.number().default(8000),
 	REDIS_CACHE_URL: z.url(),
 	REDIS_CACHE_URL_DEV: z
