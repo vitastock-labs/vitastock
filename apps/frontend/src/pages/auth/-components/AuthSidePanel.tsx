@@ -6,7 +6,7 @@ function AuthSidePanel() {
 	return (
 		<aside className="w-full max-w-[660px] p-8">
 			<div
-				className="relative isolate flex w-full flex-col gap-[64px] rounded-[24px] p-[64px]
+				className="relative isolate flex size-full flex-col gap-[64px] rounded-[24px] p-[64px]
 					shadow-[0_8px_10px_-6px_hsl(0,0%,0%,0.1),0_20px_25px_-5px_hsl(0,0%,0%,0.1)]"
 			>
 				<div className="absolute inset-0 isolate -z-1 rounded-[inherit]">
