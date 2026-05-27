@@ -4,10 +4,10 @@ import { defineConfig } from "vite";
 export default defineConfig({
 	nitro: {
 		rolldownConfig: {
-			external: ["@bull-board/api", "@bull-board/hono", "bullmq", "ioredis", "redis"],
+			external: ["@bull-board/api", "@bull-board/hono"],
 		},
 		serverEntry: "./src/server.ts",
-		traceDeps: ["@bull-board/api*", "@bull-board/hono*", "bullmq*", "ioredis*", "redis*"],
+		traceDeps: ["@bull-board/api*", "@bull-board/hono*"],
 	},
 	plugins: [nitro()],
 	resolve: {
