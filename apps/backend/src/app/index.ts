@@ -23,6 +23,8 @@ app.on("GET", ["/", "/health"], (c) => {
 app.basePath("/api/v1").route("", authRoutes);
 
 // TODO - Protect this route with basic hono login or hosted on a diff platform
+// Bull Board currently relies on CommonJS `require` internally and breaks in Vercel's ESM bundle.
+
 try {
 	const bullBoardSetup = await createBullBoardSetup();
 

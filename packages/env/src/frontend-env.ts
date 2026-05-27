@@ -1,7 +1,9 @@
 import { z } from "zod";
 import { sharedEnvSchema } from "./shared-env";
 
-export const frontendEnvSchema = sharedEnvSchema;
+export const frontendEnvSchema = sharedEnvSchema.extend({
+	MODE: sharedEnvSchema.shape.NODE_ENV,
+});
 
 export const getFrontendEnv = () => {
 	// NOTE - Due to Vite's build process, we can't use process.env.NODE_ENV directly, so we use import.meta.env.

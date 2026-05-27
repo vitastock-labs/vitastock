@@ -16,8 +16,6 @@ import { Main } from "../-components/Main";
 
 const VerifyEmailSchema = backendApiSchemaRoutes["@post/auth/verify-email"].body.pick({ code: true });
 
-const RESEND_COOLDOWN_MS = 60 * 1000;
-
 function VerifyEmailPage() {
 	const [searchParams] = useSearchParams();
 	const email = searchParams.get("email") ?? "";
@@ -25,7 +23,7 @@ function VerifyEmailPage() {
 
 	const resendTimer = useTimer({
 		countdown: true,
-		startMs: RESEND_COOLDOWN_MS,
+		startMs: 2 * 60 * 1000,
 	});
 
 	const form = useForm({
@@ -132,14 +130,13 @@ function VerifyEmailPage() {
 						<p className="text-[14px]">Didn't receive the code?</p>
 						<Button
 							theme="secondary-outline"
-							className="h-9"
+							className="h-9 gap-1"
 							isLoading={resendCodeMutationResult.isPending}
 							disabled={isResendDisabled}
 							onClick={handleResendCode}
 						>
-							{isResendCooldownActive ?
-								<ResendCountdown timer={resendTimer} />
-							:	"Resend Code"}
+							Resend Code
+							{isResendCooldownActive && <ResendCountdown timer={resendTimer} />}
 						</Button>
 					</div>
 				</Form.Root>
@@ -158,15 +155,13 @@ function ResendCountdown(props: { timer: ReturnType<typeof useTimer> }) {
 	const { timer } = props;
 
 	return (
-		<Timer.RootProvider value={timer}>
-			<span className="inline-flex items-center gap-1">
-				<span>Resend in</span>
-				<Timer.Area className="inline-flex items-center font-semibold tabular-nums">
-					<Timer.Item type="minutes" />
-					<Timer.Separator>:</Timer.Separator>
-					<Timer.Item type="seconds" />
-				</Timer.Area>
-			</span>
+		<Timer.RootProvider value={timer} className="inline-flex items-center gap-1">
+			<p>in</p>
+			<Timer.Area className="inline-flex items-center font-semibold tabular-nums">
+				<Timer.Item type="minutes" />
+				<Timer.Separator>:</Timer.Separator>
+				<Timer.Item type="seconds" />
+			</Timer.Area>
 		</Timer.RootProvider>
 	);
 }
