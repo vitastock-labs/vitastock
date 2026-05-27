@@ -1,42 +1,35 @@
+import type { BrevoClient } from "@getbrevo/brevo";
 import { TEMPLATE_LOOKUP, type EmailJobOptions } from "@vitastock/transactional/emails";
 import type { CallbackFn } from "@zayne-labs/toolkit-type-helpers";
 import { consola } from "consola";
-import * as nodemailer from "nodemailer";
+import type * as nodemailer from "nodemailer";
 import type { Options as SmtpTransportOptions } from "nodemailer/lib/smtp-transport";
 import { ENVIRONMENT } from "@/config/env";
 
-type NodeSmtpTransportOptions = SmtpTransportOptions & {
-	family?: 4 | 6;
-};
+// const getProductionTransporterOptions = (): SmtpTransportOptions => ({
+// 	auth: {
+// 		pass: ENVIRONMENT.EMAIL_APP_PASSWORD,
+// 		// clientId: ENVIRONMENT.GOOGLE_CLIENT_ID,
+// 		// clientSecret: ENVIRONMENT.GOOGLE_CLIENT_SECRET,
+// 		// refreshToken: ENVIRONMENT.GOOGLE_AUTH_REFRESH_TOKEN,
+// 		// type: "OAuth2",
+// 		user: ENVIRONMENT.EMAIL_USER,
+// 	},
+// 	service: "gmail",
+// });
 
-const getTransporterOptions = (): NodeSmtpTransportOptions => {
-	if (ENVIRONMENT.NODE_ENV === "production") {
-		return {
-			auth: {
-				pass: ENVIRONMENT.EMAIL_APP_PASSWORD,
-				// clientId: ENVIRONMENT.GOOGLE_CLIENT_ID,
-				// clientSecret: ENVIRONMENT.GOOGLE_CLIENT_SECRET,
-				// refreshToken: ENVIRONMENT.GOOGLE_AUTH_REFRESH_TOKEN,
-				// type: "OAuth2",
-				user: ENVIRONMENT.EMAIL_USER,
-			},
-			secure: false,
-			service: "gmail",
-		};
-	}
+const getDevTransporterOptions = (): SmtpTransportOptions => ({
+	auth: {
+		pass: ENVIRONMENT.EMAIL_APP_PASSWORD_DEV,
+		user: ENVIRONMENT.EMAIL_USER_DEV,
+	},
+	host: "smtp.ethereal.email",
+	port: 587,
+});
 
-	return {
-		auth: {
-			pass: ENVIRONMENT.EMAIL_APP_PASSWORD_DEV,
-			user: ENVIRONMENT.EMAIL_USER_DEV,
-		},
-		host: "smtp.ethereal.email",
-		port: 587,
-		secure: false,
-	};
-};
+let brevo: BrevoClient | null = null;
 
-const transporter = nodemailer.createTransport(getTransporterOptions());
+let devTransporter: ReturnType<typeof nodemailer.createTransport> | null = null;
 
 export const sendEmail = async (options: EmailJobOptions) => {
 	const { data, type } = options;
@@ -49,19 +42,46 @@ export const sendEmail = async (options: EmailJobOptions) => {
 	>;
 
 	try {
-		const info = await transporter.sendMail({
-			from: templateOptions.from,
-			html: await templateFn(data),
+		const htmlContent = await templateFn(data);
+
+		if (ENVIRONMENT.NODE_ENV === "production") {
+			const { BrevoClient } = await import("@getbrevo/brevo");
+
+			brevo ??= new BrevoClient({
+				apiKey: ENVIRONMENT.BREVO_API_KEY,
+				maxRetries: 3,
+				timeoutInSeconds: 30,
+			});
+
+			const result = await brevo.transactionalEmails.sendTransacEmail({
+				htmlContent,
+				sender: templateOptions.from,
+				subject: templateOptions.subject,
+				to: [data.to],
+			});
+
+			consola.info("Email sent: %s", JSON.stringify(result, null, 2));
+
+			return;
+		}
+
+		const nodemailer = await import("nodemailer");
+
+		devTransporter ??= nodemailer.createTransport(getDevTransporterOptions());
+
+		const info = await devTransporter.sendMail({
+			from: { address: templateOptions.from.email, name: templateOptions.from.name },
+			html: htmlContent,
 			subject: templateOptions.subject,
-			to: data.to,
+			to: { address: data.to.email, name: data.to.name },
 		});
 
-		if (ENVIRONMENT.NODE_ENV === "development") {
-			consola.info("Email sent: %s", info);
-			consola.info("Preview URL: %s", nodemailer.getTestMessageUrl(info));
-		}
+		consola.info("Email sent: %s", JSON.stringify(info, null, 2));
+		consola.info("Email preview URL: ", nodemailer.getTestMessageUrl(info));
 	} catch (error) {
-		consola.error(new Error(`Failed to deliver '${type}' email to '${data.to}'`, { cause: error }));
+		consola.error(
+			new Error(`Failed to deliver '${type}' email to '${data.to.email}'`, { cause: error })
+		);
 		throw error;
 	}
 };

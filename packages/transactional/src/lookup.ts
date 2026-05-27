@@ -4,7 +4,10 @@ import { defineEnumDeep, type AnyFunction } from "@zayne-labs/toolkit-type-helpe
 type TemplateType = Record<
 	string,
 	{
-		from: string;
+		from: {
+			email: string;
+			name: string;
+		};
 		subject: string;
 		template: (props: never) => Promise<string>;
 	}
@@ -21,27 +24,27 @@ const getTemplateFn =
 export const TEMPLATE_LOOKUP = defineEnumDeep(
 	{
 		pharmacistInvite: {
-			from: "VitaStock <donotreply@vitastock.com>",
+			from: { email: "donotreply@vitastock.com", name: "Vitastock" },
 			subject: "You have been invited to join VitaStock",
 			template: getTemplateFn(import("../emails/PharmacistInviteEmail")),
 		},
 		resetPassword: {
-			from: "Vitastock <donotreply@vitastock.com>",
+			from: { email: "donotreply@vitastock.com", name: "Vitastock" },
 			subject: "Reset your password",
 			template: getTemplateFn(import("../emails/ResetPasswordEmail")),
 		},
 		resetPasswordComplete: {
-			from: "Vitastock <donotreply@vitastock.com>",
+			from: { email: "donotreply@vitastock.com", name: "Vitastock" },
 			subject: "Password Reset Successful",
 			template: getTemplateFn(import("../emails/ResetPasswordCompleteEmail")),
 		},
 		verifyEmail: {
-			from: "Vitastock <donotreply@vitastock.com>",
+			from: { email: "donotreply@vitastock.com", name: "Vitastock" },
 			subject: "Verify your email address",
 			template: getTemplateFn(import("../emails/VerifyEmail")),
 		},
 		welcomeEmail: {
-			from: "Vitastock <donotreply@vitastock.com>",
+			from: { email: "donotreply@vitastock.com", name: "Vitastock" },
 			subject: "Welcome to Vitastock",
 			template: getTemplateFn(import("../emails/WelcomeEmail")),
 		},

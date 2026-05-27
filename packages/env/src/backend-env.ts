@@ -12,6 +12,7 @@ export const backendEnvSchema = z.object({
 	...sharedEnvSchema.shape,
 	ACCESS_JWT_EXPIRES_IN: z.string().transform((value) => evaluateString<number>(value)),
 	ACCESS_SECRET: z.string(),
+	BREVO_API_KEY: z.string(),
 	DATABASE_URL: z.string(),
 	DATABASE_URL_DEV: z
 		.literal([

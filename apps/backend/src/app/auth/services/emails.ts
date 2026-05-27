@@ -43,7 +43,7 @@ export const sendVerificationEmail = async (
 		data: {
 			email: user.email,
 			name: user.fullName,
-			to: user.email,
+			to: { email: user.email, name: user.fullName },
 			validationCode: rawCode,
 		},
 		onError: async () => {
@@ -95,7 +95,7 @@ export const sendPasswordResetEmail = async (
 		data: {
 			name: user.fullName,
 			priority: "high",
-			to: user.email,
+			to: { email: user.email, name: user.fullName },
 			token: encodedToken,
 		},
 		onError: async () => {
@@ -110,7 +110,7 @@ export const sendResetPasswordCompleteEmail = async (user: Pick<SelectUserType, 
 		data: {
 			name: user.fullName,
 			priority: "high",
-			to: user.email,
+			to: { email: user.email, name: user.fullName },
 		},
 		type: "resetPasswordComplete",
 	});
@@ -130,7 +130,7 @@ export const sendPharmacistInviteEmail = async (
 			inviteeName,
 			priority: "high",
 			role,
-			to: inviteeEmail,
+			to: { email: inviteeEmail, name: inviteeName },
 			token,
 			workspaceName,
 		},

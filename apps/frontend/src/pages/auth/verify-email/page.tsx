@@ -23,7 +23,7 @@ function VerifyEmailPage() {
 
 	const resendTimer = useTimer({
 		countdown: true,
-		startMs: 2 * 60 * 1000,
+		startMs: 1.5 * 60 * 1000,
 	});
 
 	const form = useForm({

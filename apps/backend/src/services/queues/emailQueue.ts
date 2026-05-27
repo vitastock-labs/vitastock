@@ -29,7 +29,9 @@ export const addEmailToQueue = async (options: EmailJobOptions) => {
 
 		await onSuccess?.();
 	} catch (error) {
-		consola.error(new Error(`Failed to enqueue '${type}' email to '${data.to}'`, { cause: error }));
+		consola.error(
+			new Error(`Failed to enqueue '${type}' email to '${data.to.email}'`, { cause: error })
+		);
 
 		await onError?.();
 
