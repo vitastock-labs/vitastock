@@ -28,6 +28,7 @@ function getIconsArray() {
 		"lucide:search",
 		"lucide:bell",
 		"lucide:user",
+		"lucide:users-round",
 		"lucide:plus",
 		"lucide:circle",
 		"lucide:refresh-cw",
@@ -47,5 +48,6 @@ function getIconsArray() {
 		"material-symbols:settings-outline-rounded",
 		"material-symbols:settings-rounded",
 		"material-symbols:error-outline-rounded",
+		"lucide:send-horizontal",
 	];
 }

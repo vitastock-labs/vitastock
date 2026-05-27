@@ -22,7 +22,7 @@
             "icon": "server",
             "name": "dev:backend",
             "commands": [
-               "pnpm dev"
+               "pnpm dev:nitro"
             ]
          },
          {

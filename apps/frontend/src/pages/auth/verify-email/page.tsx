@@ -1,3 +1,4 @@
+import { Timer, useTimer } from "@ark-ui/react/timer";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { backendApiSchemaRoutes } from "@vitastock/shared/validation/backendApiSchema";
@@ -15,10 +16,17 @@ import { Main } from "../-components/Main";
 
 const VerifyEmailSchema = backendApiSchemaRoutes["@post/auth/verify-email"].body.pick({ code: true });
 
+const RESEND_COOLDOWN_MS = 60 * 1000;
+
 function VerifyEmailPage() {
 	const [searchParams] = useSearchParams();
 	const email = searchParams.get("email") ?? "";
 	const code = searchParams.get("code") ?? "";
+
+	const resendTimer = useTimer({
+		countdown: true,
+		startMs: RESEND_COOLDOWN_MS,
+	});
 
 	const form = useForm({
 		defaultValues: {
@@ -43,8 +51,18 @@ function VerifyEmailPage() {
 	const resendCodeMutationResult = useMutation(resendVerificationEmailMutation());
 
 	const handleResendCode = () => {
-		resendCodeMutationResult.mutate({ email });
+		resendCodeMutationResult.mutate(
+			{ email },
+			{
+				onSuccess: () => {
+					resendTimer.restart();
+				},
+			}
+		);
 	};
+
+	const isResendCooldownActive = resendTimer.running;
+	const isResendDisabled = resendCodeMutationResult.isPending || isResendCooldownActive || !email;
 
 	return (
 		<Main>
@@ -116,10 +134,12 @@ function VerifyEmailPage() {
 							theme="secondary-outline"
 							className="h-9"
 							isLoading={resendCodeMutationResult.isPending}
-							disabled={resendCodeMutationResult.isPending}
+							disabled={isResendDisabled}
 							onClick={handleResendCode}
 						>
-							Resend Code
+							{isResendCooldownActive ?
+								<ResendCountdown timer={resendTimer} />
+							:	"Resend Code"}
 						</Button>
 					</div>
 				</Form.Root>
@@ -133,3 +153,26 @@ function VerifyEmailPage() {
 }
 
 export default VerifyEmailPage;
+
+function ResendCountdown(props: { timer: ReturnType<typeof useTimer> }) {
+	const { timer } = props;
+
+	return (
+		<Timer.RootProvider value={timer}>
+			<span className="inline-flex items-center gap-1">
+				<span>Resend in</span>
+				<Timer.Area className="inline-flex items-center font-semibold tabular-nums">
+					<Timer.Item asChild={true} type="minutes">
+						<span />
+					</Timer.Item>
+					<Timer.Separator asChild={true}>
+						<span>:</span>
+					</Timer.Separator>
+					<Timer.Item asChild={true} type="seconds">
+						<span />
+					</Timer.Item>
+				</Timer.Area>
+			</span>
+		</Timer.RootProvider>
+	);
+}

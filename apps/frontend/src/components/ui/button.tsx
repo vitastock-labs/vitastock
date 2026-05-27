@@ -70,8 +70,8 @@ const buttonVariants = tv({
 			"primary-outline": `border-[1.5px] border-vitastock-primary-main bg-transparent
 			text-vitastock-primary-main shadow-[0_1px_2px_hsl(0,0%,0%,0.05)]`,
 
-			"secondary-outline": `border-[1.5px] border-[hsl(200,5%,89%)] bg-transparent text-black
-			shadow-[0_1px_2px_hsl(0,0%,0%,0.05)]`,
+			"secondary-outline": `border-[1.5px] border-[hsl(200,5%,89%)] bg-transparent
+			text-vitastock-body-color shadow-[0_1px_2px_hsl(0,0%,0%,0.05)]`,
 		},
 	},
 });

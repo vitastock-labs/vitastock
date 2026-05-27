@@ -8,7 +8,7 @@ import { useMemo } from "react";
 
 type DialogContextType = {
 	isOpen: boolean;
-	setIsOpen: DialogProps["onOpenChange"];
+	setIsOpen: NonNullable<DialogProps["onOpenChange"]>;
 };
 
 const [DialogContextProvider, useDialogContext] = createCustomContext<DialogContextType>({

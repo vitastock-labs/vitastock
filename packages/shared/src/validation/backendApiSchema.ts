@@ -1,6 +1,5 @@
 import {
 	InsertUserSchema,
-	InsertWorkspaceInvitationSchema,
 	SelectUserSchema,
 	SelectWorkspaceInvitationSchema,
 } from "@vitastock/db/schema/auth";
@@ -46,8 +45,11 @@ const withBaseErrorResponse = <T extends z.ZodType = typeof BaseErrorResponseSch
 
 const PasswordSchema = z.string().min(8, "Password must be at least 8 characters long");
 
+const stringWithDateValidation = () =>
+	z.preprocess((value) => (typeof value === "string" ? new Date(value) : value), z.date());
+
 const TokenObjectSchema = z.object({
-	expiresAt: z.date(),
+	expiresAt: stringWithDateValidation(),
 	token: z.string(),
 });
 
@@ -91,6 +93,8 @@ const authRoutes = () => {
 		mustChangePassword: true,
 		role: true,
 		workspaceId: true,
+	}).extend({
+		emailVerifiedAt: stringWithDateValidation().nullable(),
 	});
 
 	const WorkspaceDetailsSchema = SelectWorkspaceSchema.pick({
@@ -112,10 +116,14 @@ const authRoutes = () => {
 		workspace: WorkspaceDetailsSchema,
 	});
 
-	const InvitationDataSchema = z.object({
+	const InvitationDataSchema = SelectWorkspaceInvitationSchema.pick({
+		expiresAt: true,
+		inviteeEmail: true,
+		inviteeName: true,
+		role: true,
+	}).extend({
 		defaultPassword: PasswordSchema,
-		inviteeEmail: InsertWorkspaceInvitationSchema.shape.inviteeEmail,
-		inviteeName: InsertWorkspaceInvitationSchema.shape.inviteeName,
+		expiresAt: stringWithDateValidation(),
 		role: UserDetailsSchema.shape.role.exclude(["owner"]),
 	});
 
@@ -154,14 +162,16 @@ const authRoutes = () => {
 		},
 
 		"@post/auth/invitations/send": {
-			body: InvitationDataSchema,
+			body: InvitationDataSchema.omit({ expiresAt: true }),
 			data: withBaseSuccessResponse(
 				z.object({
 					invitation: InvitationDataSchema.pick({
 						inviteeEmail: true,
 						inviteeName: true,
 						role: true,
-					}).extend(SelectWorkspaceInvitationSchema.pick({ expiresAt: true }).shape),
+					}).extend({
+						expiresAt: stringWithDateValidation(),
+					}),
 				})
 			),
 		},

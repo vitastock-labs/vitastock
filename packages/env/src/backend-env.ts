@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { consola } from "consola";
 import { findUpSync } from "find-up-simple";
@@ -46,7 +47,9 @@ const packageJson = findUpSync("pnpm-workspace.yaml", { cwd: import.meta.dirname
 
 const monorepoRoot = packageJson ? path.dirname(packageJson) : null;
 
-monorepoRoot && process.loadEnvFile(path.resolve(monorepoRoot, "apps/backend/.env"));
+const backendEnvFilePath = monorepoRoot ? path.resolve(monorepoRoot, "apps/backend/.env") : null;
+
+backendEnvFilePath && existsSync(backendEnvFilePath) && process.loadEnvFile(backendEnvFilePath);
 
 export const getBackendEnv = () => {
 	// eslint-disable-next-line node/no-process-env
