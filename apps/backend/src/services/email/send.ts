@@ -13,20 +13,14 @@ const getTransporterOptions = (): NodeSmtpTransportOptions => {
 	if (ENVIRONMENT.NODE_ENV === "production") {
 		return {
 			auth: {
-				clientId: ENVIRONMENT.GOOGLE_CLIENT_ID,
-				clientSecret: ENVIRONMENT.GOOGLE_CLIENT_SECRET,
-				refreshToken: ENVIRONMENT.GOOGLE_AUTH_REFRESH_TOKEN,
-				type: "OAuth2",
+				pass: ENVIRONMENT.EMAIL_APP_PASSWORD,
+				// clientId: ENVIRONMENT.GOOGLE_CLIENT_ID,
+				// clientSecret: ENVIRONMENT.GOOGLE_CLIENT_SECRET,
+				// refreshToken: ENVIRONMENT.GOOGLE_AUTH_REFRESH_TOKEN,
+				// type: "OAuth2",
 				user: ENVIRONMENT.EMAIL_USER,
 			},
-			connectionTimeout: 15_000,
-			family: 4,
-			greetingTimeout: 15_000,
-			host: "smtp.gmail.com",
-			port: 587,
-			requireTLS: true,
-			secure: false,
-			socketTimeout: 30_000,
+			service: "gmail",
 		};
 	}
 
