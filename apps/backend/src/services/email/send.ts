@@ -20,6 +20,7 @@ const getTransporterOptions = (): NodeSmtpTransportOptions => {
 				// type: "OAuth2",
 				user: ENVIRONMENT.EMAIL_USER,
 			},
+			secure: false,
 			service: "gmail",
 		};
 	}
