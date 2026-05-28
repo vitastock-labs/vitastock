@@ -33,15 +33,18 @@ export type BaseApiErrorResponse<TErrors = z.infer<typeof BaseErrorResponseSchem
 	"errors"
 > & { errors: TErrors };
 
-const withBaseSuccessResponse = <T extends z.ZodType>(dataSchema: T) =>
-	BaseSuccessResponseSchema.extend({ data: dataSchema });
-
-const withBaseErrorResponse = <T extends z.ZodType = typeof BaseErrorResponseSchema.shape.errors>(
-	errorSchema?: T
-) =>
-	BaseErrorResponseSchema.extend({
-		errors: (errorSchema ?? BaseErrorResponseSchema.shape.errors) as NonNullable<T>,
+const withBaseSuccessResponse = <TDataSchema extends z.ZodType>(dataSchema: TDataSchema) => {
+	return BaseSuccessResponseSchema.extend({ data: dataSchema });
+};
+const withBaseErrorResponse = <
+	TErrorSchema extends z.ZodType = typeof BaseErrorResponseSchema.shape.errors,
+>(
+	errorSchema?: TErrorSchema
+) => {
+	return BaseErrorResponseSchema.extend({
+		errors: (errorSchema ?? BaseErrorResponseSchema.shape.errors) as NonNullable<TErrorSchema>,
 	});
+};
 
 const PasswordSchema = z.string().min(8, "Password must be at least 8 characters long");
 
