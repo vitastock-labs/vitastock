@@ -4,7 +4,6 @@ import {
 	passwordResetTokens,
 	type SelectUserType,
 } from "@vitastock/db/schema/auth";
-import type { EmailJobOptions } from "@vitastock/transactional/emails";
 import { add } from "date-fns";
 import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -113,27 +112,5 @@ export const sendResetPasswordCompleteEmail = async (user: Pick<SelectUserType, 
 			to: { email: user.email, name: user.fullName },
 		},
 		type: "resetPasswordComplete",
-	});
-};
-
-export const sendPharmacistInviteEmail = async (
-	options: Omit<Extract<EmailJobOptions, { type: "pharmacistInvite" }>["data"], "priority" | "to">
-) => {
-	const { defaultPassword, invitedByEmail, inviteeEmail, inviteeName, role, token, workspaceName } =
-		options;
-
-	await addEmailToQueue({
-		data: {
-			defaultPassword,
-			invitedByEmail,
-			inviteeEmail,
-			inviteeName,
-			priority: "high",
-			role,
-			to: { email: inviteeEmail, name: inviteeName },
-			token,
-			workspaceName,
-		},
-		type: "pharmacistInvite",
 	});
 };

@@ -1,9 +1,9 @@
+import { InsertUserSchema, SelectUserSchema } from "@vitastock/db/schema/auth";
 import {
-	InsertUserSchema,
-	SelectUserSchema,
+	InsertWorkspaceSchema,
 	SelectWorkspaceInvitationSchema,
-} from "@vitastock/db/schema/auth";
-import { InsertWorkspaceSchema, SelectWorkspaceSchema } from "@vitastock/db/schema/workspaces";
+	SelectWorkspaceSchema,
+} from "@vitastock/db/schema/workspace";
 import { AUTH_ERROR_APP_CODES } from "@vitastock/shared/constants";
 import type { InferAllMainRouteKeys, InferAllMainRoutes } from "@zayne-labs/callapi";
 import { fallBackRouteSchemaKey } from "@zayne-labs/callapi/constants";
@@ -87,50 +87,39 @@ const defaultSchemaRoute = defineSchemaRoutes({
 	},
 });
 
+const UserDetailsSchema = SelectUserSchema.pick({
+	email: true,
+	emailVerifiedAt: true,
+	fullName: true,
+	id: true,
+	mustChangePassword: true,
+	role: true,
+	workspaceId: true,
+}).extend({
+	emailVerifiedAt: stringWithDateValidation().nullable(),
+});
+
+const WorkspaceDetailsSchema = SelectWorkspaceSchema.pick({
+	alertEmail: true,
+	id: true,
+	lowStockThreshold: true,
+	name: true,
+	nearExpiryDays: true,
+	timezone: true,
+});
+
+const AuthDataSchema = z.object({
+	user: UserDetailsSchema,
+	workspace: WorkspaceDetailsSchema,
+});
+
+const AuthSuccessResponseSchema = withBaseSuccessResponse(AuthDataSchema);
+
 const authRoutes = () => {
-	const UserDetailsSchema = SelectUserSchema.pick({
-		email: true,
-		emailVerifiedAt: true,
-		fullName: true,
-		id: true,
-		mustChangePassword: true,
-		role: true,
-		workspaceId: true,
-	}).extend({
-		emailVerifiedAt: stringWithDateValidation().nullable(),
-	});
-
-	const WorkspaceDetailsSchema = SelectWorkspaceSchema.pick({
-		alertEmail: true,
-		id: true,
-		lowStockThreshold: true,
-		name: true,
-		nearExpiryDays: true,
-		timezone: true,
-	});
-
 	const AuthTokensSchema = z.object({
 		access: TokenObjectSchema,
 		refresh: TokenObjectSchema,
 	});
-
-	const AuthDataSchema = z.object({
-		user: UserDetailsSchema,
-		workspace: WorkspaceDetailsSchema,
-	});
-
-	const InvitationDataSchema = SelectWorkspaceInvitationSchema.pick({
-		expiresAt: true,
-		inviteeEmail: true,
-		inviteeName: true,
-		role: true,
-	}).extend({
-		defaultPassword: PasswordSchema,
-		expiresAt: stringWithDateValidation(),
-		role: UserDetailsSchema.shape.role.exclude(["owner"]),
-	});
-
-	const AuthSuccessResponseSchema = withBaseSuccessResponse(AuthDataSchema);
 
 	const NullSuccessResponseSchema = withBaseSuccessResponse(z.null());
 
@@ -155,28 +144,6 @@ const authRoutes = () => {
 		"@post/auth/forgot-password": {
 			body: SignUpSchema.pick({ email: true }),
 			data: NullSuccessResponseSchema,
-		},
-
-		"@post/auth/invitations/accept": {
-			body: z.object({
-				token: z.string().min(1, "Invitation token is required"),
-			}),
-			data: AuthSuccessResponseSchema,
-		},
-
-		"@post/auth/invitations/send": {
-			body: InvitationDataSchema.omit({ expiresAt: true }),
-			data: withBaseSuccessResponse(
-				z.object({
-					invitation: InvitationDataSchema.pick({
-						inviteeEmail: true,
-						inviteeName: true,
-						role: true,
-					}).extend({
-						expiresAt: stringWithDateValidation(),
-					}),
-				})
-			),
 		},
 
 		"@post/auth/resend-verification-email": {
@@ -228,10 +195,84 @@ const authRoutes = () => {
 		},
 	});
 };
+
+export const workspaceRoutes = () => {
+	const WorkspaceMemberSchema = z.discriminatedUnion("status", [
+		SelectUserSchema.pick({
+			createdAt: true,
+			email: true,
+			fullName: true,
+			id: true,
+			role: true,
+		}).extend({
+			createdAt: stringWithDateValidation(),
+			isCurrentUser: z.boolean(),
+			status: z.literal("active"),
+		}),
+		SelectWorkspaceInvitationSchema.pick({
+			createdAt: true,
+			expiresAt: true,
+			id: true,
+			inviteeEmail: true,
+			inviteeName: true,
+			role: true,
+		}).extend({
+			createdAt: stringWithDateValidation(),
+			expiresAt: stringWithDateValidation(),
+			isCurrentUser: z.literal(false),
+			role: UserDetailsSchema.shape.role.exclude(["owner"]),
+			status: z.literal("pending"),
+		}),
+	]);
+
+	const InvitationDataSchema = SelectWorkspaceInvitationSchema.pick({
+		expiresAt: true,
+		inviteeEmail: true,
+		inviteeName: true,
+		role: true,
+	}).extend({
+		defaultPassword: PasswordSchema,
+		expiresAt: stringWithDateValidation(),
+		role: UserDetailsSchema.shape.role.exclude(["owner"]),
+	});
+
+	return defineSchemaRoutes({
+		"@get/workspace/members": {
+			data: withBaseSuccessResponse(
+				z.object({
+					members: z.array(WorkspaceMemberSchema),
+				})
+			),
+		},
+
+		"@post/workspace/invitation/accept": {
+			body: z.object({
+				token: z.string().min(1, "Invitation token is required"),
+			}),
+			data: AuthSuccessResponseSchema,
+		},
+
+		"@post/workspace/invitation/send": {
+			body: InvitationDataSchema.omit({ expiresAt: true }),
+			data: withBaseSuccessResponse(
+				z.object({
+					invitation: InvitationDataSchema.pick({
+						inviteeEmail: true,
+						inviteeName: true,
+						role: true,
+					}).extend({
+						expiresAt: stringWithDateValidation(),
+					}),
+				})
+			),
+		},
+	});
+};
 export const backendApiSchema = defineSchema(
 	{
 		...defaultSchemaRoute,
 		...authRoutes(),
+		...workspaceRoutes(),
 	},
 	{ strict: true }
 );

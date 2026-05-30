@@ -2,7 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
 import { backendApiSchemaRoutes } from "@vitastock/shared/validation/backendApiSchema";
 import { useForm } from "react-hook-form";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { Logo } from "@/components/common/Logo";
 import { NavLink } from "@/components/common/NavLink";
 import { Button } from "@/components/ui";
@@ -14,9 +14,12 @@ import { Main } from "../-components/Main";
 const SignInSchema = backendApiSchemaRoutes["@post/auth/signin"].body;
 
 function SigninPage() {
+	const [searchParams] = useSearchParams();
+	const email = searchParams.get("email") ?? "";
+
 	const form = useForm({
 		defaultValues: {
-			email: "",
+			email,
 			password: "",
 		},
 		resolver: zodResolver(SignInSchema),
@@ -41,7 +44,7 @@ function SigninPage() {
 			onSuccess: async () => {
 				await queryClient.invalidateQueries(sessionQuery());
 
-				void navigate(`/dashboard`);
+				void navigate(`/dashboard`, { replace: true });
 			},
 		});
 	});

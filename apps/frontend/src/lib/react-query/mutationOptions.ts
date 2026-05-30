@@ -21,3 +21,15 @@ export const resendVerificationEmailMutation = () => {
 		mutationKey: ["auth", "resend-verification-email"],
 	});
 };
+
+export const acceptWorkspaceInvitationMutation = () => {
+	return mutationOptions({
+		mutationFn: (bodyData: { token: string }) => {
+			return callBackendApiForQuery("@post/workspace/invitation/accept", {
+				body: bodyData,
+				meta: { toast: { success: true } },
+			});
+		},
+		mutationKey: ["auth", "workspace", "invitation", "accept"],
+	});
+};

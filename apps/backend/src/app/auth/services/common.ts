@@ -1,6 +1,6 @@
 import { db } from "@vitastock/db";
 import type { SelectUserType } from "@vitastock/db/schema/auth";
-import { workspaces, type SelectWorkspaceType } from "@vitastock/db/schema/workspaces";
+import { workspaces, type SelectWorkspaceType } from "@vitastock/db/schema/workspace";
 import { pickKeys } from "@zayne-labs/toolkit-core";
 import { defineEnum } from "@zayne-labs/toolkit-type-helpers";
 import { eq } from "drizzle-orm";

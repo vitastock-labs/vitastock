@@ -34,6 +34,10 @@ const routes = createRoutesFromElements(
 				Component={lazy(() => import("./pages/auth/forgot-password/page"))}
 			/>
 			<Route
+				path="/auth/workspace/invitation/accept"
+				Component={lazy(() => import("./pages/auth/workspace/invitation/accept/page"))}
+			/>
+			<Route
 				path="/auth/reset-password"
 				Component={lazy(() => import("./pages/auth/reset-password/page"))}
 			/>

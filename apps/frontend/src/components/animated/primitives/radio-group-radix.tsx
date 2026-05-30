@@ -1,3 +1,4 @@
+/* eslint-disable react-you-might-not-need-an-effect/no-reset-all-state-on-prop-change */
 /* eslint-disable react/set-state-in-effect */
 /* eslint-disable react-you-might-not-need-an-effect/no-derived-state */
 /* eslint-disable react-hooks/no-deriving-state-in-effects */

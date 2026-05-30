@@ -3,6 +3,7 @@ import { ENVIRONMENT } from "@/config/env";
 import { createHonoApp } from "@/lib/hono";
 import { createBullBoardSetup } from "@/services/queues/utils/bullBoard";
 import { authRoutes } from "./auth/routes";
+import { workspaceRoutes } from "./workspace/routes";
 
 const app = createHonoApp();
 
@@ -21,7 +22,7 @@ app.on("GET", ["/", "/health"], (c) => {
 /**
  *  == Routes - v1
  */
-app.basePath("/api/v1").route("", authRoutes);
+app.basePath("/api/v1").route("", authRoutes).route("", workspaceRoutes);
 
 // TODO - Protect this route with basic hono login or hosted on a diff platform
 // Bull Board currently relies on CommonJS `require` internally and breaks in Vercel's ESM bundle.

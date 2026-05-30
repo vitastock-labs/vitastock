@@ -21,7 +21,7 @@ const buttonVariants = tv({
 
 	compoundVariants: [
 		{
-			className: "grid place-items-center",
+			className: "relative",
 			isLoading: true,
 			loadingStyle: "replace-content",
 		},
@@ -114,10 +114,14 @@ function Button<TElement extends React.ElementType = "button">(
 		<>
 			<Slot.Slottable>
 				{loadingStyle === "replace-content" ?
-					<div className="invisible [grid-area:1/1]">{children}</div>
+					<div className="invisible contents">{children}</div>
 				:	children}
 			</Slot.Slottable>
-			<span className={cnJoin(loadingStyle === "replace-content" && "[grid-area:1/1]")}>
+			<span
+				className={cnJoin(
+					loadingStyle === "replace-content" && "absolute inset-0 inline-grid place-content-center"
+				)}
+			>
 				<SpinnerIcon className="size-5" />
 			</span>
 		</>

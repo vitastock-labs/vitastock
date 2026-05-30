@@ -1,5 +1,5 @@
 import { db } from "@vitastock/db";
-import { workspaces } from "@vitastock/db/schema/workspaces";
+import { workspaces } from "@vitastock/db/schema/workspace";
 import { eq } from "drizzle-orm";
 import { createMiddleware } from "hono/factory";
 import { getCookie, setCookie } from "@/app/auth/services/cookie";
@@ -26,6 +26,7 @@ const authMiddleware = createMiddleware<HonoAppBindings>(async (ctx, next) => {
 
 		ctx.set("currentUser", currentUser);
 
+		// TODO: Parallelize this with currentUser from validateUserSession
 		const currentWorkspace = await getFromCache(`workspace:${currentUser.workspaceId}`, {
 			onCacheMiss: async () => {
 				const [workspace] = await db

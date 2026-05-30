@@ -1,28 +1,21 @@
 import { db } from "@vitastock/db";
-import {
-	emailVerificationCodes,
-	passwordResetTokens,
-	users,
-	workspaceInvitations,
-} from "@vitastock/db/schema/auth";
-import { workspaces } from "@vitastock/db/schema/workspaces";
+import { emailVerificationCodes, passwordResetTokens, users } from "@vitastock/db/schema/auth";
+import { workspaces } from "@vitastock/db/schema/workspace";
 import { AUTH_ERRORS } from "@vitastock/shared/constants";
 import { backendApiSchemaRoutes } from "@vitastock/shared/validation/backendApiSchema";
 import { pickKeys } from "@zayne-labs/toolkit-core";
-import { add, differenceInHours, isPast } from "date-fns";
-import { and, eq, gt, isNull, sql } from "drizzle-orm";
+import { differenceInHours, isPast } from "date-fns";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { rateLimiter } from "hono-rate-limiter";
 import { authRateLimiterOptions } from "@/config/rateLimiterOptions";
 import { AppError, AppJsonResponse } from "@/lib/utils";
-import { generateRandomBytes } from "@/lib/utils/random";
-import { authMiddleware, authorizeRoleMiddleware, validateWithZodMiddleware } from "@/middleware";
+import { authMiddleware, validateWithZodMiddleware } from "@/middleware";
 import { removeFromCache, setCache } from "@/services/cache";
 import { getAuthResponseData } from "./services/common";
 import { deleteCookie, getCookie, setCookie } from "./services/cookie";
 import {
 	sendPasswordResetEmail,
-	sendPharmacistInviteEmail,
 	sendResetPasswordCompleteEmail,
 	sendVerificationEmail,
 	TokenSchema,
@@ -304,9 +297,15 @@ const authRoutes = new Hono()
 				.limit(1);
 
 			// NOTE - Always respond generically to avoid user enumeration
-			if (existingUser && !existingUser.emailVerifiedAt) {
-				await sendVerificationEmail(existingUser, db);
+			if (!existingUser || existingUser.emailVerifiedAt) {
+				return AppJsonResponse(ctx, {
+					data: null,
+					message: "Verification email sent successfully",
+					schema: backendApiSchemaRoutes["@post/auth/resend-verification-email"].data,
+				});
 			}
+
+			await sendVerificationEmail(existingUser, db);
 
 			return AppJsonResponse(ctx, {
 				data: null,
@@ -460,188 +459,7 @@ const authRoutes = new Hono()
 		}
 	)
 
-	.post(
-		"/invitations/accept",
-		rateLimiter(authRateLimiterOptions),
-		validateWithZodMiddleware("json", backendApiSchemaRoutes["@post/auth/invitations/accept"].body),
-		async (ctx) => {
-			const { token } = ctx.req.valid("json");
-
-			const tokenHash = hashToken(token);
-
-			const [invitationResult] = await db
-				.select(
-					pickKeys(workspaceInvitations, [
-						"acceptedAt",
-						"defaultPasswordHash",
-						"expiresAt",
-						"id",
-						"inviteeEmail",
-						"inviteeName",
-						"role",
-						"workspaceId",
-					])
-				)
-				.from(workspaceInvitations)
-				.innerJoin(workspaces, eq(workspaceInvitations.workspaceId, workspaces.id))
-				.where(eq(workspaceInvitations.tokenHash, tokenHash))
-				.limit(1);
-
-			if (!invitationResult || invitationResult.acceptedAt || isPast(invitationResult.expiresAt)) {
-				throw new AppError({
-					code: 400,
-					message: "Invalid or expired invitation",
-				});
-			}
-
-			const [existingUser] = await db
-				.select(pickKeys(users, ["id"]))
-				.from(users)
-				.where(eq(users.email, invitationResult.inviteeEmail))
-				.limit(1);
-
-			if (existingUser) {
-				throw new AppError({
-					code: 400,
-					message: "A user with this email already exists",
-				});
-			}
-
-			const newUser = await db.transaction(async (tx) => {
-				const [insertedUser] = await tx
-					.insert(users)
-					.values({
-						email: invitationResult.inviteeEmail,
-						emailVerifiedAt: new Date(),
-						fullName: invitationResult.inviteeName,
-						mustChangePassword: true,
-						passwordHash: invitationResult.defaultPasswordHash,
-						role: "pharmacist",
-						temporaryPasswordIssuedAt: new Date(),
-						workspaceId: invitationResult.workspaceId,
-					})
-					.returning();
-
-				if (!insertedUser) {
-					throw new AppError({
-						code: 500,
-						message: "Failed to create invited user",
-					});
-				}
-
-				await tx
-					.update(workspaceInvitations)
-					.set({ acceptedAt: new Date() })
-					.where(eq(workspaceInvitations.id, invitationResult.id));
-
-				return insertedUser;
-			});
-
-			return AppJsonResponse(ctx, {
-				data: await getAuthResponseData(newUser),
-				message: "Invitation accepted successfully",
-				schema: backendApiSchemaRoutes["@post/auth/invitations/accept"].data,
-			});
-		}
-	)
-
 	.use(authMiddleware)
-
-	.post(
-		"/invitations/send",
-		authorizeRoleMiddleware(["owner", "admin"]),
-		rateLimiter(authRateLimiterOptions),
-		validateWithZodMiddleware("json", backendApiSchemaRoutes["@post/auth/invitations/send"].body),
-		async (ctx) => {
-			const { defaultPassword, inviteeEmail, inviteeName, role } = ctx.req.valid("json");
-
-			const currentUser = ctx.get("currentUser");
-			const currentWorkspace = ctx.get("currentWorkspace");
-
-			const [existingUser] = await db
-				.select(pickKeys(users, ["id"]))
-				.from(users)
-				.where(eq(users.email, inviteeEmail))
-				.limit(1);
-
-			if (existingUser) {
-				throw new AppError({
-					code: 400,
-					message: "A user with this email already exists",
-				});
-			}
-
-			const [activeInvitation] = await db
-				.select(pickKeys(workspaceInvitations, ["id"]))
-				.from(workspaceInvitations)
-				.where(
-					and(
-						eq(workspaceInvitations.inviteeEmail, inviteeEmail),
-						eq(workspaceInvitations.workspaceId, currentUser.workspaceId),
-						gt(workspaceInvitations.expiresAt, new Date()),
-						isNull(workspaceInvitations.acceptedAt)
-					)
-				)
-				.limit(1);
-
-			if (activeInvitation) {
-				throw new AppError({
-					code: 400,
-					message: "An active invitation already exists for this email",
-				});
-			}
-
-			const invitationToken = generateRandomBytes();
-
-			const defaultPasswordHash = await hashValue(defaultPassword);
-
-			const tokenHash = hashToken(invitationToken);
-
-			const expiresAt = add(new Date(), { days: 7 });
-
-			const [insertedInvitation] = await db
-				.insert(workspaceInvitations)
-				.values({
-					defaultPasswordHash,
-					expiresAt,
-					invitedByUserId: currentUser.id,
-					inviteeEmail,
-					inviteeName,
-					role,
-					tokenHash,
-					workspaceId: currentUser.workspaceId,
-				})
-				.returning();
-
-			if (!insertedInvitation) {
-				throw new AppError({
-					code: 500,
-					message: "Failed to create invitation",
-				});
-			}
-
-			await sendPharmacistInviteEmail({
-				defaultPassword,
-				invitedByEmail: currentUser.email,
-				inviteeEmail,
-				inviteeName,
-				role,
-				token: invitationToken,
-				workspaceName: currentWorkspace.name,
-			});
-
-			return AppJsonResponse(ctx, {
-				data: {
-					invitation: {
-						...pickKeys(insertedInvitation, ["expiresAt", "id", "inviteeEmail", "inviteeName"]),
-						role,
-					},
-				},
-				message: "Invitation sent successfully",
-				schema: backendApiSchemaRoutes["@post/auth/invitations/send"].data,
-			});
-		}
-	)
 
 	.post("/signout", async (ctx) => {
 		const currentUser = ctx.get("currentUser");

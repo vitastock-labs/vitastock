@@ -29,7 +29,7 @@ export const sharedBaseConfig = defineBaseConfig({
 				{ endpoints: ["@get/auth/session"], on: "success" },
 				{ endpoints: ["@get/auth/session"], on: "error", routesExclude: ["/dashboard/**"] },
 			],
-			errorAndSuccess: true,
+			error: true,
 			errorsToSkip: ["AbortError"],
 		}),
 		loggerPlugin({

@@ -17,7 +17,7 @@ export function PharmacistInviteEmail(props: PharmacistInviteEmailProps) {
 	const { defaultPassword, invitedByEmail, inviteeEmail, inviteeName, role, token, workspaceName } =
 		props;
 
-	const invitationUrl = `${FRONTEND_URL}/auth/invitations/accept?${new URLSearchParams({ token }).toString()}`;
+	const invitationUrl = `${FRONTEND_URL}/auth/workspace/invitation/accept?${new URLSearchParams({ inviteeEmail, token, workspaceName }).toString()}`;
 
 	return (
 		<BaseLayout preview={`You have been invited to join ${workspaceName} on VitaStock`}>
