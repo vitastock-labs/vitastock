@@ -15,8 +15,8 @@
 		"@vitastock/db": "workspace:*",
 		"@vitastock/env": "workspace:*",
 		"@zayne-labs/callapi": "1.13.0",
-		"@zayne-labs/toolkit-core": "^0.12.54",
-		"@zayne-labs/toolkit-type-helpers": "^0.12.54",
+		"@zayne-labs/toolkit-core": "^0.12.55",
+		"@zayne-labs/toolkit-type-helpers": "^0.12.55",
 		"consola": "3.4.2",
 		"zod": "4.4.0"
 	},

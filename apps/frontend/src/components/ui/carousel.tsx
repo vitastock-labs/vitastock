@@ -1,3 +1,5 @@
+/* eslint-disable react-you-might-not-need-an-effect/no-external-store-subscription */
+/* eslint-disable react-you-might-not-need-an-effect/no-pass-data-to-parent */
 /* eslint-disable react-you-might-not-need-an-effect/no-event-handler */
 "use client";
 

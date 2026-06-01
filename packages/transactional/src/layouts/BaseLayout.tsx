@@ -57,14 +57,14 @@ export function BaseLayout(props: EmailLayoutProps) {
 						extend: {
 							colors: {
 								vitastock: {
-									"body-color": "hsl(230, 12%, 30%)",
+									"body-color": "rgb(67, 70, 86)",
 									primary: {
-										dark: "hsl(218, 100%, 39%)",
-										darker: "hsl(226, 70%, 22%)",
-										glow: "hsl(222, 95%, 65%)",
-										light: "hsl(225, 34%, 44%)",
-										main: "hsl(222, 83%, 52%)",
-										subtle: "hsl(226, 100%, 84%)",
+										dark: "rgb(0, 73, 199)",
+										darker: "rgb(17, 35, 95)",
+										glow: "rgb(81, 132, 251)",
+										light: "rgb(74, 93, 150)",
+										main: "rgb(31, 92, 234)",
+										subtle: "rgb(173, 192, 255)",
 									},
 								},
 							},
@@ -77,7 +77,7 @@ export function BaseLayout(props: EmailLayoutProps) {
 			>
 				<Body className="bg-slate-50 py-12 font-sans text-vitastock-body-color">
 					<Container className="mx-auto max-w-145 px-4">
-						<Section className="mb-8 text-center">
+						<Section className="text-center">
 							<Img
 								src={`${FRONTEND_URL}/logo.png`}
 								width="80"
@@ -87,15 +87,15 @@ export function BaseLayout(props: EmailLayoutProps) {
 							/>
 						</Section>
 
-						<Section className="rounded-3xl border border-slate-200 bg-white px-10 py-12 shadow-xl">
+						<Section className="mt-8 rounded-3xl border border-slate-200 bg-white px-10 py-12">
 							{children}
 						</Section>
 
 						<Section className="mt-10 text-center">
-							<Text className="mb-2 text-xs text-slate-500">
+							<Text className="m-0 text-xs text-slate-500">
 								© {new Date().getFullYear()} VitaStock. All rights reserved.
 							</Text>
-							<Text className="text-xs text-slate-500">123 Pharmacy Avenue, Lagos, Nigeria</Text>
+							<Text className="mt-2 text-xs text-slate-500">123 Pharmacy Avenue, Lagos, Nigeria</Text>
 						</Section>
 					</Container>
 				</Body>

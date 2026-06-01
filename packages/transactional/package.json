@@ -16,15 +16,15 @@
 	"dependencies": {
 		"@react-email/ui": "6.5.0",
 		"@vitastock/shared": "workspace:*",
-		"@zayne-labs/toolkit-react": "0.12.54",
-		"@zayne-labs/toolkit-type-helpers": "0.12.54",
-		"react": "19.2.6",
-		"react-dom": "19.2.6",
+		"@zayne-labs/toolkit-react": "0.12.55",
+		"@zayne-labs/toolkit-type-helpers": "0.12.55",
+		"react": "19.2.7",
+		"react-dom": "19.2.7",
 		"react-email": "6.5.0"
 	},
 	"devDependencies": {
 		"@total-typescript/ts-reset": "0.6.1",
-		"@types/react": "19.2.15",
+		"@types/react": "19.2.16",
 		"@types/react-dom": "19.2.3",
 		"@zayne-labs/prettier-config": "0.13.13",
 		"@zayne-labs/tsconfig": "0.13.13",

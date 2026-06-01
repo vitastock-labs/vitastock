@@ -30,7 +30,7 @@
 	},
 	"devDependencies": {
 		"@eslint-react/eslint-plugin": "5.8.9",
-		"@next/eslint-plugin-next": "^16.2.6",
+		"@next/eslint-plugin-next": "^16.2.7",
 		"@tanstack/eslint-plugin-query": "5.100.14",
 		"@types/node": "25.9.1",
 		"@zayne-labs/eslint-config": "0.13.13",

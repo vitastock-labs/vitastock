@@ -1,5 +1,6 @@
 import * as React from "react";
-import { Button, Heading, render, Section, Text } from "react-email";
+import { Heading, render, Section, Text } from "react-email";
+import { EmailButton } from "../src/components/EmailButton";
 import { FRONTEND_URL } from "../src/constants";
 import { BaseLayout } from "../src/layouts/BaseLayout";
 
@@ -16,33 +17,27 @@ export function ResetPasswordEmail(props: ResetPasswordEmailProps) {
 	return (
 		<BaseLayout preview="Reset your VitaStock password">
 			<Heading
-				className="mb-6 text-center text-2xl font-semibold tracking-tight text-vitastock-primary-main"
+				className="m-0 text-center text-2xl font-semibold tracking-tight text-vitastock-primary-main"
 			>
-				Reset Your Password
+				Reset your password
 			</Heading>
 
-			<Text className="mb-4 text-center text-base/relaxed text-vitastock-body-color">
+			<Text className="mt-6 text-center text-base/relaxed text-vitastock-body-color">
 				Hello <span className="font-semibold text-vitastock-primary-darker">{name}</span>,
 			</Text>
 
-			<Text className="mb-4 text-center text-base/relaxed text-vitastock-body-color">
-				We received a request to reset your VitaStock password. Click the button below to choose a new
-				password. This link expires in <strong>20 minutes</strong>.
+			<Text className="mt-4 text-center text-base/relaxed text-vitastock-body-color">
+				We received a request to reset your VitaStock password. Choose a new password using the
+				secure link below. This link expires in <strong>20 minutes</strong>.
 			</Text>
 
-			<Section className="my-8 text-center">
-				<Button
-					className="inline-block rounded-full bg-vitastock-primary-main px-10 py-4 text-sm
-						font-semibold text-white no-underline shadow-md"
-					href={resetURL}
-				>
-					Reset Password
-				</Button>
+			<Section className="mt-8 text-center">
+				<EmailButton href={resetURL}>Reset Password</EmailButton>
 			</Section>
 
-			<Text className="mb-0 text-center text-sm/relaxed text-slate-500">
-				If you didn't request a password reset, you can safely ignore this email. Your password will
-				not be changed.
+			<Text className="mt-8 text-center text-sm/relaxed text-slate-500">
+				If you didn't request a password reset, you can ignore this email. Your password won't be
+				changed.
 			</Text>
 		</BaseLayout>
 	);
