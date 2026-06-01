@@ -1,6 +1,6 @@
 import type { NonEmptyArray } from "@zayne-labs/toolkit-type-helpers";
 import * as pg from "drizzle-orm/pg-core";
-import { createInsertSchema, createSelectSchema } from "drizzle-orm/zod";
+import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 import { ROLES } from "../constants";
 import { users } from "./auth";
@@ -59,11 +59,8 @@ export const workspaceInvitations = pg.pgTable(
 			.uuid()
 			.notNull()
 			.references(() => workspaces.id, { onDelete: "cascade" }),
-	},
-	(table) => [
-		pg.index("workspace_invitation_email_index").on(table.inviteeEmail),
-		pg.index("workspace_invitation_workspace_index").on(table.workspaceId),
-	]
+	}
+	// (table) => [pg.index("workspace_invitation_email_index").on(table.inviteeEmail)]
 );
 
 export const InsertWorkspaceInvitationSchema = createInsertSchema(workspaceInvitations);

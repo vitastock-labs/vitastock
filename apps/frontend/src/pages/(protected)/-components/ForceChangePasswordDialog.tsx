@@ -1,11 +1,13 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { backendApiSchemaRoutes } from "@vitastock/shared/validation/backendApiSchema";
 import { useForm } from "react-hook-form";
+import { useNavigate } from "react-router";
 import { Button } from "@/components/ui";
 import * as Dialog from "@/components/ui/dialog";
 import { Form } from "@/components/ui/form";
 import { callBackendApiForQuery } from "@/lib/api/callBackendApi";
+import { signoutMutation } from "@/lib/react-query/mutationOptions";
 import { sessionQuery } from "@/lib/react-query/queryOptions";
 
 const ChangePasswordSchema = backendApiSchemaRoutes["@patch/auth/change-password"].body;
@@ -14,8 +16,12 @@ type ForceChangePasswordDialogProps = {
 	isOpen: boolean;
 };
 
-export function ForceChangePasswordDialog({ isOpen }: ForceChangePasswordDialogProps) {
+export function ForceChangePasswordDialog(props: ForceChangePasswordDialogProps) {
+	const { isOpen } = props;
+
 	const queryClient = useQueryClient();
+	const navigate = useNavigate();
+	const signoutMutationResult = useMutation(signoutMutation());
 
 	const form = useForm({
 		defaultValues: {
@@ -26,11 +32,20 @@ export function ForceChangePasswordDialog({ isOpen }: ForceChangePasswordDialogP
 		resolver: zodResolver(ChangePasswordSchema),
 	});
 
+	const onSignout = () => {
+		signoutMutationResult.mutate(undefined, {
+			onSuccess: () => {
+				void queryClient.invalidateQueries(sessionQuery());
+				void navigate("/auth/signin", { replace: true });
+			},
+		});
+	};
+
 	const onSubmit = form.handleSubmit(async (data) => {
 		await callBackendApiForQuery("@patch/auth/change-password", {
 			body: data,
-			onSuccess: async () => {
-				await queryClient.invalidateQueries(sessionQuery());
+			onSuccess: () => {
+				void queryClient.invalidateQueries(sessionQuery());
 			},
 		});
 	});
@@ -117,6 +132,17 @@ export function ForceChangePasswordDialog({ isOpen }: ForceChangePasswordDialogP
 							</Button>
 						)}
 					</Form.Submit>
+
+					<Button
+						type="button"
+						theme="primary-ghost"
+						size="full-width"
+						isDisabled={signoutMutationResult.isPending}
+						isLoading={signoutMutationResult.isPending}
+						onClick={onSignout}
+					>
+						Sign Out
+					</Button>
 				</Form.Root>
 			</Dialog.Content>
 		</Dialog.Root>

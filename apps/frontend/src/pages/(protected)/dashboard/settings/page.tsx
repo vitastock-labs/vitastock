@@ -13,6 +13,7 @@ import { Form } from "@/components/ui/form";
 import { Switch as SwitchButton } from "@/components/ui/switch";
 import { callBackendApiForQuery } from "@/lib/api/callBackendApi";
 import {
+	sessionQuery,
 	workspaceMembersQuery,
 	type WorkspaceMembersQueryResultType,
 } from "@/lib/react-query/queryOptions";
@@ -99,10 +100,12 @@ function SettingsPage() {
 export default SettingsPage;
 
 function AlertSettingsSection() {
+	const sessionQueryResult = useQuery(sessionQuery());
+
 	const form = useForm({
-		defaultValues: {
-			emailAlerts: true,
-			lowStockThreshold: 20,
+		values: {
+			emailAlerts: Boolean(sessionQueryResult.data?.workspace.alertEmail),
+			lowStockThreshold: sessionQueryResult.data?.workspace.lowStockThreshold ?? 10,
 		},
 	});
 

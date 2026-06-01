@@ -32,7 +32,7 @@ export const TEMPLATE_LOOKUP = defineEnumDeep(
 	{
 		pharmacistInvite: {
 			from,
-			subject: "You have been invited to join VitaStock",
+			subject: "You have been invited to join a VitaStock workspace!",
 			template: getTemplateFn(import("../emails/PharmacistInviteEmail")),
 		},
 		resetPassword: {
