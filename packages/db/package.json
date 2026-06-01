@@ -29,8 +29,8 @@
 		"drizzle-kit": "1.0.0-beta.22",
 		"drizzle-orm": "1.0.0-beta.22",
 		"pg": "8.21.0",
-		"tsx": "4.22.3",
-		"zod": "4.4.3"
+		"tsx": "4.22.4",
+		"zod": "4.4.0"
 	},
 	"devDependencies": {
 		"@total-typescript/ts-reset": "0.6.1",
