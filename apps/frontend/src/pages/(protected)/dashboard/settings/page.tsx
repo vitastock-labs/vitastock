@@ -18,48 +18,8 @@ import {
 	type WorkspaceMembersQueryResultType,
 } from "@/lib/react-query/queryOptions";
 import { cnJoin } from "@/lib/utils/cn";
+import { getNameInitials } from "@/lib/utils/common";
 import { Main } from "../-components/Main";
-
-type Member = WorkspaceMembersQueryResultType["members"][number];
-
-const getMemberEmail = (member: Member) => {
-	return member.status === "active" ? member.email : member.inviteeEmail;
-};
-
-const getMemberName = (member: Member) => {
-	return member.status === "active" ? member.fullName : member.inviteeName;
-};
-
-const getMemberInitials = (member: Member) => {
-	const name = getMemberName(member);
-
-	const initials = name
-		.split(" ")
-		.slice(0, 2)
-		.map((namePart) => namePart[0]?.toUpperCase())
-		.join("");
-
-	return initials || null;
-};
-
-const dateFormatter = new Intl.DateTimeFormat("en", {
-	day: "numeric",
-	month: "short",
-	year: "numeric",
-});
-
-const getJoinedDate = (member: Member) => {
-	return member.status === "active" ? dateFormatter.format(member.createdAt) : "-";
-};
-
-const memberTableColumns = defineEnum([
-	{ className: "", label: "Name" },
-	{ className: "", label: "Email" },
-	{ className: "", label: "Role" },
-	{ className: "", label: "Joined Date" },
-	{ className: "", label: "Status" },
-	{ className: "text-right", label: "Actions" },
-]);
 
 function SettingsPage() {
 	return (
@@ -191,6 +151,39 @@ function PeopleWorkspaceSection() {
 		</section>
 	);
 }
+
+type Member = WorkspaceMembersQueryResultType["members"][number];
+
+const getMemberEmail = (member: Member) => {
+	return member.status === "active" ? member.email : member.inviteeEmail;
+};
+
+const getMemberName = (member: Member) => {
+	return member.status === "active" ? member.fullName : member.inviteeName;
+};
+
+const getMemberInitials = (member: Member) => {
+	return getNameInitials(getMemberName(member)) || null;
+};
+
+const dateFormatter = new Intl.DateTimeFormat("en", {
+	day: "numeric",
+	month: "short",
+	year: "numeric",
+});
+
+const getJoinedDate = (member: Member) => {
+	return member.status === "active" ? dateFormatter.format(member.createdAt) : "-";
+};
+
+const memberTableColumns = defineEnum([
+	{ className: "", label: "Name" },
+	{ className: "", label: "Email" },
+	{ className: "", label: "Role" },
+	{ className: "", label: "Joined Date" },
+	{ className: "", label: "Status" },
+	{ className: "text-right", label: "Actions" },
+]);
 
 function ManagePeopleDialog() {
 	const workspaceMembersQueryResult = useQuery(workspaceMembersQuery());

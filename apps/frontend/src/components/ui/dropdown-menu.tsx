@@ -58,10 +58,9 @@ function DropdownMenuItem(
 			data-slot="dropdown-menu-item"
 			data-variant={variant}
 			className={cnMerge(
-				`relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden
-				select-none focus:bg-shadcn-accent focus:text-shadcn-accent-foreground
-				data-disabled:pointer-events-none data-disabled:opacity-50
-				data-[variant=destructive]:text-shadcn-destructive
+				`relative flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none
+				focus:bg-shadcn-accent focus:text-shadcn-accent-foreground data-disabled:pointer-events-none
+				data-disabled:opacity-50 data-[variant=destructive]:text-shadcn-destructive
 				data-[variant=destructive]:focus:bg-shadcn-destructive/10
 				data-[variant=destructive]:focus:text-shadcn-destructive
 				dark:data-[variant=destructive]:focus:bg-shadcn-destructive/20 [&_svg]:pointer-events-none
@@ -85,8 +84,8 @@ function DropdownMenuCheckboxItem(
 		<DropdownMenuPrimitive.CheckboxItem
 			data-slot="dropdown-menu-checkbox-item"
 			className={cnMerge(
-				`relative flex cursor-default items-center gap-2 rounded-sm py-1.5 pr-2 pl-8 text-sm
-				outline-hidden select-none focus:bg-shadcn-accent focus:text-shadcn-accent-foreground
+				`relative flex items-center gap-2 rounded-sm py-1.5 pr-2 pl-8 text-sm outline-hidden
+				select-none focus:bg-shadcn-accent focus:text-shadcn-accent-foreground
 				data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none
 				[&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4`,
 				className
@@ -118,8 +117,8 @@ function DropdownMenuRadioItem(
 	return (
 		<DropdownMenuPrimitive.RadioItem
 			className={cnMerge(
-				`relative flex cursor-default items-center gap-2 rounded-sm py-1.5 pr-2 pl-8 text-sm
-				outline-hidden select-none focus:bg-shadcn-accent focus:text-shadcn-accent-foreground
+				`relative flex items-center gap-2 rounded-sm py-1.5 pr-2 pl-8 text-sm outline-hidden
+				select-none focus:bg-shadcn-accent focus:text-shadcn-accent-foreground
 				data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none
 				[&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4`,
 				className
@@ -188,7 +187,7 @@ function DropdownMenuSubTrigger(
 		<DropdownMenuPrimitive.SubTrigger
 			data-slot="dropdown-menu-sub-trigger"
 			className={cnMerge(
-				`flex cursor-default items-center rounded-sm px-2 py-1.5 text-sm outline-hidden select-none
+				`flex items-center rounded-sm px-2 py-1.5 text-sm outline-hidden select-none
 				focus:bg-shadcn-accent focus:text-shadcn-accent-foreground data-[state=open]:bg-shadcn-accent
 				data-[state=open]:text-shadcn-accent-foreground`,
 				inset && "pl-8",

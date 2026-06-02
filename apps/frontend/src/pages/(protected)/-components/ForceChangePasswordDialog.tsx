@@ -21,7 +21,6 @@ export function ForceChangePasswordDialog(props: ForceChangePasswordDialogProps)
 
 	const queryClient = useQueryClient();
 	const navigate = useNavigate();
-	const signoutMutationResult = useMutation(signoutMutation());
 
 	const form = useForm({
 		defaultValues: {
@@ -32,11 +31,13 @@ export function ForceChangePasswordDialog(props: ForceChangePasswordDialogProps)
 		resolver: zodResolver(ChangePasswordSchema),
 	});
 
+	const signoutMutationResult = useMutation(signoutMutation());
+
 	const onSignout = () => {
 		signoutMutationResult.mutate(undefined, {
 			onSuccess: () => {
 				void queryClient.invalidateQueries(sessionQuery());
-				void navigate("/auth/signin", { replace: true });
+				void navigate("/", { replace: true });
 			},
 		});
 	};

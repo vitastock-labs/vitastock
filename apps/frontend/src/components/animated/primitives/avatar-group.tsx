@@ -3,17 +3,19 @@
 
 import { toArray } from "@zayne-labs/toolkit-core";
 import { motion, type HTMLMotionProps, type Transition } from "motion/react";
+import * as React from "react";
 import * as TooltipPrimitive from "./tooltip";
 
 type AvatarProps = Omit<HTMLMotionProps<"div">, "translate">
 	& Omit<React.ComponentProps<typeof TooltipPrimitive.Root>, "children"> & {
 		children: React.ReactNode;
+		tooltip?: React.ReactNode;
 		translate?: number | string;
 		zIndex: number;
 	};
 
 function AvatarContainer(props: AvatarProps) {
-	const { align, alignOffset, side, sideOffset, translate, zIndex, ...restOfProps } = props;
+	const { align, alignOffset, side, sideOffset, tooltip, translate, zIndex, ...restOfProps } = props;
 
 	return (
 		<TooltipPrimitive.Root side={side} sideOffset={sideOffset} align={align} alignOffset={alignOffset}>
@@ -34,6 +36,8 @@ function AvatarContainer(props: AvatarProps) {
 					/>
 				</motion.div>
 			</TooltipPrimitive.Trigger>
+
+			{tooltip}
 		</TooltipPrimitive.Root>
 	);
 }
@@ -68,6 +72,19 @@ function AvatarGroupRoot(props: AvatarGroupProps) {
 	} = props;
 
 	const childrenArray = toArray(children);
+	const avatarItems = childrenArray.reduce<Array<{ avatar: React.ReactNode; tooltip?: React.ReactNode }>>(
+		(items, child) => {
+			const lastItem = items.at(-1);
+
+			if (lastItem && isAvatarGroupTooltipElement(child)) {
+				lastItem.tooltip = child;
+				return items;
+			}
+
+			return [...items, { avatar: child }];
+		},
+		[]
+	);
 
 	return (
 		<TooltipPrimitive.Provider
@@ -86,19 +103,20 @@ function AvatarGroupRoot(props: AvatarGroupProps) {
 				}}
 				{...restOfProps}
 			>
-				{childrenArray.map((child, index) => (
+				{avatarItems.map((item, index) => (
 					<AvatarContainer
 						// eslint-disable-next-line react/no-array-index-key
 						key={index}
-						zIndex={invertOverlap ? childrenArray.length - index : index}
+						zIndex={invertOverlap ? avatarItems.length - index : index}
 						transition={transition}
 						translate={translate}
 						side={side}
 						sideOffset={sideOffset}
 						align={align}
 						alignOffset={alignOffset}
+						tooltip={item.tooltip}
 					>
-						{child}
+						{item.avatar}
 					</AvatarContainer>
 				))}
 			</div>
@@ -109,6 +127,14 @@ function AvatarGroupRoot(props: AvatarGroupProps) {
 function AvatarGroupTooltip(props: React.ComponentProps<typeof TooltipPrimitive.Content>) {
 	return <TooltipPrimitive.Content {...props} />;
 }
+
+const isAvatarGroupTooltipElement = (child: React.ReactNode) => {
+	return (
+		React.isValidElement(child)
+		&& (child.type === AvatarGroupTooltip
+			|| (typeof child.type === "function" && child.type.name === "AvatarGroupTooltip"))
+	);
+};
 
 function AvatarGroupTooltipArrow(props: React.ComponentProps<typeof TooltipPrimitive.Arrow>) {
 	return <TooltipPrimitive.Arrow {...props} />;
