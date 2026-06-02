@@ -1,5 +1,5 @@
-const getNameInitials = (name?: string | null) => {
-	if (!name) return "";
+const getNameInitials = (name: string | null | undefined) => {
+	if (!name) return;
 
 	const initials = name
 		.split(" ")

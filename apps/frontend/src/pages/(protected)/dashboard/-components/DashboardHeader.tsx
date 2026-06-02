@@ -73,7 +73,6 @@ function ProfileDropdown() {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const sessionQueryResult = useQuery(sessionQuery());
-	const session = sessionQueryResult.data;
 
 	const signoutMutationResult = useMutation(signoutMutation());
 
@@ -86,10 +85,11 @@ function ProfileDropdown() {
 		});
 	};
 
-	const userName = session?.user.fullName ?? "VitaStock User";
-	const userEmail = session?.user.email ?? "No email available";
-	const workspaceName = session?.workspace.name ?? "Workspace";
-	const userInitials = getNameInitials(userName) || "VS";
+	const userName = sessionQueryResult.data?.user.fullName ?? "VitaStock User";
+	const userEmail = sessionQueryResult.data?.user.email ?? "No email available";
+	const workspaceName = sessionQueryResult.data?.workspace.name ?? "Workspace";
+
+	const userInitials = getNameInitials(userName) ?? "VS";
 
 	return (
 		<DropdownMenu.Root modal={false}>
