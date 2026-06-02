@@ -12,7 +12,7 @@ function EmailButton(props: EmailButtonProps) {
 	return (
 		<Button
 			className="inline-block rounded-full bg-vitastock-primary-main px-10 py-4 text-sm font-semibold
-				text-white no-underline shadow-md"
+				text-white no-underline"
 			href={href}
 		>
 			{children}

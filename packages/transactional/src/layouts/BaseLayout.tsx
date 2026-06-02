@@ -57,14 +57,14 @@ export function BaseLayout(props: EmailLayoutProps) {
 						extend: {
 							colors: {
 								vitastock: {
-									"body-color": "rgb(67, 70, 86)",
+									"body-color": "#434656",
 									primary: {
-										dark: "rgb(0, 73, 199)",
-										darker: "rgb(17, 35, 95)",
+										dark: "#0049C7",
+										darker: "#11235F",
 										glow: "rgb(81, 132, 251)",
-										light: "rgb(74, 93, 150)",
-										main: "rgb(31, 92, 234)",
-										subtle: "rgb(173, 192, 255)",
+										light: "#4A5D96",
+										main: "#1F5CEA",
+										subtle: "#ADC0FF",
 									},
 								},
 							},
@@ -95,7 +95,9 @@ export function BaseLayout(props: EmailLayoutProps) {
 							<Text className="m-0 text-xs text-slate-500">
 								© {new Date().getFullYear()} VitaStock. All rights reserved.
 							</Text>
-							<Text className="mt-2 text-xs text-slate-500">123 Pharmacy Avenue, Lagos, Nigeria</Text>
+							<Text className="mt-2 text-xs text-slate-500">
+								123 Pharmacy Avenue, Lagos, Nigeria
+							</Text>
 						</Section>
 					</Container>
 				</Body>
