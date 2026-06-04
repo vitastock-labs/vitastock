@@ -12,13 +12,7 @@ import { sessionQuery } from "@/lib/react-query/queryOptions";
 
 const ChangePasswordSchema = backendApiSchemaRoutes["@patch/auth/change-password"].body;
 
-type ForceChangePasswordDialogProps = {
-	isOpen: boolean;
-};
-
-export function ForceChangePasswordDialog(props: ForceChangePasswordDialogProps) {
-	const { isOpen } = props;
-
+export function ForceChangePasswordDialog() {
 	const queryClient = useQueryClient();
 	const navigate = useNavigate();
 
@@ -52,7 +46,7 @@ export function ForceChangePasswordDialog(props: ForceChangePasswordDialogProps)
 	});
 
 	return (
-		<Dialog.Root open={isOpen}>
+		<Dialog.Root defaultOpen={true}>
 			<Dialog.Content
 				withCloseButton={false}
 				onPointerDownOutside={(e) => e.preventDefault()}

@@ -163,7 +163,7 @@ const getMemberName = (member: Member) => {
 };
 
 const getMemberInitials = (member: Member) => {
-	return getNameInitials(getMemberName(member)) || null;
+	return getNameInitials(getMemberName(member));
 };
 
 const dateFormatter = new Intl.DateTimeFormat("en", {
@@ -176,14 +176,7 @@ const getJoinedDate = (member: Member) => {
 	return member.status === "active" ? dateFormatter.format(member.createdAt) : "-";
 };
 
-const memberTableColumns = defineEnum([
-	{ className: "", label: "Name" },
-	{ className: "", label: "Email" },
-	{ className: "", label: "Role" },
-	{ className: "", label: "Joined Date" },
-	{ className: "", label: "Status" },
-	{ className: "text-right", label: "Actions" },
-]);
+const memberTableColumns = defineEnum(["Name", "Email", "Role", "Joined Date", "Status", "Actions"]);
 
 function ManagePeopleDialog() {
 	const workspaceMembersQueryResult = useQuery(workspaceMembersQuery());
@@ -292,10 +285,13 @@ function ManagePeopleDialog() {
 									each={memberTableColumns}
 									renderItem={(column) => (
 										<Table.Head
-											key={column.label}
-											className={cnJoin("px-6 py-3 font-bold", column.className)}
+											key={column}
+											className={cnJoin(
+												"px-6 py-3 font-bold",
+												column === "Actions" && "text-right"
+											)}
 										>
-											{column.label}
+											{column}
 										</Table.Head>
 									)}
 								/>

@@ -21,6 +21,7 @@ export const sharedBaseConfig = defineBaseConfig({
 
 	plugins: [
 		authErrorRedirectPlugin({
+			redirectDelay: 1500,
 			redirectRoute: "/auth/signin",
 			routesToExemptFromErrorRedirect: ["/", "/library/**", "/daily-tips/**", "/auth/**"],
 		}),

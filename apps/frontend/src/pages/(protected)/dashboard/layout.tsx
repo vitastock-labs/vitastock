@@ -6,6 +6,7 @@ function DashboardLayout() {
 	return (
 		<div className="flex grow bg-[hsl(210,17%,98%)]">
 			<DashboardSidebar />
+
 			<div className="flex grow flex-col">
 				<DashboardHeader />
 				<Outlet />

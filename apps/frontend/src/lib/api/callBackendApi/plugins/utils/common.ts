@@ -26,9 +26,7 @@ export const isAuthErrorThatNeedsRedirect = (
 	return REDIRECT_AUTH_ERROR_APP_CODES.has(error.errorData.appCode as AuthErrorAppCodeType);
 };
 
-export const redirectTo = (route: MainAppRoutes) => {
-	setTimeout(() => hardNavigate(route), 1500);
-};
+export const redirectTo = (route: MainAppRoutes) => hardNavigate(route, "replace");
 
 export const isPathnameMatchingRoute = (route: string) => {
 	if (!isBrowser()) {

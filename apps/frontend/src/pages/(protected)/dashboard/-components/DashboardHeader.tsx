@@ -69,6 +69,8 @@ function DashboardHeader() {
 	);
 }
 
+export { DashboardHeader };
+
 function ProfileDropdown() {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
@@ -103,6 +105,12 @@ function ProfileDropdown() {
 							shadow-[0_10px_24px_-14px_theme(--color-vitastock-primary-darker)]"
 					>
 						<Avatar.Root className="size-10 bg-vitastock-primary-darker text-white ring-2 ring-white">
+							<AvatarGroupAnimated.Tooltip
+								classNames={{ base: "bg-vitastock-primary-darker text-white" }}
+							>
+								{userName}
+							</AvatarGroupAnimated.Tooltip>
+
 							<Avatar.Fallback
 								className="bg-vitastock-primary-darker text-[12px] font-extrabold tracking-[0.04em]
 									text-white"
@@ -115,12 +123,6 @@ function ProfileDropdown() {
 							className="absolute right-0 bottom-0 size-3 rounded-full border-2 border-white
 								bg-emerald-500 shadow-[0_0_0_2px_rgba(16,185,129,0.18)]"
 						/>
-
-						<AvatarGroupAnimated.Tooltip
-							classNames={{ base: "bg-vitastock-primary-darker text-white" }}
-						>
-							{userName}
-						</AvatarGroupAnimated.Tooltip>
 					</div>
 				</AvatarGroupAnimated.Root>
 			</DropdownMenu.Trigger>
@@ -192,5 +194,3 @@ function ProfileDropdown() {
 		</DropdownMenu.Root>
 	);
 }
-
-export { DashboardHeader };
