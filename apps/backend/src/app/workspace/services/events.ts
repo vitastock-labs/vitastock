@@ -38,8 +38,6 @@ export const registerWorkspaceEventSubscribers = () => {
 
 	hasRegisteredWorkspaceEventSubscribers = true;
 
-	subscribeToAppEvent("workspace.invitationSent");
-
 	subscribeToAppEvent("workspace.invitationSent", async (payload) => {
 		if (!payload.workspaceId) return;
 

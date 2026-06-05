@@ -70,7 +70,7 @@ export const subscribeToAppEvent = <TEventName extends AppEventName>(
 		} catch (error) {
 			appLogger.critical({
 				error,
-				message: `Failed to handle workspace event: ${eventName}`,
+				message: `Failed to handle app event: ${eventName}`,
 				meta: { eventName, ...payload },
 			});
 		}
