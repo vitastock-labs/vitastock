@@ -126,23 +126,25 @@ export const warnAboutTokenReuse = (options: {
 	compromisedUser: SelectUserType;
 	requestUserAgent: string;
 }) => {
-	const { compromisedUser, requestUserAgent } = options;
+	const { compromisedRefreshToken, compromisedUser, requestUserAgent } = options;
 
 	const error = new Error("Possible token reuse detected!", {
 		cause: {
-			compromisedUserDetails: pickKeys(compromisedUser, ["id", "email", "fullName", "role"]),
+			compromisedRefreshToken,
+			compromisedUserDetails: pickKeys(compromisedUser, [
+				"id",
+				"email",
+				"fullName",
+				"role",
+				"workspaceId",
+			]),
 			userAgent: requestUserAgent,
 		},
 	});
 
-	appLogger.critical({
-		error,
-		message: "Possible token reuse detected",
-		meta: {
-			userId: compromisedUser.id,
-			workspaceId: compromisedUser.workspaceId,
-		},
-	});
+	appLogger.pretty.warn(error);
+
+	appLogger.structured.warn(error);
 };
 
 type TokenArrayOptions = {
