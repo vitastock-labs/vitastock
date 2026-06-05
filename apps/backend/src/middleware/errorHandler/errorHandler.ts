@@ -1,15 +1,16 @@
 import { pickKeys } from "@zayne-labs/toolkit-core";
-import { consola } from "consola";
 import type { ErrorHandler } from "hono";
 import type { HTTPException } from "hono/http-exception";
-import type { BlankEnv } from "hono/types";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { errorCodes } from "../../constants";
+import { appLogger } from "../../lib/logger";
+import type { HonoAppBindings } from "../../lib/types/common";
 import { AppError } from "../../lib/utils";
 import { transformError } from "./transformError";
 
-const errorHandler: ErrorHandler<BlankEnv> = (error: AppError | Error | HTTPException, ctx) => {
+const errorHandler: ErrorHandler<HonoAppBindings> = (error: AppError | Error | HTTPException, ctx) => {
 	const modifiedError = transformError(error);
+	const { currentUser, currentWorkspace } = ctx.var as Partial<HonoAppBindings["Variables"]>;
 
 	/* eslint-disable perfectionist/sort-objects */
 	const errorInfo = {
@@ -19,12 +20,23 @@ const errorHandler: ErrorHandler<BlankEnv> = (error: AppError | Error | HTTPExce
 		...(Boolean(modifiedError.errors) && { errors: modifiedError.errors }),
 	};
 
-	consola.error(`${error.name}:`, {
+	const errorLogInfo = {
 		...errorInfo,
+		method: ctx.req.method,
+		path: ctx.req.path,
+		requestId: ctx.get("requestId"),
+		userId: currentUser?.id,
 		...(Boolean(modifiedError.realReason) && pickKeys(modifiedError, ["realReason"])),
 		...(Boolean(modifiedError.cause) && pickKeys(modifiedError, ["cause"])),
-		stack: modifiedError.stack,
-	});
+		statusCode: modifiedError.statusCode,
+		workspaceId: currentWorkspace?.id,
+	};
+
+	const logger = ctx.get("logger");
+
+	appLogger.pretty.error(`${error.name}: ${modifiedError.message}\n`, errorLogInfo);
+
+	logger.error({ err: modifiedError, ...errorLogInfo }, modifiedError.message);
 
 	/* eslint-enable perfectionist/sort-objects */
 	const ERROR_LOOKUP = new Map<ContentfulStatusCode, () => unknown>([

@@ -1,6 +1,6 @@
-import { consola } from "consola";
 import { ENVIRONMENT } from "@/config/env";
 import { createHonoApp } from "@/lib/hono";
+import { appLogger } from "@/lib/logger";
 import { createBullBoardSetup } from "@/services/queues/utils/bullBoard";
 import { authRoutes } from "./auth/routes";
 import { workspaceRoutes } from "./workspace/routes";
@@ -33,7 +33,7 @@ if (ENVIRONMENT.NODE_ENV === "development") {
 
 		app.route(bullBoardSetup.baseQueuesPath, bullBoardSetup.queuesServerAdapter.registerPlugin());
 	} catch (error) {
-		consola.error(new Error(`Failed to load bullboard`, { cause: error }));
+		appLogger.pretty.error(new Error(`Failed to load bullboard`, { cause: error }));
 	}
 }
 

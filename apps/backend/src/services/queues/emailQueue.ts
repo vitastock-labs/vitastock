@@ -1,6 +1,7 @@
 import type { EmailJobOptions } from "@vitastock/transactional/emails";
 import { Queue, QueueEvents, Worker } from "bullmq";
-import { consola } from "consola";
+import { emitAppEvent } from "@/lib/events";
+import { appLogger } from "@/lib/logger";
 import { sendEmail } from "../email/send";
 import { redisQueueClient } from "./utils/queueClient";
 
@@ -23,13 +24,24 @@ export const addEmailToQueue = async (options: EmailJobOptions) => {
 	const { data, onError, onSuccess, type } = options;
 
 	try {
+		emitAppEvent("email.enqueueRequested", {
+			emailType: type,
+			recipient: data.to.email,
+		});
+
 		await emailQueue.add(type, options, {
 			...(data.priority !== "high" && { priority: 2 }),
 		});
 
 		await onSuccess?.();
 	} catch (error) {
-		consola.error(
+		emitAppEvent("email.enqueueFailed", {
+			emailType: type,
+			error,
+			recipient: data.to.email,
+		});
+
+		appLogger.pretty.error(
 			new Error(`Failed to enqueue '${type}' email to '${data.to.email}'`, { cause: error })
 		);
 
@@ -47,7 +59,13 @@ const getEmailWorker = () => {
 	emailWorker ??= new Worker<EmailJobOptions>(
 		emailQueueKey,
 		async (job) => {
-			await sendEmail(job.data);
+			const result = await sendEmail(job.data);
+
+			emitAppEvent("email.sent", {
+				emailType: job.data.type,
+				recipient: job.data.data.to.email,
+				...result,
+			});
 		},
 		{
 			connection,
@@ -67,16 +85,14 @@ const getEmailWorker = () => {
 	);
 
 	emailWorker.on("error", (error) => {
-		consola.error(
-			new Error(
-				`Error processing email job: ${error.message}. Redis Status: ${redisQueueClient.status}`,
-				{ cause: error }
-			)
-		);
+		appLogger.critical({
+			error,
+			message: `Error processing email job: ${error.message}. Redis Status: ${redisQueueClient.status}`,
+		});
 	});
 
 	emailWorker.on("stalled", (jobId) => {
-		consola.warn(`Job ''${jobId}'' stalled - will be retried by another worker`);
+		appLogger.pretty.warn(`Job ''${jobId}'' stalled - will be retried by another worker`);
 	});
 
 	return emailWorker;
@@ -86,23 +102,23 @@ const getEmailQueueEvents = () => {
 	emailQueueEvent ??= new QueueEvents(emailQueueKey, { connection });
 
 	emailQueueEvent.on("failed", ({ failedReason, jobId }) => {
-		consola.error(`Job '${jobId}' failed with error ${failedReason}`, { failedReason });
+		appLogger.pretty.error(`Job '${jobId}' failed with error ${failedReason}`, { failedReason });
 	});
 
 	emailQueueEvent.on("waiting", ({ jobId }) => {
-		consola.info(`Job '${jobId}' is waiting`);
+		appLogger.pretty.info(`Job '${jobId}' is waiting`);
 	});
 
 	emailQueueEvent.on("completed", ({ jobId, returnvalue }) => {
-		consola.info(`Job '${jobId}' completed`, { returnvalue });
+		appLogger.pretty.info(`Job '${jobId}' completed`, { returnvalue });
 	});
 
 	emailQueueEvent.on("retries-exhausted", ({ attemptsMade, jobId }) => {
-		consola.error(`Job '${jobId}' failed after ${attemptsMade} attempts - no more retries`);
+		appLogger.pretty.error(`Job '${jobId}' failed after ${attemptsMade} attempts - no more retries`);
 	});
 
 	emailQueueEvent.on("progress", ({ data, jobId }) => {
-		consola.debug(`Job '${jobId}' progress:`, { data });
+		appLogger.pretty.debug(`Job '${jobId}' progress:`, { data });
 	});
 
 	return emailQueueEvent;
@@ -120,11 +136,11 @@ export const startEmailQueueAndWorker = async () => {
 
 	await Promise.all([emailQueue.waitUntilReady(), queueEvents.waitUntilReady(), worker.waitUntilReady()]);
 
-	consola.info("Email queue and worker are ready!");
+	appLogger.pretty.info("Email queue and worker are ready!");
 };
 
 export const stopEmailQueueAndWorker = async () => {
 	await Promise.all([emailWorker?.close(), emailQueueEvent?.close(), emailQueue.close()]);
 
-	consola.info("Email queue and worker closed!");
+	appLogger.pretty.info("Email queue and worker closed!");
 };

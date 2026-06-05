@@ -8,12 +8,14 @@ import { and, eq, gt, isNull } from "drizzle-orm";
 import { Hono } from "hono";
 import { rateLimiter } from "hono-rate-limiter";
 import { authRateLimiterOptions } from "@/config/rateLimiterOptions";
+import { emitAppEvent } from "@/lib/events";
 import { AppError, AppJsonResponse } from "@/lib/utils";
 import { generateRandomBytes } from "@/lib/utils/random";
 import { authMiddleware, authorizeRoleMiddleware, validateWithZodMiddleware } from "@/middleware";
 import { getAuthResponseData } from "../auth/services/common";
 import { hashToken, hashValue } from "../auth/services/hash";
 import { sendPharmacistInviteEmail } from "./services/emails";
+import { getWorkspaceEventPayload } from "./services/events";
 
 export const workspaceRoutes = new Hono()
 	.basePath("/workspace")
@@ -194,6 +196,12 @@ export const workspaceRoutes = new Hono()
 				role,
 				token: invitationToken,
 				workspaceName: currentWorkspace.name,
+			});
+
+			emitAppEvent("workspace.invitationSent", {
+				...getWorkspaceEventPayload({ requestId: ctx.get("requestId"), user: currentUser }),
+				invitationId: insertedInvitation.id,
+				recipient: inviteeEmail,
 			});
 
 			return AppJsonResponse(ctx, {

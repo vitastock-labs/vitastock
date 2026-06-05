@@ -1,7 +1,7 @@
 import { isObject, type Awaitable, type UnmaskType } from "@zayne-labs/toolkit-type-helpers";
-import { consola } from "consola";
 import { differenceInSeconds } from "date-fns";
 import * as superjson from "superjson";
+import { appLogger } from "@/lib/logger";
 import { initializeRedisCacheClient, redisCacheClient } from "./cacheClient";
 
 type CacheKeyType = UnmaskType<`user:${string}` | `workspace:${string}`>;
@@ -35,7 +35,7 @@ export const setCache = async (
 		...(ttl && { expiration: { type: "EX", value: ttl } }),
 	});
 
-	consola.info(`[CACHE SET] for key ${key}`);
+	appLogger.pretty.debug(`[CACHE SET] for key ${key}`);
 };
 
 export const getFromCache = async <TCacheResult>(
@@ -60,12 +60,12 @@ export const getFromCache = async <TCacheResult>(
 		if (rawCachedData) {
 			const parsedCachedData = superjson.parse<TCacheResult>(rawCachedData);
 
-			consola.info(`[CACHE HIT] for key ${key}`);
+			appLogger.pretty.debug(`[CACHE HIT] for key ${key}`);
 
 			return parsedCachedData;
 		}
 
-		consola.info(`[CACHE MISS] for key ${key}`);
+		appLogger.pretty.debug(`[CACHE MISS] for key ${key}`);
 
 		const freshData = await onCacheMiss?.(key);
 
@@ -77,7 +77,7 @@ export const getFromCache = async <TCacheResult>(
 
 		return freshData;
 	} catch (error) {
-		consola.error(
+		appLogger.pretty.error(
 			`[CACHE ERROR] for key ${key}. Client Status: isOpen=${redisCacheClient.isOpen}, isReady=${redisCacheClient.isReady}`,
 			error
 		);
@@ -94,9 +94,9 @@ export const removeFromCache = async (key: CacheKeyType) => {
 	const isDeleted = Boolean(await redisCacheClient.del(key));
 
 	if (!isDeleted) {
-		consola.info(`[CACHE FAILED TO REMOVE] for key ${key}`);
+		appLogger.pretty.debug(`[CACHE FAILED TO REMOVE] for key ${key}`);
 		return;
 	}
 
-	consola.info(`[CACHE REMOVED] for key ${key}`);
+	appLogger.pretty.debug(`[CACHE REMOVED] for key ${key}`);
 };

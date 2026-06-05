@@ -1,9 +1,12 @@
 import "@colors/colors";
 import { serve } from "@hono/node-server";
-import { consola } from "consola";
 import { app } from "./app";
+import { registerAuthEventSubscribers } from "./app/auth/services/events";
+import { registerWorkspaceEventSubscribers } from "./app/workspace/services/events";
 import { ENVIRONMENT } from "./config/env";
+import { appLogger } from "./lib/logger";
 import { initializeRedisCacheClient } from "./services/cache";
+import { registerQueueEventSubscribers } from "./services/queues/events";
 import { startAllQueuesAndWorkers, stopAllQueuesAndWorkers } from "./services/queues/utils/queues";
 
 const server = serve(
@@ -15,14 +18,21 @@ const server = serve(
 		const message =
 			ENVIRONMENT.NODE_ENV === "development" ? `http://localhost:${info.port}` : `PORT=${info.port}`;
 
-		consola.info(`Server is running on ${message}`.yellow.italic);
+		appLogger.pretty.info(`Server is running on ${message}`.yellow.italic);
+
+		registerAuthEventSubscribers();
+		registerWorkspaceEventSubscribers();
+		registerQueueEventSubscribers();
 
 		void Promise.all([initializeRedisCacheClient(), startAllQueuesAndWorkers()])
 			.then(() => {
-				consola.success("All services initialized successfully!".green.italic);
+				appLogger.pretty.success("All services initialized successfully!".green.italic);
 			})
 			.catch((error) => {
-				consola.error("Failed to start server due to service initialization failure", error);
+				appLogger.critical({
+					error,
+					message: "Failed to start server due to service initialization failure",
+				});
 				server.close(() => {
 					// eslint-disable-next-line node/no-process-exit, unicorn/no-process-exit
 					process.exit(1);
@@ -43,7 +53,7 @@ process.on("uncaughtException", (error) => {
 
 	const message = `UNCAUGHT EXCEPTION! 💥 Server Shutting down on ${dateISO}...`;
 
-	consola.error(new Error(message, { cause: error }));
+	appLogger.critical({ error, message });
 
 	void stopAllQueuesAndWorkers();
 
@@ -63,7 +73,7 @@ process.on("unhandledRejection", (error) => {
 
 	const message = `UNHANDLED REJECTION! 💥 Server Shutting down on ${dateISO}...`;
 
-	consola.error(new Error(message, { cause: error }));
+	appLogger.critical({ error, message });
 
 	void stopAllQueuesAndWorkers();
 

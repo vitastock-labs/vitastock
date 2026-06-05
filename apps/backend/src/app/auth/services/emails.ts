@@ -12,6 +12,17 @@ import { addEmailToQueue } from "@/services/queues";
 import { hashToken, hashValue } from "./hash";
 import { encodeJwtToken } from "./token";
 
+export const sendPasswordChangedEmail = async (user: Pick<SelectUserType, "email" | "fullName">) => {
+	await addEmailToQueue({
+		data: {
+			name: user.fullName,
+			priority: "high",
+			to: { email: user.email, name: user.fullName },
+		},
+		type: "passwordChanged",
+	});
+};
+
 export const sendVerificationEmail = async (
 	user: Pick<SelectUserType, "email" | "fullName" | "id">,
 	dbClient: typeof db

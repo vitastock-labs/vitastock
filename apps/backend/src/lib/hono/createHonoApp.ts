@@ -6,11 +6,12 @@ import { secureHeaders } from "hono/secure-headers";
 import { corsOptions } from "@/config/corsOptions";
 import { globalRateLimiterOptions } from "@/config/rateLimiterOptions";
 import { secureHeadersOptions } from "@/config/secureHeadersOptions";
+import type { HonoAppBindings } from "@/lib/types/common";
 import { errorHandler, notFoundHandler } from "@/middleware";
 import { pinoLoggerMiddleware } from "@/middleware/pinoLogger";
 
 const createHonoApp = () => {
-	const app = new Hono({ strict: false });
+	const app = new Hono<HonoAppBindings>({ strict: false });
 
 	/**
 	 *  == Middleware - App Security

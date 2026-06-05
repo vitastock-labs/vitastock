@@ -16,10 +16,36 @@ const handleJWTExpiredError = (error: jwt.TokenExpiredError) => {
 	return new AppError({ cause: error, code: 401, message: " Your token has expired!" });
 };
 
+const isDatabaseError = (error: Error) => {
+	return error.name === "PostgresError" || error.name === "DatabaseError";
+};
+
+const handleDatabaseError = (error: Error) => {
+	return new AppError({
+		cause: error,
+		code: 500,
+		message: "A database error occurred",
+		realReason: error.message,
+	});
+};
+
+const handleUnknownError = (error: Error) => {
+	return new AppError({
+		cause: error,
+		code: 500,
+		message: "Something went wrong",
+		realReason: error.message,
+	});
+};
+
 export const transformError = (error: AppError | Error | HTTPException) => {
 	let modifiedError = error;
 
 	switch (true) {
+		case error instanceof AppError: {
+			break;
+		}
+
 		case "timeout" in error && error.timeout: {
 			modifiedError = handleTimeoutError(error);
 			break;
@@ -32,6 +58,16 @@ export const transformError = (error: AppError | Error | HTTPException) => {
 
 		case error instanceof jwt.TokenExpiredError: {
 			modifiedError = handleJWTExpiredError(error);
+			break;
+		}
+
+		case error instanceof Error && isDatabaseError(error): {
+			modifiedError = handleDatabaseError(error);
+			break;
+		}
+
+		case error instanceof Error: {
+			modifiedError = handleUnknownError(error);
 			break;
 		}
 

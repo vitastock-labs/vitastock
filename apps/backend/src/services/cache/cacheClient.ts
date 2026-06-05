@@ -1,6 +1,6 @@
-import { consola } from "consola";
 import { createClient } from "redis";
 import { ENVIRONMENT } from "@/config/env";
+import { appLogger } from "@/lib/logger";
 
 export const redisCacheClient = createClient({
 	url:
@@ -10,36 +10,38 @@ export const redisCacheClient = createClient({
 });
 
 redisCacheClient.on("error", (error: Error) => {
-	consola.error(`[Redis Cache Client] Error: ${error.message}`, error);
+	appLogger.pretty.error(`[Redis Cache Client] Error: ${error.message}`, error);
 });
 
 redisCacheClient.on("connect", () => {
-	consola.info("[Redis Cache Client] Status: connect");
+	appLogger.pretty.info("[Redis Cache Client] Status: connect");
 });
 
 redisCacheClient.on("ready", () => {
-	consola.success("[Redis Cache Client] Status: ready");
+	appLogger.pretty.success("[Redis Cache Client] Status: ready");
 });
 
 redisCacheClient.on("end", () => {
-	consola.warn("[Redis Cache Client] Status: end (Disconnected)");
+	appLogger.pretty.warn("[Redis Cache Client] Status: end (Disconnected)");
 });
 
 redisCacheClient.on("reconnecting", () => {
-	consola.info("[Redis Cache Client] Status: reconnecting...");
+	appLogger.pretty.info("[Redis Cache Client] Status: reconnecting...");
 });
 
 export const initializeRedisCacheClient = async () => {
-	consola.info(`[Redis Cache Client] Initializing... Current state: isOpen=${redisCacheClient.isOpen}`);
+	appLogger.pretty.info(
+		`[Redis Cache Client] Initializing... Current state: isOpen=${redisCacheClient.isOpen}`
+	);
 	if (redisCacheClient.isOpen) {
-		consola.info("[Redis Cache Client] Already open, skipping initialization.");
+		appLogger.pretty.info("[Redis Cache Client] Already open, skipping initialization.");
 		return;
 	}
 
 	try {
 		await redisCacheClient.connect();
-		consola.info("[Redis Cache Client] .connect() called successfully.");
+		appLogger.pretty.info("[Redis Cache Client] .connect() called successfully.");
 	} catch (error) {
-		consola.error("[Redis Cache Client] Failed to connect during initialization", error);
+		appLogger.pretty.error("[Redis Cache Client] Failed to connect during initialization", error);
 	}
 };

@@ -2,13 +2,13 @@
 
 import type { SelectUserType } from "@vitastock/db/schema/auth";
 import { pickKeys } from "@zayne-labs/toolkit-core";
-import { consola } from "consola";
 import { isPast } from "date-fns";
 /* eslint-disable import/default */
 import jwt from "jsonwebtoken";
 /* eslint-enable import/default */
 import { z } from "zod";
 import { ENVIRONMENT } from "@/config/env";
+import { appLogger } from "@/lib/logger";
 import { getValidatedValue, type GetValidatedValueExtraOptions } from "@/lib/utils";
 import { hashToken } from "./hash";
 
@@ -126,17 +126,23 @@ export const warnAboutTokenReuse = (options: {
 	compromisedUser: SelectUserType;
 	requestUserAgent: string;
 }) => {
-	const { compromisedRefreshToken, compromisedUser, requestUserAgent } = options;
+	const { compromisedUser, requestUserAgent } = options;
 
 	const error = new Error("Possible token reuse detected!", {
 		cause: {
-			compromisedRefreshToken,
 			compromisedUserDetails: pickKeys(compromisedUser, ["id", "email", "fullName", "role"]),
 			userAgent: requestUserAgent,
 		},
 	});
 
-	consola.warn(error);
+	appLogger.critical({
+		error,
+		message: "Possible token reuse detected",
+		meta: {
+			userId: compromisedUser.id,
+			workspaceId: compromisedUser.workspaceId,
+		},
+	});
 };
 
 type TokenArrayOptions = {

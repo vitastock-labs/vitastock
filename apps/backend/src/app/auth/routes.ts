@@ -9,17 +9,15 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { rateLimiter } from "hono-rate-limiter";
 import { authRateLimiterOptions } from "@/config/rateLimiterOptions";
+import { emitAppEvent } from "@/lib/events";
+import { appLogger } from "@/lib/logger";
 import { AppError, AppJsonResponse } from "@/lib/utils";
 import { authMiddleware, validateWithZodMiddleware } from "@/middleware";
 import { removeFromCache, setCache } from "@/services/cache";
 import { getAuthResponseData } from "./services/common";
 import { deleteCookie, getCookie, setCookie } from "./services/cookie";
-import {
-	sendPasswordResetEmail,
-	sendResetPasswordCompleteEmail,
-	sendVerificationEmail,
-	TokenSchema,
-} from "./services/emails";
+import { sendPasswordResetEmail, sendVerificationEmail, TokenSchema } from "./services/emails";
+import { getAuthEventPayload } from "./services/events";
 import { hashToken, hashValue, verifyHashedValue } from "./services/hash";
 import {
 	decodeJwtToken,
@@ -111,6 +109,7 @@ const authRoutes = new Hono()
 				throw new AppError({
 					code: 401,
 					message: "Email or password is incorrect",
+					realReason: "User not found",
 				});
 			}
 
@@ -196,6 +195,11 @@ const authRoutes = new Hono()
 				name: "zayneVitaStockRefreshToken",
 				value: newRefreshTokenResult.token,
 			});
+
+			emitAppEvent(
+				"auth.userSignedIn",
+				getAuthEventPayload({ requestId: ctx.get("requestId"), user: updatedUser })
+			);
 
 			return AppJsonResponse(ctx, {
 				data: {
@@ -298,6 +302,14 @@ const authRoutes = new Hono()
 
 			// NOTE - Always respond generically to avoid user enumeration
 			if (!existingUser || existingUser.emailVerifiedAt) {
+				appLogger.pretty.warn(
+					new Error(
+						existingUser?.emailVerifiedAt ?
+							`User with email address ${email} already verified at ${existingUser.emailVerifiedAt.toISOString()}`
+						:	`User with email address ${email} not found`
+					)
+				);
+
 				return AppJsonResponse(ctx, {
 					data: null,
 					message: "Verification email sent successfully",
@@ -446,10 +458,12 @@ const authRoutes = new Hono()
 				});
 			}
 
-			await Promise.all([
-				removeFromCache(`user:${updatedUser.id}`),
-				sendResetPasswordCompleteEmail({ email: updatedUser.email, fullName: updatedUser.fullName }),
-			]);
+			await removeFromCache(`user:${updatedUser.id}`);
+
+			emitAppEvent(
+				"auth.passwordResetCompleted",
+				getAuthEventPayload({ requestId: ctx.get("requestId"), user: updatedUser })
+			);
 
 			return AppJsonResponse(ctx, {
 				data: null,
@@ -480,6 +494,11 @@ const authRoutes = new Hono()
 		deleteCookie(ctx, "zayneVitaStockAccessToken");
 		deleteCookie(ctx, "zayneVitaStockRefreshToken");
 
+		emitAppEvent(
+			"auth.userSignedOut",
+			getAuthEventPayload({ requestId: ctx.get("requestId"), user: currentUser })
+		);
+
 		return AppJsonResponse(ctx, {
 			data: null,
 			message: "Signed out successfully",
@@ -497,6 +516,11 @@ const authRoutes = new Hono()
 
 		deleteCookie(ctx, "zayneVitaStockAccessToken");
 		deleteCookie(ctx, "zayneVitaStockRefreshToken");
+
+		emitAppEvent(
+			"auth.userSignedOut",
+			getAuthEventPayload({ requestId: ctx.get("requestId"), user: currentUser })
+		);
 
 		return AppJsonResponse(ctx, {
 			data: null,
@@ -558,6 +582,11 @@ const authRoutes = new Hono()
 			}
 
 			await setCache(`user:${updatedUser.id}`, updatedUser);
+
+			emitAppEvent(
+				"auth.passwordChanged",
+				getAuthEventPayload({ requestId: ctx.get("requestId"), user: updatedUser })
+			);
 
 			return AppJsonResponse(ctx, {
 				data: null,

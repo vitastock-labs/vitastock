@@ -35,6 +35,11 @@ export const TEMPLATE_LOOKUP = defineEnumDeep(
 			subject: "You have been invited to join a VitaStock workspace!",
 			template: getTemplateFn(import("../emails/PharmacistInviteEmail")),
 		},
+		passwordChanged: {
+			from,
+			subject: "Your VitaStock password was changed",
+			template: getTemplateFn(import("../emails/PasswordChangedEmail")),
+		},
 		resetPassword: {
 			from,
 			subject: "Reset your password",

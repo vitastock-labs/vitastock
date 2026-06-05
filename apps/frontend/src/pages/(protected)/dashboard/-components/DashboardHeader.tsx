@@ -10,31 +10,31 @@ import { signoutMutation } from "@/lib/react-query/mutationOptions";
 import { sessionQuery } from "@/lib/react-query/queryOptions";
 import { getNameInitials } from "@/lib/utils/common";
 
+const getPlaceholder = (pathname: string) => {
+	switch (pathname) {
+		case "/dashboard":
+		case "/dashboard/inventory": {
+			return "Search inventory...";
+		}
+		case "/dashboard/alerts": {
+			return "Search alerts...";
+		}
+		case "/dashboard/reports": {
+			return "Search reports...";
+		}
+		case "/dashboard/settings": {
+			return "Search settings...";
+		}
+		default: {
+			return null;
+		}
+	}
+};
+
 function DashboardHeader() {
 	const pathname = useLocation().pathname;
 
-	const getPlaceholder = () => {
-		switch (pathname) {
-			case "/dashboard":
-			case "/dashboard/inventory": {
-				return "Search inventory...";
-			}
-			case "/dashboard/alerts": {
-				return "Search alerts...";
-			}
-			case "/dashboard/reports": {
-				return "Search reports...";
-			}
-			case "/dashboard/settings": {
-				return "Search settings...";
-			}
-			default: {
-				return null;
-			}
-		}
-	};
-
-	const placeholder = getPlaceholder();
+	const placeholder = getPlaceholder(pathname);
 
 	return (
 		<header className="flex justify-between gap-10 border-b border-[hsl(231,20%,80%,0.15)] px-6 py-7">

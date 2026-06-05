@@ -7,5 +7,6 @@ export type HonoAppBindings = {
 		currentUser: SelectUserType;
 		currentWorkspace: SelectWorkspaceType;
 		logger: PinoLogger;
+		requestId: string;
 	};
 };

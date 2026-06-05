@@ -34,11 +34,9 @@ export const authErrorRedirectPlugin = (authOptions?: AuthErrorRedirectPluginMet
 
 		const redirectFn: Required<AuthErrorRedirectPluginMeta>["auth"]["redirectFn"] = (...params) => {
 			const selectedRedirectFn = authMeta?.redirectFn ?? redirectTo;
+			const redirectDelay = authMeta?.redirectDelay ?? defaultRedirectDelay;
 
-			setTimeout(
-				() => void selectedRedirectFn(...params),
-				authMeta?.redirectDelay ?? defaultRedirectDelay
-			);
+			setTimeout(() => void selectedRedirectFn(...params), redirectDelay);
 		};
 
 		const turnOffErrorToast = () => {
@@ -94,7 +92,9 @@ export const authErrorRedirectPlugin = (authOptions?: AuthErrorRedirectPluginMet
 
 				if (shouldSkipRouteFromRedirect || !isAuthErrorThatNeedsRedirect(ctx.error)) return;
 
-				isBrowser() && void redirectFn(signInRoute);
+				if (isBrowser()) {
+					void redirectFn(signInRoute);
+				}
 
 				throw new Error(redirectErrorMessage);
 			},
