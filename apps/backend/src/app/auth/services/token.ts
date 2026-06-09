@@ -149,16 +149,16 @@ export const warnAboutTokenReuse = (options: {
 
 type TokenArrayOptions = {
 	currentUser: SelectUserType;
+	refreshToken: string | undefined;
 	variant?: "keep-current" | "remove-current";
-	zayneRefreshToken: string | undefined;
 };
 
 export const getUpdatedTokenResultArray = (
 	options: TokenArrayOptions
 ): SelectUserType["refreshTokenArray"] => {
-	const { currentUser, variant = "remove-current", zayneRefreshToken } = options;
+	const { currentUser, refreshToken, variant = "remove-current" } = options;
 
-	if (!zayneRefreshToken) {
+	if (!refreshToken) {
 		return currentUser.refreshTokenArray.filter((item) => !isPast(item.expiresAt));
 	}
 
@@ -168,7 +168,7 @@ export const getUpdatedTokenResultArray = (
 		}
 
 		return variant === "remove-current" ?
-				item.tokenHash !== hashToken(zayneRefreshToken)
-			:	item.tokenHash === hashToken(zayneRefreshToken);
+				item.tokenHash !== hashToken(refreshToken)
+			:	item.tokenHash === hashToken(refreshToken);
 	});
 };

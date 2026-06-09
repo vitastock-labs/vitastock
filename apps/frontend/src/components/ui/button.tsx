@@ -58,10 +58,17 @@ const buttonVariants = tv({
 		size: {
 			"full-width": "h-12 w-full px-6",
 
-			medium: "h-12 px-5 text-[14px]",
+			medium: "h-12 px-5",
+
+			none: "",
 		},
 
 		theme: {
+			destructive:
+				"text-shadcn-destructive hover:bg-shadcn-destructive/10 hover:text-shadcn-destructive",
+
+			none: "",
+
 			primary: "bg-vitastock-primary-main text-white hover:bg-vitastock-primary-main/90",
 
 			"primary-ghost": `bg-transparent text-vitastock-primary-main hover:bg-vitastock-primary-subtle/50
@@ -119,10 +126,16 @@ function Button<TElement extends React.ElementType = "button">(
 			</Slot.Slottable>
 			<span
 				className={cnJoin(
-					loadingStyle === "replace-content" && "absolute inset-0 inline-grid place-content-center"
+					loadingStyle === "replace-content" && "absolute inset-0 inline-grid place-content-center",
+					loadingStyle === "side-by-side" && "size-4"
 				)}
 			>
-				<SpinnerIcon className="size-5" />
+				<SpinnerIcon
+					className={cnJoin(
+						loadingStyle === "replace-content" && "size-5",
+						loadingStyle === "side-by-side" && "size-full"
+					)}
+				/>
 			</span>
 		</>
 	);

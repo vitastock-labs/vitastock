@@ -1,8 +1,9 @@
 import { AsyncLocalStorage } from "node:async_hooks";
+import type { Context } from "hono";
+import type { HonoAppBindings } from "@/lib/types/common";
 
 type RequestContext = {
-	path: string;
-	userAgent: string | undefined;
+	honoCtx: Context<HonoAppBindings>;
 };
 
 const store = new AsyncLocalStorage<RequestContext>();

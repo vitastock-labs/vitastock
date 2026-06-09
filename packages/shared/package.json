@@ -15,15 +15,15 @@
 		"@vitastock/db": "workspace:*",
 		"@vitastock/env": "workspace:*",
 		"@zayne-labs/callapi": "1.13.0",
-		"@zayne-labs/toolkit-core": "^0.12.55",
-		"@zayne-labs/toolkit-type-helpers": "^0.12.55",
+		"@zayne-labs/toolkit-core": "^0.12.56",
+		"@zayne-labs/toolkit-type-helpers": "^0.12.56",
 		"consola": "3.4.2",
 		"zod": "4.4.0"
 	},
 	"devDependencies": {
 		"@total-typescript/ts-reset": "0.6.1",
-		"@zayne-labs/tsconfig": "^0.13.13",
-		"tsdown": "0.22.1",
+		"@zayne-labs/tsconfig": "^0.13.14",
+		"tsdown": "0.22.2",
 		"typescript": "6.0.3"
 	}
 }

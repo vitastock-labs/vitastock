@@ -36,12 +36,12 @@ function ReportsStats() {
 			>
 				<div className="flex items-center justify-between">
 					<h3 className="text-[14px] font-medium text-vitastock-body-color">Total Dispensed (30d)</h3>
-					<IconBox type="online" icon="lucide:link" className="size-5 text-vitastock-primary-main" />
+					<IconBox icon="lucide:link" className="size-5 text-vitastock-primary-main" />
 				</div>
 				<div className="flex flex-col gap-2">
 					<p className="text-[34px] leading-none font-extrabold tracking-tight text-black">12,450</p>
 					<div className="flex items-center gap-1.5 text-[13px] font-semibold text-[#16a34a]">
-						<IconBox type="online" icon="lucide:arrow-up" className="size-3.5" />
+						<IconBox icon="lucide:arrow-up" className="size-3.5" />
 						<span>8.2% vs last month</span>
 					</div>
 				</div>
@@ -52,12 +52,12 @@ function ReportsStats() {
 			>
 				<div className="flex items-center justify-between">
 					<h3 className="text-[14px] font-medium text-vitastock-body-color">Unique Patients</h3>
-					<IconBox type="online" icon="lucide:users" className="size-5 text-vitastock-primary-main" />
+					<IconBox icon="lucide:users" className="size-5 text-vitastock-primary-main" />
 				</div>
 				<div className="flex flex-col gap-2">
 					<p className="text-[34px] leading-none font-extrabold tracking-tight text-black">3,102</p>
 					<div className="flex items-center gap-1.5 text-[13px] font-semibold text-[#16a34a]">
-						<IconBox type="online" icon="lucide:arrow-up" className="size-3.5" />
+						<IconBox icon="lucide:arrow-up" className="size-3.5" />
 						<span>2.4% vs last month</span>
 					</div>
 				</div>
@@ -66,7 +66,7 @@ function ReportsStats() {
 			<div className="flex flex-col gap-4 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-[#fca5a5]/70">
 				<div className="flex items-center justify-between">
 					<h3 className="text-[14px] font-medium text-[#dc2626]">Low Stock Alerts</h3>
-					<IconBox type="online" icon="lucide:triangle-alert" className="size-5 text-[#dc2626]" />
+					<IconBox icon="lucide:triangle-alert" className="size-5 text-[#dc2626]" />
 				</div>
 				<div className="flex flex-col gap-2">
 					<p className="text-[34px] leading-none font-extrabold tracking-tight text-[#dc2626]">14</p>
@@ -150,11 +150,11 @@ function ReportsLog() {
 					</Form.InputGroup>
 
 					<Button theme="secondary-outline" className="h-10 px-5 font-semibold">
-						<IconBox type="online" icon="lucide:list-filter" className="size-4" />
+						<IconBox icon="lucide:list-filter" className="size-4" />
 						Filter
 					</Button>
 					<Button className="h-10 px-5 font-semibold">
-						<IconBox type="online" icon="lucide:download" className="size-4" />
+						<IconBox icon="lucide:download" className="size-4" />
 						Export
 					</Button>
 				</div>

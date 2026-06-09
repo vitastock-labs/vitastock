@@ -115,17 +115,13 @@ function AlertsPage() {
 									>
 										<Switch.Root>
 											<Switch.Match when={alert.type === "Expired"}>
-												<IconBox
-													type="online"
-													icon="lucide:triangle-alert"
-													className="size-5.5"
-												/>
+												<IconBox icon="lucide:triangle-alert" className="size-5.5" />
 											</Switch.Match>
 											<Switch.Match when={alert.type === "Expiring Soon"}>
-												<IconBox type="online" icon="lucide:clock" className="size-5.5" />
+												<IconBox icon="lucide:clock" className="size-5.5" />
 											</Switch.Match>
 											<Switch.Match when={alert.type === "Low-Stock"}>
-												<IconBox type="online" icon="lucide:archive" className="size-5.5" />
+												<IconBox icon="lucide:archive" className="size-5.5" />
 											</Switch.Match>
 										</Switch.Root>
 									</span>
@@ -218,14 +214,10 @@ function AlertsPage() {
 											)}
 										>
 											{alert.action === "Remove" && (
-												<IconBox type="online" icon="lucide:trash-2" className="size-4" />
+												<IconBox icon="lucide:trash-2" className="size-4" />
 											)}
 											{alert.action === "Restock" && (
-												<IconBox
-													type="online"
-													icon="lucide:shopping-cart"
-													className="size-4"
-												/>
+												<IconBox icon="lucide:shopping-cart" className="size-4" />
 											)}
 											{alert.action}
 										</Button>

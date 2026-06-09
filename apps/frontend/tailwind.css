@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "@zayne-labs/ui-react/css/preset.css";
+@import "shadcn/tailwind.css";
 
 /* ------------------*/
 /* App Colors        */

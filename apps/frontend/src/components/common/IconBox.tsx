@@ -14,7 +14,7 @@ type IconifyIconBoxProps = Omit<IconProps, "icon"> & {
 	type: "online";
 };
 
-type IconBoxProps = IconifyIconBoxProps | MoniconIconBoxProps;
+export type IconBoxProps = IconifyIconBoxProps | MoniconIconBoxProps;
 
 export function IconBox(props: IconBoxProps) {
 	const { icon, type = "local", ...restOfProps } = props;

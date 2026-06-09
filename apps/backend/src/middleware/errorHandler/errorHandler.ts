@@ -2,10 +2,10 @@ import { pickKeys } from "@zayne-labs/toolkit-core";
 import type { ErrorHandler } from "hono";
 import type { HTTPException } from "hono/http-exception";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
-import { errorCodes } from "../../constants";
-import { appLogger } from "../../lib/logger";
-import type { HonoAppBindings } from "../../lib/types/common";
-import { AppError } from "../../lib/utils";
+import { errorCodes } from "@/constants";
+import { appLogger } from "@/lib/logger";
+import type { HonoAppBindings } from "@/lib/types/common";
+import { AppError } from "@/lib/utils";
 import { transformError } from "./transformError";
 
 const errorHandler: ErrorHandler<HonoAppBindings> = (error: AppError | Error | HTTPException, ctx) => {

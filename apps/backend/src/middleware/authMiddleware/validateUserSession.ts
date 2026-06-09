@@ -2,6 +2,7 @@
 
 import { db } from "@vitastock/db";
 import { users, type SelectUserType } from "@vitastock/db/schema/auth";
+import { workspaces, type SelectWorkspaceType } from "@vitastock/db/schema/workspace";
 import { AUTH_ERRORS } from "@vitastock/shared/constants";
 import type { UnionDiscriminator } from "@zayne-labs/toolkit-type-helpers";
 import { eq } from "drizzle-orm";
@@ -16,6 +17,7 @@ import {
 } from "@/app/auth/services/token";
 import { ENVIRONMENT } from "@/config/env";
 import { AppError } from "@/lib/utils";
+import { deleteCookie } from "@/lib/utils/cookie";
 import { getFromCache, removeFromCache } from "@/services/cache";
 import { requestContext } from "./requestContext";
 
@@ -80,13 +82,16 @@ const getAndVerifyUserFromToken = async (options: VerifyOptions) => {
 		warnAboutTokenReuse({
 			compromisedRefreshToken: zayneRefreshToken,
 			compromisedUser: currentUser,
-			requestUserAgent: requestContextValue.userAgent ?? "unknown",
+			requestUserAgent: requestContextValue.honoCtx.req.header("user-agent") ?? "unknown",
 		});
 
 		await Promise.all([
 			db.update(users).set({ refreshTokenArray: [] }).where(eq(users.id, currentUser.id)),
 			removeFromCache(`user:${currentUser.id}`),
 		]);
+
+		deleteCookie(requestContextValue.honoCtx, "vitaStockRefreshToken");
+		deleteCookie(requestContextValue.honoCtx, "vitaStockAccessToken");
 
 		throw new AppError({
 			appCode: AUTH_ERRORS.INVALID_SESSION.appCode,
@@ -111,7 +116,10 @@ const getAndVerifyUserFromToken = async (options: VerifyOptions) => {
 		});
 	}
 
-	if (currentUser.mustChangePassword && !requestContextValue.path.endsWith("/auth/change-password")) {
+	if (
+		currentUser.mustChangePassword
+		&& !requestContextValue.honoCtx.req.path.endsWith("/auth/change-password")
+	) {
 		throw new AppError({
 			appCode: AUTH_ERRORS.PASSWORD_CHANGE_REQUIRED.appCode,
 			code: 403,
@@ -125,8 +133,37 @@ const getAndVerifyUserFromToken = async (options: VerifyOptions) => {
 	return currentUser;
 };
 
-type NewSession = {
+const getUserAndWorkspaceFromToken = async (options: VerifyOptions) => {
+	const currentUser = await getAndVerifyUserFromToken(options);
+
+	const currentWorkspace = await getFromCache(`workspace:${currentUser.workspaceId}`, {
+		onCacheMiss: async () => {
+			const [workspace] = await db
+				.select()
+				.from(workspaces)
+				.where(eq(workspaces.id, currentUser.workspaceId))
+				.limit(1);
+
+			return workspace;
+		},
+	});
+
+	if (!currentWorkspace) {
+		throw new AppError({
+			code: 500,
+			message: "User workspace not found",
+		});
+	}
+
+	return { currentUser, currentWorkspace };
+};
+
+type BaseSession = {
 	currentUser: SelectUserType;
+	currentWorkspace: SelectWorkspaceType;
+};
+
+type NewSession = BaseSession & {
 	newZayneAccessTokenResult: ReturnType<typeof generateAccessToken>;
 };
 
@@ -135,7 +172,7 @@ type NewSession = {
  */
 export const refreshUserSession = async (zayneRefreshToken: string): Promise<NewSession> => {
 	try {
-		const currentUser = await getAndVerifyUserFromToken({
+		const { currentUser, currentWorkspace } = await getUserAndWorkspaceFromToken({
 			variant: "refreshToken",
 			zayneRefreshToken,
 		});
@@ -144,6 +181,7 @@ export const refreshUserSession = async (zayneRefreshToken: string): Promise<New
 
 		return {
 			currentUser,
+			currentWorkspace,
 			newZayneAccessTokenResult,
 		};
 	} catch (error) {
@@ -169,8 +207,7 @@ export const refreshUserSession = async (zayneRefreshToken: string): Promise<New
 	}
 };
 
-type ExistingSession = {
-	currentUser: SelectUserType;
+type ExistingSession = BaseSession & {
 	newZayneAccessTokenResult: null;
 };
 
@@ -201,7 +238,7 @@ const validateUserSession = async (
 	}
 
 	try {
-		const currentUser = await getAndVerifyUserFromToken({
+		const { currentUser, currentWorkspace } = await getUserAndWorkspaceFromToken({
 			variant: "accessToken",
 			zayneAccessToken,
 			zayneRefreshToken,
@@ -209,6 +246,7 @@ const validateUserSession = async (
 
 		return {
 			currentUser,
+			currentWorkspace,
 			newZayneAccessTokenResult: null,
 		};
 	} catch (error) {

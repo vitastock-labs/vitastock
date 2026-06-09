@@ -108,7 +108,7 @@ const problems = [
 	},
 	{
 		accent: "Inaccurate",
-		accentIcon: "lucide:alert-triangle",
+		accentIcon: "lucide:triangle-alert",
 		classNames: {
 			blur: tw`bg-shadcn-destructive/10`,
 			card: tw`border-shadcn-destructive/20 bg-shadcn-destructive/10 text-shadcn-foreground`,
@@ -153,7 +153,7 @@ const problems = [
 		icon: "lucide:package-x",
 		title: "Problems show up too late",
 	},
-];
+] as const;
 
 function ProblemSection() {
 	return (
@@ -202,7 +202,6 @@ function ProblemSection() {
 								)}
 							>
 								<IconBox
-									type="online"
 									icon={problem.icon}
 									width={24}
 									height={24}
@@ -230,7 +229,6 @@ function ProblemSection() {
 									)}
 								>
 									<IconBox
-										type="online"
 										icon={problem.accentIcon}
 										width={14}
 										height={14}

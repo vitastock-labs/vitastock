@@ -1,55 +1,36 @@
 import { consola } from "consola";
-import { inArray } from "drizzle-orm";
 import { db } from "../db";
 import { workspaces, type InsertWorkspaceType } from "../schema";
 
 const WORKSPACE_SEED_DATA: InsertWorkspaceType[] = [
 	{
 		alertEmail: "alerts@greenleaf.seeded.com",
+		emailAlertsEnabledAt: new Date("2026-01-01T08:00:00.000Z"),
+		lowStockThreshold: 15,
 		name: "Greenleaf Pharmacy",
+		nearExpiryDays: 75,
+		timezone: "Africa/Lagos",
 	},
 	{
 		alertEmail: "alerts@citycare.seeded.com",
+		emailAlertsEnabledAt: new Date("2026-01-02T08:00:00.000Z"),
 		lowStockThreshold: 20,
 		name: "CityCare Pharmacy",
 		nearExpiryDays: 60,
+		timezone: "Africa/Lagos",
 	},
 ];
 
 export const seedWorkspaces = async () => {
 	consola.info(`Seeding ${WORKSPACE_SEED_DATA.length} workspaces...`);
 
-	const workspaceNames = WORKSPACE_SEED_DATA.map((workspace) => workspace.name);
+	const insertedWorkspaces = await db
+		.insert(workspaces)
+		.values(WORKSPACE_SEED_DATA)
+		.onConflictDoNothing()
+		.returning();
 
-	const existingWorkspaces = await db
-		.select()
-		.from(workspaces)
-		.where(inArray(workspaces.name, workspaceNames));
+	consola.success(`Seeded ${insertedWorkspaces.length} new workspaces.`);
 
-	const workspaceByName = new Map(existingWorkspaces.map((workspace) => [workspace.name, workspace]));
-
-	const missingWorkspaces = WORKSPACE_SEED_DATA.filter((workspace) => {
-		return !workspaceByName.has(workspace.name);
-	});
-
-	const insertedWorkspaces =
-		missingWorkspaces.length > 0 ?
-			await db.insert(workspaces).values(missingWorkspaces).returning()
-		:	[];
-
-	for (const workspace of insertedWorkspaces) {
-		workspaceByName.set(workspace.name, workspace);
-	}
-
-	const seededWorkspaces = workspaceNames
-		.map((name) => workspaceByName.get(name))
-		.filter((workspace) => workspace !== undefined);
-
-	if (insertedWorkspaces.length === 0) {
-		consola.warn("Seed workspaces already exist, reusing them.");
-	} else {
-		consola.success(`Seeded ${insertedWorkspaces.length} new workspaces.`);
-	}
-
-	return seededWorkspaces;
+	return insertedWorkspaces;
 };

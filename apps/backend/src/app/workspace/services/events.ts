@@ -16,19 +16,10 @@ export const getWorkspaceEventPayload = (options: { requestId: string; user: Wor
 	};
 };
 
-export const getWorkspaceInvitationSentEventPayload = (options: {
-	invitationId: string;
-	recipient: string;
-	requestId: string;
-	user: WorkspaceEventUser;
-}) => {
-	const { invitationId, recipient, requestId, user } = options;
+const clearWorkspaceCache = async (workspaceId: string | undefined) => {
+	if (!workspaceId) return;
 
-	return {
-		...getWorkspaceEventPayload({ requestId, user }),
-		invitationId,
-		recipient,
-	};
+	await removeFromCache(`workspace:${workspaceId}`);
 };
 
 let hasRegisteredWorkspaceEventSubscribers = false;
@@ -38,9 +29,18 @@ export const registerWorkspaceEventSubscribers = () => {
 
 	hasRegisteredWorkspaceEventSubscribers = true;
 
-	subscribeToAppEvent("workspace.invitationSent", async (payload) => {
-		if (!payload.workspaceId) return;
-
-		await removeFromCache(`workspace:${payload.workspaceId}`);
-	});
+	subscribeToAppEvent("workspace.invitationCanceled", (payload) =>
+		clearWorkspaceCache(payload.workspaceId)
+	);
+	subscribeToAppEvent("workspace.invitationResent", (payload) =>
+		clearWorkspaceCache(payload.workspaceId)
+	);
+	subscribeToAppEvent("workspace.invitationSent", (payload) => clearWorkspaceCache(payload.workspaceId));
+	subscribeToAppEvent("workspace.memberRemoved", (payload) => clearWorkspaceCache(payload.workspaceId));
+	subscribeToAppEvent("workspace.memberRoleChanged", (payload) =>
+		clearWorkspaceCache(payload.workspaceId)
+	);
+	subscribeToAppEvent("workspace.memberSuspensionChanged", (payload) =>
+		clearWorkspaceCache(payload.workspaceId)
+	);
 };

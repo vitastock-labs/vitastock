@@ -48,7 +48,6 @@ function AcceptInvitationPage() {
 					className="grid size-[72px] place-items-center rounded-[12px] bg-vitastock-primary-subtle"
 				>
 					<IconBox
-						type="online"
 						icon={
 							acceptInvitationMutationResult.isError ? "lucide:triangle-alert" : "lucide:user-check"
 						}

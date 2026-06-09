@@ -2,7 +2,7 @@
 import type { HTTPException } from "hono/http-exception";
 // eslint-disable-next-line import/default
 import jwt from "jsonwebtoken";
-import { AppError } from "../../lib/utils";
+import { AppError } from "@/lib/utils";
 
 const handleTimeoutError = (error: Error) => {
 	return new AppError({ cause: error, code: 408, message: "Request timeout" });

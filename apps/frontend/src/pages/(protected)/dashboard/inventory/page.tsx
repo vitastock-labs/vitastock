@@ -52,7 +52,7 @@ function InventoryStats() {
 					className="grid size-14 place-items-center rounded-xl bg-vitastock-primary-main/15
 						text-vitastock-primary-main"
 				>
-					<IconBox type="online" icon="lucide:dollar-sign" className="size-6" />
+					<IconBox icon="lucide:dollar-sign" className="size-6" />
 				</span>
 			</div>
 
@@ -69,7 +69,7 @@ function InventoryStats() {
 				</div>
 
 				<span className="grid size-14 place-items-center rounded-xl bg-[#b91c1c] text-white">
-					<IconBox type="online" icon="lucide:triangle-alert" className="size-6" />
+					<IconBox icon="lucide:triangle-alert" className="size-6" />
 				</span>
 			</div>
 		</section>
@@ -81,17 +81,17 @@ function InventoryActions() {
 		<section className="flex items-center justify-between">
 			<div className="flex items-center gap-4">
 				<Button theme="secondary-outline" className="px-5 text-vitastock-primary-main">
-					<IconBox type="online" icon="lucide:file-down" className="size-4.5" />
+					<IconBox icon="lucide:file-down" className="size-4.5" />
 					Bulk Import
 				</Button>
 				<Button theme="secondary-outline" className="px-5 text-vitastock-primary-main">
-					<IconBox type="online" icon="lucide:zap" className="size-4.5" />
+					<IconBox icon="lucide:zap" className="size-4.5" />
 					Quick Dispense
 				</Button>
 			</div>
 
 			<Button className="px-6">
-				<IconBox type="online" icon="lucide:plus" className="size-4.5" />
+				<IconBox icon="lucide:plus" className="size-4.5" />
 				Add Stock
 			</Button>
 		</section>
@@ -152,7 +152,7 @@ function InventoryTable() {
 					unstyled={true}
 					className="text-vitastock-body-color transition-colors hover:text-vitastock-primary-main"
 				>
-					<IconBox type="online" icon="lucide:filter" className="size-5" />
+					<IconBox icon="lucide:filter" className="size-5" />
 				</Button>
 			</header>
 
@@ -210,11 +210,7 @@ function InventoryTable() {
 												className="border-none bg-[#b91c1c] px-2 py-0.5 text-[11px]
 													font-semibold tracking-wide text-white hover:bg-[#b91c1c]/90"
 											>
-												<IconBox
-													type="online"
-													icon="lucide:triangle-alert"
-													className="size-3"
-												/>
+												<IconBox icon="lucide:triangle-alert" className="size-3" />
 												Expired
 											</Badge>
 										)}
@@ -249,7 +245,7 @@ function InventoryTable() {
 										className="inline-flex p-1 text-vitastock-primary-main transition-colors
 											hover:text-vitastock-primary-dark"
 									>
-										<IconBox type="online" icon="lucide:pencil" className="size-4.5" />
+										<IconBox icon="lucide:pencil" className="size-4.5" />
 									</Button>
 								</Table.Cell>
 							</Table.Row>
@@ -287,7 +283,7 @@ function ProjectedStockOut() {
 		>
 			<header className="flex flex-col gap-3">
 				<div className="flex items-center gap-2.5">
-					<IconBox type="online" icon="lucide:trending-down" className="size-5 text-[#d97706]" />
+					<IconBox icon="lucide:trending-down" className="size-5 text-[#d97706]" />
 					<h2 className="font-bold text-black">Projected Stock-out</h2>
 				</div>
 				<p className="text-[14px] leading-relaxed text-vitastock-body-color">

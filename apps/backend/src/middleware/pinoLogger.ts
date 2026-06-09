@@ -17,7 +17,6 @@ export const pinoLoggerMiddleware = () => {
 					status: ctx.res.status,
 				},
 			}),
-			referRequestIdKey: "requestId",
 		},
 		pino: pinoLogger,
 	});

@@ -3,15 +3,24 @@ import * as cookieHelpers from "hono/cookie";
 import type { CookieOptions } from "hono/utils/cookie";
 import { ENVIRONMENT } from "@/config/env";
 
-type ZayneCookieNames = "zayneVitaStockAccessToken" | "zayneVitaStockRefreshToken";
+type VitaStockCookieNames = "vitaStockAccessToken" | "vitaStockRefreshToken";
 
 type GoogleCookieNames = "google_code_verifier" | "google_oauth_state";
 
-type PossibleCookieNames = GoogleCookieNames | ZayneCookieNames;
+type PossibleCookieNames = GoogleCookieNames | VitaStockCookieNames;
 
 export const getCookie = (ctx: Context, name: PossibleCookieNames) => cookieHelpers.getCookie(ctx, name);
 
-export const getZayneCookieHeader = (ctx: Context, name: ZayneCookieNames) => ctx.req.header(name);
+const getBaseCookieOptions = () => {
+	const isProduction = ENVIRONMENT.NODE_ENV === "production";
+
+	return {
+		httpOnly: true,
+		partitioned: isProduction,
+		sameSite: isProduction ? "none" : "lax",
+		secure: isProduction,
+	} satisfies CookieOptions;
+};
 
 export const setCookie = (
 	ctx: Context,
@@ -19,17 +28,12 @@ export const setCookie = (
 ) => {
 	const { name, value, ...restOptions } = options;
 
-	const isProduction = ENVIRONMENT.NODE_ENV === "production";
-
 	cookieHelpers.setCookie(ctx, name, value, {
-		httpOnly: true,
-		partitioned: isProduction,
-		sameSite: isProduction ? "none" : "lax",
-		secure: isProduction,
+		...getBaseCookieOptions(),
 		...restOptions,
 	});
 };
 
 export const deleteCookie = (ctx: Context, name: PossibleCookieNames) => {
-	cookieHelpers.deleteCookie(ctx, name);
+	cookieHelpers.deleteCookie(ctx, name, getBaseCookieOptions());
 };

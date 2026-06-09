@@ -64,7 +64,7 @@ const stats = [
 		title: "Stock Value",
 		value: "$42.5k",
 	},
-];
+] as const;
 
 function DashboardStats() {
 	return (
@@ -79,7 +79,7 @@ function DashboardStats() {
 					>
 						<div className="flex items-center justify-between">
 							<h3 className="text-[14px] font-medium">{stat.title}</h3>
-							<IconBox type="online" icon={stat.icon} className={cnJoin("size-5", stat.color)} />
+							<IconBox icon={stat.icon} className={cnJoin("size-5", stat.color)} />
 						</div>
 						<div>
 							<p className="text-[34px] leading-none font-extrabold tracking-tight text-black">
@@ -101,15 +101,15 @@ function DashboardQuickActions() {
 
 			<div className="flex flex-wrap items-center gap-4">
 				<Button>
-					<IconBox type="online" icon="lucide:plus" className="size-4.5" />
+					<IconBox icon="lucide:plus" className="size-4.5" />
 					Stock In
 				</Button>
 				<Button>
-					<IconBox type="online" icon="lucide:minus" className="size-4.5" />
+					<IconBox icon="lucide:minus" className="size-4.5" />
 					Dispense
 				</Button>
 				<Button>
-					<IconBox type="online" icon="lucide:bell" className="size-4.5" />
+					<IconBox icon="lucide:bell" className="size-4.5" />
 					View Alerts
 				</Button>
 			</div>

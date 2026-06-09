@@ -115,13 +115,13 @@ const AuthDataSchema = z.object({
 
 const AuthSuccessResponseSchema = withBaseSuccessResponse(AuthDataSchema);
 
+const NullSuccessResponseSchema = withBaseSuccessResponse(z.null());
+
 const authRoutes = () => {
 	const AuthTokensSchema = z.object({
 		access: TokenObjectSchema,
 		refresh: TokenObjectSchema,
 	});
-
-	const NullSuccessResponseSchema = withBaseSuccessResponse(z.null());
 
 	return defineSchemaRoutes({
 		"@get/auth/session": {
@@ -197,6 +197,8 @@ const authRoutes = () => {
 };
 
 export const workspaceRoutes = () => {
+	const ManageableWorkspaceRoleSchema = UserDetailsSchema.shape.role.exclude(["owner"]);
+
 	const WorkspaceMemberSchema = z.discriminatedUnion("status", [
 		SelectUserSchema.pick({
 			createdAt: true,
@@ -209,6 +211,19 @@ export const workspaceRoutes = () => {
 			isCurrentUser: z.boolean(),
 			status: z.literal("active"),
 		}),
+		SelectUserSchema.pick({
+			createdAt: true,
+			email: true,
+			fullName: true,
+			id: true,
+			role: true,
+			suspendedAt: true,
+		}).extend({
+			createdAt: stringWithDateValidation(),
+			isCurrentUser: z.boolean(),
+			status: z.literal("suspended"),
+			suspendedAt: stringWithDateValidation(),
+		}),
 		SelectWorkspaceInvitationSchema.pick({
 			createdAt: true,
 			expiresAt: true,
@@ -220,10 +235,32 @@ export const workspaceRoutes = () => {
 			createdAt: stringWithDateValidation(),
 			expiresAt: stringWithDateValidation(),
 			isCurrentUser: z.literal(false),
-			role: UserDetailsSchema.shape.role.exclude(["owner"]),
+			role: ManageableWorkspaceRoleSchema,
 			status: z.literal("pending"),
 		}),
+		SelectWorkspaceInvitationSchema.pick({
+			createdAt: true,
+			expiresAt: true,
+			id: true,
+			inviteeEmail: true,
+			inviteeName: true,
+			role: true,
+		}).extend({
+			createdAt: stringWithDateValidation(),
+			expiresAt: stringWithDateValidation(),
+			isCurrentUser: z.literal(false),
+			role: ManageableWorkspaceRoleSchema,
+			status: z.literal("expired"),
+		}),
 	]);
+
+	const InvitationIdParamSchema = z.object({
+		invitationId: z.uuid("Invalid invitation ID"),
+	});
+
+	const MemberIdParamSchema = z.object({
+		memberId: z.uuid("Invalid member ID"),
+	});
 
 	const InvitationDataSchema = SelectWorkspaceInvitationSchema.pick({
 		expiresAt: true,
@@ -233,10 +270,20 @@ export const workspaceRoutes = () => {
 	}).extend({
 		defaultPassword: PasswordSchema,
 		expiresAt: stringWithDateValidation(),
-		role: UserDetailsSchema.shape.role.exclude(["owner"]),
+		role: ManageableWorkspaceRoleSchema,
 	});
 
 	return defineSchemaRoutes({
+		"@delete/workspace/invitation/:invitationId": {
+			data: NullSuccessResponseSchema,
+			params: InvitationIdParamSchema,
+		},
+
+		"@delete/workspace/member/:memberId": {
+			data: NullSuccessResponseSchema,
+			params: MemberIdParamSchema,
+		},
+
 		"@get/workspace/members": {
 			data: withBaseSuccessResponse(
 				z.object({
@@ -245,11 +292,24 @@ export const workspaceRoutes = () => {
 			),
 		},
 
+		"@patch/workspace/member/role": {
+			body: z.object({
+				memberId: MemberIdParamSchema.shape.memberId,
+				role: ManageableWorkspaceRoleSchema,
+			}),
+			data: NullSuccessResponseSchema,
+		},
+
 		"@post/workspace/invitation/accept": {
 			body: z.object({
 				token: z.string().min(1, "Invitation token is required"),
 			}),
 			data: AuthSuccessResponseSchema,
+		},
+
+		"@post/workspace/invitation/resend": {
+			body: InvitationIdParamSchema.extend(InvitationDataSchema.pick({ defaultPassword: true }).shape),
+			data: NullSuccessResponseSchema,
 		},
 
 		"@post/workspace/invitation/send": {
@@ -265,6 +325,14 @@ export const workspaceRoutes = () => {
 					}),
 				})
 			),
+		},
+
+		"@post/workspace/member/suspension": {
+			body: z.object({
+				action: z.enum(["suspend", "unsuspend"]),
+				memberId: MemberIdParamSchema.shape.memberId,
+			}),
+			data: NullSuccessResponseSchema,
 		},
 	});
 };

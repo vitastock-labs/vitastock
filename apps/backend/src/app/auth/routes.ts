@@ -12,10 +12,10 @@ import { authRateLimiterOptions } from "@/config/rateLimiterOptions";
 import { emitAppEvent } from "@/lib/events";
 import { appLogger } from "@/lib/logger";
 import { AppError, AppJsonResponse } from "@/lib/utils";
+import { deleteCookie, getCookie, setCookie } from "@/lib/utils/cookie";
 import { authMiddleware, validateWithZodMiddleware } from "@/middleware";
 import { removeFromCache, setCache } from "@/services/cache";
 import { getAuthResponseData } from "./services/common";
-import { deleteCookie, getCookie, setCookie } from "./services/cookie";
 import { sendPasswordResetEmail, sendVerificationEmail, TokenSchema } from "./services/emails";
 import { getAuthEventPayload } from "./services/events";
 import { hashToken, hashValue, verifyHashedValue } from "./services/hash";
@@ -161,7 +161,7 @@ const authRoutes = new Hono()
 
 			const updatedTokenArray = getUpdatedTokenResultArray({
 				currentUser,
-				zayneRefreshToken: getCookie(ctx, "zayneVitaStockRefreshToken"),
+				refreshToken: getCookie(ctx, "vitaStockRefreshToken"),
 			});
 
 			const [updatedUser] = await db
@@ -187,12 +187,12 @@ const authRoutes = new Hono()
 
 			setCookie(ctx, {
 				expires: newAccessTokenResult.expiresAt,
-				name: "zayneVitaStockAccessToken",
+				name: "vitaStockAccessToken",
 				value: newAccessTokenResult.token,
 			});
 			setCookie(ctx, {
 				expires: newRefreshTokenResult.expiresAt,
-				name: "zayneVitaStockRefreshToken",
+				name: "vitaStockRefreshToken",
 				value: newRefreshTokenResult.token,
 			});
 
@@ -346,6 +346,8 @@ const authRoutes = new Hono()
 
 			// NOTE - Always respond generically to avoid user enumeration
 			if (!result) {
+				appLogger.pretty.warn(new Error(`User with email address ${email} not found`));
+
 				return AppJsonResponse(ctx, {
 					data: null,
 					message: `Password reset link sent to ${email}`,
@@ -480,7 +482,7 @@ const authRoutes = new Hono()
 
 		const updatedTokenArray = getUpdatedTokenResultArray({
 			currentUser,
-			zayneRefreshToken: getCookie(ctx, "zayneVitaStockRefreshToken"),
+			refreshToken: getCookie(ctx, "vitaStockRefreshToken"),
 		});
 
 		await Promise.all([
@@ -491,8 +493,8 @@ const authRoutes = new Hono()
 			removeFromCache(`user:${currentUser.id}`),
 		]);
 
-		deleteCookie(ctx, "zayneVitaStockAccessToken");
-		deleteCookie(ctx, "zayneVitaStockRefreshToken");
+		deleteCookie(ctx, "vitaStockAccessToken");
+		deleteCookie(ctx, "vitaStockRefreshToken");
 
 		emitAppEvent(
 			"auth.userSignedOut",
@@ -514,8 +516,8 @@ const authRoutes = new Hono()
 			removeFromCache(`user:${currentUser.id}`),
 		]);
 
-		deleteCookie(ctx, "zayneVitaStockAccessToken");
-		deleteCookie(ctx, "zayneVitaStockRefreshToken");
+		deleteCookie(ctx, "vitaStockAccessToken");
+		deleteCookie(ctx, "vitaStockRefreshToken");
 
 		emitAppEvent(
 			"auth.userSignedOut",
@@ -557,12 +559,19 @@ const authRoutes = new Hono()
 				});
 			}
 
+			if (currentPassword === newPassword) {
+				throw new AppError({
+					code: 400,
+					message: "Current password and new password cannot be the same",
+				});
+			}
+
 			const newPasswordHash = await hashValue(newPassword);
 
 			const updatedTokenArray = getUpdatedTokenResultArray({
 				currentUser,
+				refreshToken: getCookie(ctx, "vitaStockRefreshToken"),
 				variant: "keep-current",
-				zayneRefreshToken: getCookie(ctx, "zayneVitaStockRefreshToken"),
 			});
 
 			const [updatedUser] = await db

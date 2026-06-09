@@ -45,7 +45,7 @@ function DashboardHeader() {
 					border-[hsl(231,20%,80%,0.3)] bg-white px-4 py-1 text-[14px]"
 			>
 				<Form.InputLeftItem>
-					<IconBox type="online" icon="lucide:search" />
+					<IconBox icon="lucide:search" />
 				</Form.InputLeftItem>
 
 				{placeholder && (
@@ -163,30 +163,35 @@ function ProfileDropdown() {
 
 				<DropdownMenu.Item asChild={true}>
 					<NavLink to="/dashboard" className="px-3 py-2">
-						<IconBox type="online" icon="lucide:layout-dashboard" className="size-4" />
+						<IconBox icon="lucide:layout-dashboard" className="size-4" />
 						Dashboard
 					</NavLink>
 				</DropdownMenu.Item>
 
 				<DropdownMenu.Item asChild={true}>
 					<NavLink to="/dashboard/settings" className="px-3 py-2">
-						<IconBox type="online" icon="lucide:settings" className="size-4" />
+						<IconBox icon="lucide:settings" className="size-4" />
 						Settings
 					</NavLink>
 				</DropdownMenu.Item>
 
 				<DropdownMenu.Separator />
 
-				<DropdownMenu.Item variant="destructive" asChild={true}>
+				<DropdownMenu.Item
+					variant="destructive"
+					onSelect={(event) => event.preventDefault()}
+					asChild={true}
+				>
 					<Button
-						theme="primary-ghost"
+						theme="none"
+						size="none"
 						isLoading={signoutMutationResult.isPending}
 						isDisabled={signoutMutationResult.isPending}
+						className="px-3 py-2"
 						loadingStyle="side-by-side"
-						className="h-auto px-3 py-2"
 						onClick={onSignout}
 					>
-						<IconBox type="online" icon="lucide:log-out" className="size-4" />
+						<IconBox icon="lucide:log-out" className="size-4" />
 						Sign out
 					</Button>
 				</DropdownMenu.Item>

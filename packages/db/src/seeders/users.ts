@@ -20,62 +20,98 @@ const getWorkspaceSlug = (workspaceName: string) => {
 	return workspaceName.toLowerCase().replaceAll(/[^a-z0-9]+/g, "");
 };
 
-export const seedUsers = async (seededWorkspaces: SeededWorkspaces) => {
-	if (seededWorkspaces.length === 0) return;
+const getUsersSeedData = (options: {
+	passwordHash: string;
+	workspaceId: string;
+	workspaceName: string;
+}) => {
+	const { passwordHash, workspaceId, workspaceName } = options;
 
+	const slug = getWorkspaceSlug(workspaceName);
+
+	const fixedOwner: InsertUserType = {
+		email: `owner.${slug}@seeded.com`,
+		emailVerifiedAt: new Date(),
+		fullName: `${workspaceName} Owner`,
+		passwordHash,
+		role: "owner",
+		workspaceId,
+	};
+
+	const backupOwner: InsertUserType = {
+		email: `backup-owner.${slug}@seeded.com`,
+		emailVerifiedAt: new Date(),
+		fullName: `${workspaceName} Backup Owner`,
+		passwordHash,
+		role: "owner",
+		workspaceId,
+	};
+
+	const fixedAdmin: InsertUserType = {
+		email: `admin.${slug}@seeded.com`,
+		emailVerifiedAt: new Date(),
+		fullName: `${workspaceName} Admin`,
+		passwordHash,
+		role: "admin",
+		workspaceId,
+	};
+
+	const leadPharmacist: InsertUserType = {
+		email: `pharmacist.${slug}@seeded.com`,
+		emailVerifiedAt: new Date(),
+		fullName: `${workspaceName} Lead Pharmacist`,
+		passwordHash,
+		role: "pharmacist",
+		workspaceId,
+	};
+
+	const extraPharmacists = [...Array(5).keys()].map((index): InsertUserType => {
+		const pharmacistNumber = index + 1;
+
+		return {
+			email: `pharmacist.${pharmacistNumber}.${slug}@seeded.com`,
+			emailVerifiedAt: new Date(),
+			fullName: `${workspaceName} Pharmacist ${pharmacistNumber}`,
+			passwordHash,
+			role: "pharmacist",
+			workspaceId,
+		};
+	});
+
+	const suspendedPharmacist: InsertUserType = {
+		email: `suspended.${slug}@seeded.com`,
+		emailVerifiedAt: new Date(),
+		fullName: `${workspaceName} Suspended Pharmacist`,
+		passwordHash,
+		role: "pharmacist",
+		suspendedAt: new Date("2026-01-15T09:00:00.000Z"),
+		workspaceId,
+	};
+
+	return [fixedOwner, backupOwner, fixedAdmin, leadPharmacist, ...extraPharmacists, suspendedPharmacist];
+};
+
+export const seedUsers = async (seededWorkspaces: SeededWorkspaces) => {
 	const passwordHash = await hashPassword(ENVIRONMENT.SEED_PASSWORD);
 
 	const allUsers: InsertUserType[] = [];
 
 	for (const workspace of seededWorkspaces) {
-		const slug = getWorkspaceSlug(workspace.name);
-
-		const fixedOwner: InsertUserType = {
-			email: `owner.${slug}@seeded.com`,
-			emailVerifiedAt: new Date(),
-			fullName: `Owner ${workspace.name}`,
+		const usersPerWorkspace = getUsersSeedData({
 			passwordHash,
-			role: "owner",
 			workspaceId: workspace.id,
-		};
-
-		const fixedPharmacist: InsertUserType = {
-			email: `pharmacist.${slug}@seeded.com`,
-			emailVerifiedAt: new Date(),
-			fullName: `Pharmacist ${workspace.name}`,
-			passwordHash,
-			role: "pharmacist",
-			workspaceId: workspace.id,
-		};
-
-		const extraPharmacists = [...Array(5).keys()].map((index): InsertUserType => {
-			const pharmacistNumber = index + 1;
-
-			return {
-				email: `pharmacist.${pharmacistNumber}.${slug}@seeded.com`,
-				emailVerifiedAt: new Date(),
-				fullName: `Pharmacist ${pharmacistNumber} ${workspace.name}`,
-				passwordHash,
-				role: "pharmacist",
-				workspaceId: workspace.id,
-			};
+			workspaceName: workspace.name,
 		});
 
-		allUsers.push(fixedOwner, fixedPharmacist, ...extraPharmacists);
+		allUsers.push(...usersPerWorkspace);
 	}
 
 	consola.info(`Seeding ${allUsers.length} users across ${seededWorkspaces.length} workspaces...`);
 	consola.info(`All users have password: "${ENVIRONMENT.SEED_PASSWORD}"`);
 
-	await db.insert(users).values(allUsers).onConflictDoNothing();
+	const insertedUsers = await db.insert(users).values(allUsers).onConflictDoNothing().returning();
 
-	consola.success(`Seeded ${allUsers.length} users.`);
+	consola.success(`Seeded ${insertedUsers.length} users.`);
 
-	for (const workspace of seededWorkspaces) {
-		const workspaceUsers = allUsers.filter((u) => u.workspaceId === workspace.id);
-		const owners = workspaceUsers.filter((u) => u.role === "owner");
-		const pharmacists = workspaceUsers.filter((u) => u.role === "pharmacist");
-
-		consola.info(`  ${workspace.name}: ${owners.length} owner, ${pharmacists.length} pharmacists`);
-	}
+	return insertedUsers;
 };

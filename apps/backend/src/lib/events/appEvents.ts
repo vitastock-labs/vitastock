@@ -16,19 +16,14 @@ export type AppEventMap = {
 	"auth.userSignedIn": AppEventBase;
 	"auth.userSignedOut": AppEventBase;
 	"dashboard.overviewRequested": AppEventBase;
-	"email.enqueueFailed": Partial<AppEventBase> & {
-		emailType: string;
-		error?: unknown;
-		recipient: string;
+	"email.enqueueFailed": AppEventMap["email.enqueueRequested"] & {
+		error: unknown;
 	};
 	"email.enqueueRequested": Partial<AppEventBase> & {
 		emailType: string;
 		recipient: string;
 	};
-	"email.sent": Partial<AppEventBase> & {
-		emailType: string;
-		recipient: string;
-	};
+	"email.sent": AppEventMap["email.enqueueRequested"];
 	"inventory.stockLogged": AppEventBase & {
 		drugId: string;
 		quantity: number;
@@ -37,9 +32,22 @@ export type AppEventMap = {
 		drugId: string;
 		totalAvailable: number;
 	};
+	"workspace.invitationCanceled": AppEventMap["workspace.invitationSent"];
+	"workspace.invitationResent": AppEventMap["workspace.invitationSent"];
 	"workspace.invitationSent": AppEventBase & {
-		invitationId?: string;
+		invitationId: string;
 		recipient: string;
+	};
+	"workspace.memberRemoved": AppEventBase & {
+		targetUserId: string;
+	};
+	"workspace.memberRoleChanged": AppEventBase & {
+		newRole: string;
+		targetUserId: string;
+	};
+	"workspace.memberSuspensionChanged": AppEventBase & {
+		action: "suspend" | "unsuspend";
+		targetUserId: string;
 	};
 };
 
