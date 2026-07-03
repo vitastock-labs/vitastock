@@ -21,7 +21,7 @@ type DialogProps = React.ComponentProps<typeof DialogPrimitive.Root>;
 
 function DialogRoot(props: DialogProps) {
 	const {
-		defaultOpen: defaultOpenProp,
+		defaultOpen: defaultOpenProp = false,
 		// eslint-disable-next-line ts-eslint/unbound-method
 		onOpenChange: onOpenChangeProp,
 		open: openProp,

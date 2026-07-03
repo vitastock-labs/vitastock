@@ -1,12 +1,18 @@
-import type { SelectUserType } from "@vitastock/db/schema/auth";
+import type { SelectWorkspaceMembershipType } from "@vitastock/db/schema/workspace";
 import { AppError } from "@/lib/utils";
 
-export type WorkspaceMemberRole = SelectUserType["role"];
+export type WorkspaceMemberRole = SelectWorkspaceMembershipType["role"];
 
-export type WorkspaceMemberForAction = Pick<
-	SelectUserType,
-	"email" | "fullName" | "id" | "role" | "suspendedAt" | "workspaceId"
->;
+export type WorkspaceMemberForAction = {
+	email: string;
+	fullName: string;
+	id: string;
+	membershipId: string;
+	role: WorkspaceMemberRole;
+	status: SelectWorkspaceMembershipType["status"];
+	suspendedAt: SelectWorkspaceMembershipType["suspendedAt"];
+	workspaceId: string;
+};
 
 export const assertCanManageMember = (options: {
 	actorRole: WorkspaceMemberRole;

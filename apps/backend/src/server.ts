@@ -2,6 +2,7 @@ import "@colors/colors";
 import { serve } from "@hono/node-server";
 import { app } from "./app";
 import { registerAuthEventSubscribers } from "./app/auth/services/events";
+import { registerInventoryEventSubscribers } from "./app/inventory/services/events";
 import { registerWorkspaceEventSubscribers } from "./app/workspace/services/events";
 import { ENVIRONMENT } from "./config/env";
 import { appLogger } from "./lib/logger";
@@ -21,6 +22,7 @@ const server = serve(
 		appLogger.pretty.info(`Server is running on ${message}`.yellow.italic);
 
 		registerAuthEventSubscribers();
+		registerInventoryEventSubscribers();
 		registerWorkspaceEventSubscribers();
 		registerQueueEventSubscribers();
 

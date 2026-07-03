@@ -1,45 +1,31 @@
 import * as pg from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
-import { ROLES } from "../constants";
-import { workspaces } from "./workspace";
+import type { SelectWorkspaceMembershipType, SelectWorkspaceType } from "./workspace";
 
-export const users = pg.pgTable(
-	"users",
-	{
-		createdAt: pg.timestamp({ withTimezone: true }).notNull().defaultNow(),
-		email: pg.text().notNull().unique(),
-		emailVerifiedAt: pg.timestamp({ withTimezone: true }),
-		fullName: pg.text().notNull(),
-		id: pg.uuid().defaultRandom().primaryKey(),
-		lastLoginAt: pg.timestamp({ withTimezone: true }).notNull().defaultNow(),
-		loginRetryCount: pg.integer().notNull().default(0),
-		mustChangePassword: pg.boolean().notNull().default(false),
-		passwordChangedAt: pg.timestamp({ withTimezone: true }),
-		passwordHash: pg.text().notNull(),
-		refreshTokenArray: pg
-			.jsonb()
-			.notNull()
-			.$type<Array<{ expiresAt: Date; issuedAt: Date; tokenHash: string }>>()
-			.default([]),
-		role: pg.text({ enum: ROLES }).notNull(),
-		suspendedAt: pg.timestamp({ withTimezone: true }),
-		temporaryPasswordIssuedAt: pg.timestamp({ withTimezone: true }),
-		updatedAt: pg
-			.timestamp({ withTimezone: true })
-			.notNull()
-			.defaultNow()
-			.$onUpdate(() => new Date()),
-		workspaceId: pg
-			.uuid()
-			.notNull()
-			.references(() => workspaces.id, { onDelete: "cascade" }),
-	},
-	(table) => [
-		pg.uniqueIndex("user_email_index").on(table.email),
-		pg.index("user_workspace_index").on(table.workspaceId),
-	]
-);
+export const users = pg.pgTable("users", {
+	createdAt: pg.timestamp({ withTimezone: true }).notNull().defaultNow(),
+	email: pg.text().notNull().unique(),
+	emailVerifiedAt: pg.timestamp({ withTimezone: true }),
+	fullName: pg.text().notNull(),
+	id: pg.uuid().defaultRandom().primaryKey(),
+	lastLoginAt: pg.timestamp({ withTimezone: true }).notNull().defaultNow(),
+	loginRetryCount: pg.integer().notNull().default(0),
+	mustChangePassword: pg.boolean().notNull().default(false),
+	passwordChangedAt: pg.timestamp({ withTimezone: true }),
+	passwordHash: pg.text().notNull(),
+	refreshTokenArray: pg
+		.jsonb()
+		.notNull()
+		.$type<Array<{ expiresAt: Date; issuedAt: Date; tokenHash: string }>>()
+		.default([]),
+	temporaryPasswordIssuedAt: pg.timestamp({ withTimezone: true }),
+	updatedAt: pg
+		.timestamp({ withTimezone: true })
+		.notNull()
+		.defaultNow()
+		.$onUpdate(() => new Date()),
+});
 
 export const InsertUserSchema = createInsertSchema(users, {
 	email: () => z.email("Please enter a valid email"),
@@ -49,6 +35,24 @@ export const SelectUserSchema = createSelectSchema(users);
 
 export type InsertUserType = typeof users.$inferInsert;
 export type SelectUserType = typeof users.$inferSelect;
+
+export type SessionMembershipType = Pick<
+	SelectWorkspaceMembershipType,
+	"id" | "role" | "status" | "suspendedAt" | "workspaceId"
+>;
+
+export type SessionWorkspaceType = Pick<
+	SelectWorkspaceType,
+	"alertEmail" | "id" | "lowStockThreshold" | "name" | "nearExpiryDays" | "timezone"
+>;
+
+export type SessionUserType = SelectUserType & {
+	membershipId: SessionMembershipType["id"];
+	role: SessionMembershipType["role"];
+	status: SessionMembershipType["status"];
+	suspendedAt: SessionMembershipType["suspendedAt"];
+	workspaceId: SessionMembershipType["workspaceId"];
+};
 
 export const emailVerificationCodes = pg.pgTable("email_verification_codes", {
 	code: pg.text().notNull().unique(),

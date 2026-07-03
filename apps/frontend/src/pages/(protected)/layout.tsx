@@ -8,6 +8,7 @@ import { ForceChangePasswordDialog } from "@/pages/(protected)/-components/Force
 
 function ProtectedLayout() {
 	const navigate = useNavigate();
+
 	const sessionQueryResult = useQuery(
 		sessionQuery({
 			auth: { redirectFn: (route) => void navigate(route, { replace: true }) },

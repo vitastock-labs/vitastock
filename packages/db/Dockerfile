@@ -13,7 +13,7 @@ FROM base AS runner
 
 WORKDIR /app
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/db ./packages/db
 COPY packages/env ./packages/env
 

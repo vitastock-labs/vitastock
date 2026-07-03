@@ -2,7 +2,13 @@
 /* eslint-disable node/no-process-exit */
 
 import { consola } from "consola";
-import { seedUsers, seedWorkspaceInvitations, seedWorkspaces } from "./seeders";
+import {
+	seedInventory,
+	seedUsers,
+	seedWorkspaceInvitations,
+	seedWorkspaceMemberships,
+	seedWorkspaces,
+} from "./seeders";
 
 const runSeeders = async () => {
 	consola.info("Seeding started...");
@@ -10,14 +16,18 @@ const runSeeders = async () => {
 	try {
 		const seededWorkspaces = await seedWorkspaces();
 		const seededUsers = await seedUsers(seededWorkspaces);
-		await seedWorkspaceInvitations(seededUsers, seededWorkspaces);
+		const seededMemberships = await seedWorkspaceMemberships(seededUsers, seededWorkspaces);
+		await Promise.all([
+			seedWorkspaceInvitations(seededUsers, seededMemberships, seededWorkspaces),
+			seedInventory(seededUsers, seededMemberships, seededWorkspaces),
+		]);
 
 		for (const workspace of seededWorkspaces) {
-			const workspaceUsers = seededUsers.filter((u) => u.workspaceId === workspace.id);
-			const owners = workspaceUsers.filter((u) => u.role === "owner");
-			const admins = workspaceUsers.filter((u) => u.role === "admin");
-			const pharmacists = workspaceUsers.filter((u) => u.role === "pharmacist");
-			const suspended = workspaceUsers.filter((u) => u.suspendedAt);
+			const workspaceMembershipRows = seededMemberships.filter((membership) => membership.workspaceId === workspace.id);
+			const owners = workspaceMembershipRows.filter((membership) => membership.role === "owner");
+			const admins = workspaceMembershipRows.filter((membership) => membership.role === "admin");
+			const pharmacists = workspaceMembershipRows.filter((membership) => membership.role === "pharmacist");
+			const suspended = workspaceMembershipRows.filter((membership) => membership.status === "suspended");
 
 			consola.info(
 				`${workspace.name}: ${owners.length} owners, ${admins.length} admin, ${pharmacists.length} pharmacists, ${suspended.length} suspended`

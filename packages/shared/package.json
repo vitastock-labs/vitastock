@@ -23,7 +23,7 @@
 	"devDependencies": {
 		"@total-typescript/ts-reset": "0.6.1",
 		"@zayne-labs/tsconfig": "^0.13.14",
-		"tsdown": "0.22.2",
+		"tsdown": "0.22.3",
 		"typescript": "6.0.3"
 	}
 }

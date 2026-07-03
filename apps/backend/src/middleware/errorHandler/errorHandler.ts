@@ -34,7 +34,7 @@ const errorHandler: ErrorHandler<HonoAppBindings> = (error: AppError | Error | H
 
 	const logger = ctx.get("logger");
 
-	appLogger.pretty.error(`${error.name}: ${modifiedError.message}\n`, errorLogInfo);
+	appLogger.pretty.error(`${error.name}: ${errorLogInfo.message}\n`, errorLogInfo);
 
 	logger.error({ err: modifiedError, ...errorLogInfo }, modifiedError.message);
 

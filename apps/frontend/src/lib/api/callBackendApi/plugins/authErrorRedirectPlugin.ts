@@ -1,7 +1,6 @@
 import type { RequestContext, ResponseErrorContext } from "@zayne-labs/callapi";
 import { definePlugin } from "@zayne-labs/callapi/utils";
 import { isBrowser } from "@zayne-labs/toolkit-core";
-import type { Awaitable } from "@zayne-labs/toolkit-type-helpers";
 import type { MainAppRoutes } from "@/components/common/NavLink";
 import type { BaseApiErrorResponse } from "../apiSchema";
 import type { ToastPluginMeta } from "./toastPlugin";
@@ -11,7 +10,7 @@ export type AuthErrorRedirectPluginMeta = {
 	auth?: {
 		redirectDelay?: number;
 		redirectErrorMessage?: string;
-		redirectFn?: (route: MainAppRoutes) => Awaitable<void>;
+		redirectFn?: (route: MainAppRoutes) => void;
 		redirectRoute?: MainAppRoutes;
 		routesToExemptFromErrorRedirect?: Array<`${MainAppRoutes}/**` | `${string}/**` | MainAppRoutes>;
 		skipErrorRedirect?: boolean;
@@ -36,7 +35,9 @@ export const authErrorRedirectPlugin = (authOptions?: AuthErrorRedirectPluginMet
 			const selectedRedirectFn = authMeta?.redirectFn ?? redirectTo;
 			const redirectDelay = authMeta?.redirectDelay ?? defaultRedirectDelay;
 
-			setTimeout(() => void selectedRedirectFn(...params), redirectDelay);
+			setTimeout(() => {
+				selectedRedirectFn(...params);
+			}, redirectDelay);
 		};
 
 		const turnOffErrorToast = () => {
@@ -93,7 +94,7 @@ export const authErrorRedirectPlugin = (authOptions?: AuthErrorRedirectPluginMet
 				if (shouldSkipRouteFromRedirect || !isAuthErrorThatNeedsRedirect(ctx.error)) return;
 
 				if (isBrowser()) {
-					void redirectFn(signInRoute);
+					redirectFn(signInRoute);
 				}
 
 				throw new Error(redirectErrorMessage);

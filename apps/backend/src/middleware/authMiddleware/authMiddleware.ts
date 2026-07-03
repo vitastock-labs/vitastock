@@ -6,10 +6,11 @@ import { validateUserSession } from "./validateUserSession";
 
 const authMiddleware = createMiddleware<HonoAppBindings>(async (ctx, next) => {
 	await requestContext.run({ honoCtx: ctx }, async () => {
-		const { currentUser, currentWorkspace, newZayneAccessTokenResult } = await validateUserSession({
-			zayneAccessToken: getCookie(ctx, "vitaStockAccessToken"),
-			zayneRefreshToken: getCookie(ctx, "vitaStockRefreshToken"),
-		});
+		const { currentMembership, currentUser, currentWorkspace, newZayneAccessTokenResult } =
+			await validateUserSession({
+				existingAccessToken: getCookie(ctx, "vitaStockAccessToken"),
+				existingRefreshToken: getCookie(ctx, "vitaStockRefreshToken"),
+			});
 
 		if (newZayneAccessTokenResult) {
 			setCookie(ctx, {
@@ -20,13 +21,11 @@ const authMiddleware = createMiddleware<HonoAppBindings>(async (ctx, next) => {
 		}
 
 		ctx.set("currentUser", currentUser);
+		ctx.set("currentMembership", currentMembership);
 
 		ctx.set("currentWorkspace", currentWorkspace);
 
-		ctx.get("logger").assign({
-			userId: currentUser.id,
-			workspaceId: currentWorkspace.id,
-		});
+		ctx.get("logger").assign({ userId: currentUser.id, workspaceId: currentWorkspace.id });
 
 		await next();
 	});

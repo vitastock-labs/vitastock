@@ -1,11 +1,11 @@
 import { db } from "@vitastock/db";
 import { emailVerificationCodes, passwordResetTokens, users } from "@vitastock/db/schema/auth";
-import { workspaces } from "@vitastock/db/schema/workspace";
+import { workspaceMemberships, workspaces } from "@vitastock/db/schema/workspace";
 import { AUTH_ERRORS } from "@vitastock/shared/constants";
 import { backendApiSchemaRoutes } from "@vitastock/shared/validation/backendApiSchema";
 import { pickKeys } from "@zayne-labs/toolkit-core";
 import { differenceInHours, isPast } from "date-fns";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { rateLimiter } from "hono-rate-limiter";
 import { authRateLimiterOptions } from "@/config/rateLimiterOptions";
@@ -15,7 +15,7 @@ import { AppError, AppJsonResponse } from "@/lib/utils";
 import { deleteCookie, getCookie, setCookie } from "@/lib/utils/cookie";
 import { authMiddleware, validateWithZodMiddleware } from "@/middleware";
 import { removeFromCache, setCache } from "@/services/cache";
-import { getAuthResponseData } from "./services/common";
+import { getAuthResponseData, getCurrentSessionState } from "./services/common";
 import { sendPasswordResetEmail, sendVerificationEmail, TokenSchema } from "./services/emails";
 import { getAuthEventPayload } from "./services/events";
 import { hashToken, hashValue, verifyHashedValue } from "./services/hash";
@@ -37,16 +37,32 @@ const authRoutes = new Hono()
 		async (ctx) => {
 			const { email, fullName, password, pharmacyName } = ctx.req.valid("json");
 
-			const [existingUser] = await db
-				.select(pickKeys(users, ["id"]))
-				.from(users)
-				.where(eq(users.email, email))
-				.limit(1);
+			const [[existingUser], [existingWorkspace]] = await Promise.all([
+				db
+					.select(pickKeys(users, ["id"]))
+					.from(users)
+					.where(eq(users.email, email))
+					.limit(1),
+				db
+					.select(pickKeys(workspaces, ["id"]))
+					.from(workspaces)
+					.where(eq(workspaces.name, pharmacyName))
+					.limit(1),
+			]);
 
 			if (existingUser) {
 				throw new AppError({
+					appCode: AUTH_ERRORS.USER_ALREADY_EXISTS.appCode,
 					code: 400,
-					message: "User already exists",
+					message: AUTH_ERRORS.USER_ALREADY_EXISTS.message,
+				});
+			}
+
+			if (existingWorkspace) {
+				throw new AppError({
+					appCode: AUTH_ERRORS.WORKSPACE_ALREADY_EXISTS.appCode,
+					code: 400,
+					message: AUTH_ERRORS.WORKSPACE_ALREADY_EXISTS.message,
 				});
 			}
 
@@ -71,8 +87,6 @@ const authRoutes = new Hono()
 						email,
 						fullName,
 						passwordHash,
-						role: "owner",
-						workspaceId: insertedWorkspace.id,
 					})
 					.returning();
 
@@ -83,13 +97,35 @@ const authRoutes = new Hono()
 					});
 				}
 
+				const [insertedMembership] = await tx
+					.insert(workspaceMemberships)
+					.values({
+						role: "owner",
+						userId: insertedUser.id,
+						workspaceId: insertedWorkspace.id,
+					})
+					.returning();
+
+				if (!insertedMembership) {
+					throw new AppError({
+						code: 500,
+						message: "Failed to create workspace membership",
+					});
+				}
+
 				await sendVerificationEmail(insertedUser, tx as unknown as typeof db);
 
-				return insertedUser;
+				return { insertedMembership, insertedUser, insertedWorkspace };
+			});
+
+			const { currentUser, currentWorkspace } = await getCurrentSessionState({
+				existingMembership: newUser.insertedMembership,
+				existingWorkspace: newUser.insertedWorkspace,
+				user: newUser.insertedUser,
 			});
 
 			return AppJsonResponse(ctx, {
-				data: await getAuthResponseData(newUser),
+				data: await getAuthResponseData(currentUser, currentWorkspace),
 				message: "Account created successfully",
 				schema: backendApiSchemaRoutes["@post/auth/signup"].data,
 			});
@@ -128,7 +164,13 @@ const authRoutes = new Hono()
 				});
 			}
 
-			if (currentUser.suspendedAt) {
+			const {
+				currentMembership,
+				currentUser: sessionUser,
+				currentWorkspace,
+			} = await getCurrentSessionState({ user: currentUser });
+
+			if (currentMembership.status === "suspended" || currentMembership.suspendedAt) {
 				throw new AppError({
 					appCode: AUTH_ERRORS.ACCOUNT_SUSPENDED.appCode,
 					code: 401,
@@ -136,7 +178,7 @@ const authRoutes = new Hono()
 				});
 			}
 
-			if (!currentUser.emailVerifiedAt) {
+			if (!sessionUser.emailVerifiedAt) {
 				await sendVerificationEmail(currentUser, db);
 
 				throw new AppError({
@@ -146,21 +188,21 @@ const authRoutes = new Hono()
 				});
 			}
 
-			const hoursSinceLastLogin = differenceInHours(new Date(), currentUser.lastLoginAt);
+			const hoursSinceLastLogin = differenceInHours(new Date(), sessionUser.lastLoginAt);
 			const loginRetryWindowActive = hoursSinceLastLogin < 12;
 
-			if (currentUser.loginRetryCount >= 3 && loginRetryWindowActive) {
+			if (sessionUser.loginRetryCount >= 3 && loginRetryWindowActive) {
 				throw new AppError({
 					code: 401,
 					message: "Login retries exceeded",
 				});
 			}
 
-			const newRefreshTokenResult = generateRefreshToken(currentUser);
+			const newRefreshTokenResult = generateRefreshToken(sessionUser);
 			const newRefreshTokenResultWithHash = getRefreshTokenResultWithHash(newRefreshTokenResult);
 
 			const updatedTokenArray = getUpdatedTokenResultArray({
-				currentUser,
+				currentUser: sessionUser,
 				refreshToken: getCookie(ctx, "vitaStockRefreshToken"),
 			});
 
@@ -183,7 +225,13 @@ const authRoutes = new Hono()
 
 			await setCache(`user:${updatedUser.id}`, updatedUser);
 
-			const newAccessTokenResult = generateAccessToken(updatedUser);
+			const { currentUser: updatedSessionUser } = await getCurrentSessionState({
+				existingMembership: currentMembership,
+				existingWorkspace: currentWorkspace,
+				user: updatedUser,
+			});
+
+			const newAccessTokenResult = generateAccessToken(updatedSessionUser);
 
 			setCookie(ctx, {
 				expires: newAccessTokenResult.expiresAt,
@@ -198,12 +246,12 @@ const authRoutes = new Hono()
 
 			emitAppEvent(
 				"auth.userSignedIn",
-				getAuthEventPayload({ requestId: ctx.get("requestId"), user: updatedUser })
+				getAuthEventPayload({ requestId: ctx.get("requestId"), user: updatedSessionUser })
 			);
 
 			return AppJsonResponse(ctx, {
 				data: {
-					...(await getAuthResponseData(updatedUser)),
+					...(await getAuthResponseData(updatedSessionUser, currentWorkspace)),
 					tokens: {
 						access: newAccessTokenResult,
 						refresh: newRefreshTokenResult,
@@ -274,10 +322,12 @@ const authRoutes = new Hono()
 
 			await db.delete(emailVerificationCodes).where(eq(emailVerificationCodes.userId, result.userId));
 
+			const { currentUser, currentWorkspace } = await getCurrentSessionState({
+				user: updatedUser,
+			});
+
 			return AppJsonResponse(ctx, {
-				data: {
-					...(await getAuthResponseData(updatedUser)),
-				},
+				data: await getAuthResponseData(currentUser, currentWorkspace),
 				message: "Account successfully verified!",
 				schema: backendApiSchemaRoutes["@post/auth/verify-email"].data,
 			});
@@ -362,12 +412,18 @@ const authRoutes = new Hono()
 				hoursSincePasswordRetryWindowStart !== null && hoursSincePasswordRetryWindowStart < 24;
 
 			if (result.token && result.token.retryCount >= 3 && passwordResetWindowActive) {
-				await db
-					.update(users)
-					.set({
-						suspendedAt: new Date(),
-					})
-					.where(eq(users.id, result.user.id));
+				const suspendedAt = new Date();
+
+				await Promise.all([
+					db
+						.update(workspaceMemberships)
+						.set({
+							status: "suspended",
+							suspendedAt,
+						})
+						.where(eq(workspaceMemberships.userId, result.user.id)),
+					removeFromCache(`workspace-membership:${result.user.id}`),
+				]);
 
 				throw new AppError({
 					code: 401,
@@ -407,15 +463,23 @@ const authRoutes = new Hono()
 
 			const [result] = await db
 				.select({
+					membership: {
+						id: workspaceMemberships.id,
+						role: workspaceMemberships.role,
+						status: workspaceMemberships.status,
+						suspendedAt: workspaceMemberships.suspendedAt,
+						workspaceId: workspaceMemberships.workspaceId,
+					},
 					token: pickKeys(passwordResetTokens, ["expiresAt", "id"]),
 					user: pickKeys(users, ["email", "fullName", "id"]),
 				})
 				.from(passwordResetTokens)
 				.innerJoin(users, eq(passwordResetTokens.userId, users.id))
-				.where(and(eq(passwordResetTokens.tokenHash, hashedIncomingToken), isNull(users.suspendedAt)))
+				.innerJoin(workspaceMemberships, eq(workspaceMemberships.userId, users.id))
+				.where(eq(passwordResetTokens.tokenHash, hashedIncomingToken))
 				.limit(1);
 
-			if (!result?.token) {
+			if (!result?.token || result.membership.status === "suspended") {
 				throw new AppError({
 					code: 400,
 					message: "Invalid or expired reset token",
@@ -435,7 +499,7 @@ const authRoutes = new Hono()
 
 			const newPasswordHash = await hashValue(newPassword);
 
-			const [updatedUser] = await db.transaction(async (tx) => {
+			const { updatedMembership, updatedUser } = await db.transaction(async (tx) => {
 				const [userUpdate] = await tx
 					.update(users)
 					.set({
@@ -443,14 +507,25 @@ const authRoutes = new Hono()
 						passwordHash: newPasswordHash,
 						// Sign out from all devices
 						refreshTokenArray: [],
-						suspendedAt: null,
 					})
 					.where(eq(users.id, result.user.id))
 					.returning();
 
+				const [membershipUpdate] = await tx
+					.update(workspaceMemberships)
+					.set({
+						status: "active",
+						suspendedAt: null,
+					})
+					.where(eq(workspaceMemberships.id, result.membership.id))
+					.returning();
+
 				await tx.delete(passwordResetTokens).where(eq(passwordResetTokens.id, result.token.id));
 
-				return [userUpdate];
+				return {
+					updatedMembership: membershipUpdate,
+					updatedUser: userUpdate,
+				};
 			});
 
 			if (!updatedUser) {
@@ -460,11 +535,24 @@ const authRoutes = new Hono()
 				});
 			}
 
+			if (!updatedMembership) {
+				throw new AppError({
+					code: 400,
+					message: "Password reset failed",
+				});
+			}
+
 			await removeFromCache(`user:${updatedUser.id}`);
+			await removeFromCache(`workspace-membership:${updatedUser.id}`);
+
+			const { currentUser } = await getCurrentSessionState({
+				existingMembership: updatedMembership,
+				user: updatedUser,
+			});
 
 			emitAppEvent(
 				"auth.passwordResetCompleted",
-				getAuthEventPayload({ requestId: ctx.get("requestId"), user: updatedUser })
+				getAuthEventPayload({ requestId: ctx.get("requestId"), user: currentUser })
 			);
 
 			return AppJsonResponse(ctx, {
@@ -548,7 +636,9 @@ const authRoutes = new Hono()
 		validateWithZodMiddleware("json", backendApiSchemaRoutes["@patch/auth/change-password"].body),
 		async (ctx) => {
 			const { currentPassword, newPassword } = ctx.req.valid("json");
+			const currentMembership = ctx.get("currentMembership");
 			const currentUser = ctx.get("currentUser");
+			const currentWorkspace = ctx.get("currentWorkspace");
 
 			const isValidPassword = await verifyHashedValue(currentUser.passwordHash, currentPassword);
 
@@ -592,9 +682,15 @@ const authRoutes = new Hono()
 
 			await setCache(`user:${updatedUser.id}`, updatedUser);
 
+			const { currentUser: updatedSessionUser } = await getCurrentSessionState({
+				existingMembership: currentMembership,
+				existingWorkspace: currentWorkspace,
+				user: updatedUser,
+			});
+
 			emitAppEvent(
 				"auth.passwordChanged",
-				getAuthEventPayload({ requestId: ctx.get("requestId"), user: updatedUser })
+				getAuthEventPayload({ requestId: ctx.get("requestId"), user: updatedSessionUser })
 			);
 
 			return AppJsonResponse(ctx, {

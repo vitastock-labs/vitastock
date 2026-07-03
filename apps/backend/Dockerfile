@@ -15,7 +15,7 @@ WORKDIR /app
 FROM base AS deps
 
 # Copy workspace configuration first (best for layer caching)
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
 # Copy only package.json files for dependency resolution
 COPY apps/backend/package.json ./apps/backend/package.json
@@ -46,7 +46,7 @@ COPY packages ./packages
 FROM base AS runner
 
 # Copy workspace root files needed for pnpm filters and tsx path resolution
-COPY --from=deps /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml /app/tsconfig.base.json ./
+COPY --from=deps /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml ./
 
 # Copy node_modules from deps stage, source files from builder stage
 COPY --from=deps /app/node_modules ./node_modules

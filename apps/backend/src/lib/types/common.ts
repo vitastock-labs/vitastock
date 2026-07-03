@@ -1,11 +1,15 @@
-import type { SelectUserType } from "@vitastock/db/schema/auth";
-import type { SelectWorkspaceType } from "@vitastock/db/schema/workspace";
+import type {
+	SessionMembershipType,
+	SessionUserType,
+	SessionWorkspaceType,
+} from "@vitastock/db/schema/auth";
 import type { PinoLogger } from "hono-pino";
 
 export type HonoAppBindings = {
 	Variables: {
-		currentUser: SelectUserType;
-		currentWorkspace: SelectWorkspaceType;
+		currentMembership: SessionMembershipType;
+		currentUser: SessionUserType;
+		currentWorkspace: SessionWorkspaceType;
 		logger: PinoLogger;
 		requestId: string;
 	};

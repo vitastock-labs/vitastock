@@ -27,3 +27,27 @@ export const workspaceMembersQuery = () => {
 export type WorkspaceMembersQueryResultType = Awaited<
 	ReturnType<NonNullable<ReturnType<typeof workspaceMembersQuery>["select"]>>
 >;
+
+export const dashboardOverviewQuery = () => {
+	return queryOptions({
+		queryFn: () => callBackendApiForQuery("@get/dashboard/overview"),
+		queryKey: ["dashboard", "overview"],
+		select: (data) => data.data,
+	});
+};
+
+export type DashboardOverviewQueryResultType = Awaited<
+	ReturnType<NonNullable<ReturnType<typeof dashboardOverviewQuery>["select"]>>
+>;
+
+export const inventorySummaryQuery = () => {
+	return queryOptions({
+		queryFn: () => callBackendApiForQuery("@get/inventory/summary"),
+		queryKey: ["inventory", "summary"],
+		select: (data) => data.data,
+	});
+};
+
+export type InventorySummaryQueryResultType = Awaited<
+	ReturnType<NonNullable<ReturnType<typeof inventorySummaryQuery>["select"]>>
+>;

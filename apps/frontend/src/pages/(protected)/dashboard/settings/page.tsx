@@ -250,9 +250,9 @@ function ManagePeopleDialog() {
 							className="h-10 w-full max-w-[256px] items-center gap-2.5 rounded-lg border
 								border-shadcn-border bg-shadcn-muted/50 px-3.5 text-vitastock-body-color"
 						>
-							<Form.InputLeftItem>
+							<Form.InputGroupAddon>
 								<IconBox icon="lucide:search" className="size-4 text-vitastock-body-color/70" />
-							</Form.InputLeftItem>
+							</Form.InputGroupAddon>
 							<Form.InputPrimitive
 								type="search"
 								placeholder="Search members..."

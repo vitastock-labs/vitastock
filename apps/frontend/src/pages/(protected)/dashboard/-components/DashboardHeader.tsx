@@ -44,9 +44,9 @@ function DashboardHeader() {
 				className="h-10 w-full max-w-[576px] gap-3.5 justify-self-center rounded-[12px] border
 					border-[hsl(231,20%,80%,0.3)] bg-white px-4 py-1 text-[14px]"
 			>
-				<Form.InputLeftItem>
+				<Form.InputGroupAddon>
 					<IconBox icon="lucide:search" />
-				</Form.InputLeftItem>
+				</Form.InputGroupAddon>
 
 				{placeholder && (
 					<Form.InputPrimitive

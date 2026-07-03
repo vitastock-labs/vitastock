@@ -5,9 +5,24 @@ import { For } from "@/components/common/for";
 import { IconBox } from "@/components/common/IconBox";
 import { Badge, Table } from "@/components/ui";
 import { Button } from "@/components/ui/button";
-import { sessionQuery } from "@/lib/react-query/queryOptions";
+import {
+	dashboardOverviewQuery,
+	type DashboardOverviewQueryResultType,
+	sessionQuery,
+} from "@/lib/react-query/queryOptions";
 import { cnJoin } from "@/lib/utils/cn";
 import { Main } from "./-components/Main";
+
+const nairaFormatter = new Intl.NumberFormat("en-NG", {
+	currency: "NGN",
+	style: "currency",
+});
+
+const dateFormatter = new Intl.DateTimeFormat("en", {
+	day: "numeric",
+	month: "short",
+	year: "numeric",
+});
 
 function DashboardPage() {
 	return (
@@ -35,38 +50,10 @@ function DashboardHeader() {
 	);
 }
 
-const stats = [
-	{
-		color: "text-[#d97706]",
-		desc: "Items below threshold",
-		icon: "lucide:archive",
-		title: "Low Stock",
-		value: "12",
-	},
-	{
-		color: "text-[#dc2626]",
-		desc: "Next 30 days",
-		icon: "lucide:calendar-x",
-		title: "Expiring Soon",
-		value: "8",
-	},
-	{
-		color: "text-[#dc2626]",
-		desc: "Require disposal",
-		icon: "lucide:triangle-alert",
-		title: "Expired",
-		value: "2",
-	},
-	{
-		color: "text-vitastock-primary-main",
-		desc: "Estimated total",
-		icon: "lucide:wallet",
-		title: "Stock Value",
-		value: "$42.5k",
-	},
-] as const;
-
 function DashboardStats() {
+	const dashboardOverviewQueryResult = useQuery(dashboardOverviewQuery());
+	const stats = getDashboardStats(dashboardOverviewQueryResult.data);
+
 	return (
 		<section className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
 			<For
@@ -83,7 +70,7 @@ function DashboardStats() {
 						</div>
 						<div>
 							<p className="text-[34px] leading-none font-extrabold tracking-tight text-black">
-								{stat.value}
+								{dashboardOverviewQueryResult.isLoading ? "..." : stat.value}
 							</p>
 							<p className="mt-2 text-[13px] text-vitastock-body-color/70">{stat.desc}</p>
 						</div>
@@ -92,6 +79,41 @@ function DashboardStats() {
 			/>
 		</section>
 	);
+}
+
+function getDashboardStats(data: DashboardOverviewQueryResultType | undefined) {
+	const stats = data?.stats;
+
+	return [
+		{
+			color: "text-[#d97706]",
+			desc: "Items below threshold",
+			icon: "lucide:archive",
+			title: "Low Stock",
+			value: String(stats?.lowStockCount ?? 0),
+		},
+		{
+			color: "text-[#dc2626]",
+			desc: "Near expiry window",
+			icon: "lucide:calendar-x",
+			title: "Expiring Soon",
+			value: String(stats?.expiringSoonCount ?? 0),
+		},
+		{
+			color: "text-[#dc2626]",
+			desc: "Require disposal",
+			icon: "lucide:triangle-alert",
+			title: "Expired",
+			value: String(stats?.expiredCount ?? 0),
+		},
+		{
+			color: "text-vitastock-primary-main",
+			desc: "Estimated total",
+			icon: "lucide:wallet",
+			title: "Stock Value",
+			value: nairaFormatter.format((stats?.stockValueKobo ?? 0) / 100),
+		},
+	] as const;
 }
 
 function DashboardQuickActions() {
@@ -117,33 +139,12 @@ function DashboardQuickActions() {
 	);
 }
 
-const activities = [
-	{
-		action: "Dispense",
-		drug: "Amoxicillin 500mg",
-		person: "Dr. Smith",
-		quantity: "-30",
-		time: "10 mins ago",
-	},
-	{
-		action: "Stock In",
-		drug: "Lisinopril 10mg",
-		person: "Admin",
-		quantity: "+100",
-		time: "1 hour ago",
-	},
-	{
-		action: "Dispense",
-		drug: "Metformin 850mg",
-		person: "Dr. Jones",
-		quantity: "-60",
-		time: "3 hours ago",
-	},
-];
-
 const columns = ["Drug", "Action", "Quantity", "Person", "Time"] as const;
 
 function DashboardActivity() {
+	const dashboardOverviewQueryResult = useQuery(dashboardOverviewQuery());
+	const recentActivity = dashboardOverviewQueryResult.data?.recentActivity ?? [];
+
 	return (
 		<section className="rounded-[20px] bg-white p-6 shadow-sm ring-1 ring-shadcn-border/40">
 			<h2 className="mb-6 text-[18px] font-bold text-black">Recent Activity</h2>
@@ -170,31 +171,55 @@ function DashboardActivity() {
 				</Table.Header>
 
 				<Table.Body>
-					{activities.map((activity) => (
+					{dashboardOverviewQueryResult.isLoading && (
+						<Table.Row>
+							<Table.Cell colSpan={columns.length} className="py-8 text-center text-[14px]">
+								Loading activity...
+							</Table.Cell>
+						</Table.Row>
+					)}
+
+					{dashboardOverviewQueryResult.isError && (
+						<Table.Row>
+							<Table.Cell colSpan={columns.length} className="py-8 text-center text-[14px]">
+								Failed to load activity.
+							</Table.Cell>
+						</Table.Row>
+					)}
+
+					{!dashboardOverviewQueryResult.isLoading && recentActivity.length === 0 && (
+						<Table.Row>
+							<Table.Cell colSpan={columns.length} className="py-8 text-center text-[14px]">
+								No stock activity yet.
+							</Table.Cell>
+						</Table.Row>
+					)}
+
+					{recentActivity.map((activity) => (
 						<Table.Row
-							key={`${activity.drug}-${activity.time}`}
+							key={activity.id}
 							className="border-b-shadcn-border/30 last:border-0 hover:bg-shadcn-muted/20"
 						>
 							<Table.Cell className="py-4 text-[14px] font-medium text-black">
-								{activity.drug}
+								{activity.drug.name} {activity.drug.strength}
 							</Table.Cell>
 							<Table.Cell className="py-4">
 								<Badge
 									className={cnJoin(
 										"border-none px-3 py-1 text-[12px] font-semibold",
-										activity.action === "Dispense" ?
+										activity.quantity < 0 ?
 											`bg-vitastock-primary-main/10 text-vitastock-primary-main
-												hover:bg-vitastock-primary-main/20`
+											hover:bg-vitastock-primary-main/20`
 										:	"bg-shadcn-muted text-vitastock-body-color hover:bg-shadcn-muted/80"
 									)}
 								>
-									{activity.action}
+									{formatLogType(activity.logType)}
 								</Badge>
 							</Table.Cell>
 							<Table.Cell className="py-4 text-[14px] text-black">{activity.quantity}</Table.Cell>
 							<Table.Cell className="py-4 text-[14px]">{activity.person}</Table.Cell>
 							<Table.Cell className="py-4 text-right text-[14px] text-vitastock-body-color/70">
-								{activity.time}
+								{dateFormatter.format(activity.createdAt)}
 							</Table.Cell>
 						</Table.Row>
 					))}
@@ -202,4 +227,11 @@ function DashboardActivity() {
 			</Table.Root>
 		</section>
 	);
+}
+
+function formatLogType(logType: string) {
+	return logType
+		.split("_")
+		.map((word) => `${word[0]?.toUpperCase() ?? ""}${word.slice(1)}`)
+		.join(" ");
 }

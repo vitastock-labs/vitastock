@@ -1,6 +1,6 @@
 import { db } from "@vitastock/db";
 import { users } from "@vitastock/db/schema/auth";
-import { workspaceInvitations, workspaces } from "@vitastock/db/schema/workspace";
+import { workspaceInvitations, workspaceMemberships, workspaces } from "@vitastock/db/schema/workspace";
 import { backendApiSchemaRoutes } from "@vitastock/shared/validation/backendApiSchema";
 import { pickKeys } from "@zayne-labs/toolkit-core";
 import { add, isPast } from "date-fns";
@@ -13,7 +13,7 @@ import { AppError, AppJsonResponse } from "@/lib/utils";
 import { generateRandomBytes } from "@/lib/utils/random";
 import { authMiddleware, authorizeRoleMiddleware, validateWithZodMiddleware } from "@/middleware";
 import { removeFromCache } from "@/services/cache";
-import { getAuthResponseData } from "../auth/services/common";
+import { getAuthResponseData, getCurrentSessionState } from "../auth/services/common";
 import { hashToken, hashValue } from "../auth/services/hash";
 import {
 	assertAdminCanOnlyManagePharmacist,
@@ -91,9 +91,7 @@ export const workspaceRoutes = new Hono()
 						fullName: invitationResult.inviteeName,
 						mustChangePassword: true,
 						passwordHash: invitationResult.defaultPasswordHash,
-						role: invitationResult.role,
 						temporaryPasswordIssuedAt: new Date(),
-						workspaceId: invitationResult.workspaceId,
 					})
 					.returning();
 
@@ -104,16 +102,30 @@ export const workspaceRoutes = new Hono()
 					});
 				}
 
+				const [insertedMembership] = await tx
+					.insert(workspaceMemberships)
+					.values({
+						role: invitationResult.role,
+						userId: insertedUser.id,
+						workspaceId: invitationResult.workspaceId,
+					})
+					.returning();
+
 				await tx
 					.update(workspaceInvitations)
 					.set({ acceptedAt: new Date() })
 					.where(eq(workspaceInvitations.id, invitationResult.id));
 
-				return insertedUser;
+				return { insertedMembership, insertedUser };
+			});
+
+			const { currentUser, currentWorkspace } = await getCurrentSessionState({
+				existingMembership: newUser.insertedMembership,
+				user: newUser.insertedUser,
 			});
 
 			return AppJsonResponse(ctx, {
-				data: await getAuthResponseData(newUser),
+				data: await getAuthResponseData(currentUser, currentWorkspace),
 				message: "Invitation accepted successfully",
 				schema: backendApiSchemaRoutes["@post/workspace/invitation/accept"].data,
 			});
@@ -144,7 +156,7 @@ export const workspaceRoutes = new Hono()
 			if (existingUser) {
 				throw new AppError({
 					code: 400,
-					message: "A user with this email already exists in this workspace",
+					message: "A user with this email already exists",
 				});
 			}
 
@@ -246,9 +258,9 @@ export const workspaceRoutes = new Hono()
 			assertCanManageMember({ actorRole: currentUser.role, targetMember });
 
 			const [updatedUser] = await db
-				.update(users)
+				.update(workspaceMemberships)
 				.set({ role })
-				.where(eq(users.id, targetMember.id))
+				.where(eq(workspaceMemberships.id, targetMember.membershipId))
 				.returning();
 
 			if (!updatedUser) {
@@ -258,15 +270,10 @@ export const workspaceRoutes = new Hono()
 				});
 			}
 
-			await removeFromCache(`user:${targetMember.id}`);
-
-			const eventPayload = getWorkspaceEventPayload({
-				requestId: ctx.get("requestId"),
-				user: currentUser,
-			});
+			await removeFromCache(`workspace-membership:${targetMember.id}`);
 
 			emitAppEvent("workspace.memberRoleChanged", {
-				...eventPayload,
+				...getWorkspaceEventPayload({ requestId: ctx.get("requestId"), user: currentUser }),
 				newRole: role,
 				targetUserId: targetMember.id,
 			});
@@ -314,16 +321,25 @@ export const workspaceRoutes = new Hono()
 			const updateData =
 				action === "suspend" ?
 					{
-						refreshTokenArray: [],
+						status: "suspended" as const,
 						suspendedAt: new Date(),
 					}
-				:	{ suspendedAt: null };
+				:	{
+						status: "active" as const,
+						suspendedAt: null,
+					};
 
-			const [updatedUser] = await db
-				.update(users)
-				.set(updateData)
-				.where(eq(users.id, targetMember.id))
-				.returning();
+			const [updatedUser] = await db.transaction(async (tx) => {
+				if (action === "suspend") {
+					await tx.update(users).set({ refreshTokenArray: [] }).where(eq(users.id, targetMember.id));
+				}
+
+				return tx
+					.update(workspaceMemberships)
+					.set(updateData)
+					.where(eq(workspaceMemberships.id, targetMember.membershipId))
+					.returning();
+			});
 
 			if (!updatedUser) {
 				throw new AppError({
@@ -332,7 +348,10 @@ export const workspaceRoutes = new Hono()
 				});
 			}
 
-			await removeFromCache(`user:${targetMember.id}`);
+			await Promise.all([
+				removeFromCache(`user:${targetMember.id}`),
+				removeFromCache(`workspace-membership:${targetMember.id}`),
+			]);
 
 			const eventPayload = getWorkspaceEventPayload({
 				requestId: ctx.get("requestId"),
@@ -372,8 +391,17 @@ export const workspaceRoutes = new Hono()
 			assertNotCurrentUser({ actorId: currentUser.id, targetMember });
 			assertCanManageMember({ actorRole: currentUser.role, targetMember });
 
-			await db.delete(users).where(eq(users.id, targetMember.id));
-			await removeFromCache(`user:${targetMember.id}`);
+			await db.transaction(async (tx) => {
+				await tx
+					.delete(workspaceMemberships)
+					.where(eq(workspaceMemberships.id, targetMember.membershipId));
+				await tx.delete(users).where(eq(users.id, targetMember.id));
+			});
+
+			await Promise.all([
+				removeFromCache(`user:${targetMember.id}`),
+				removeFromCache(`workspace-membership:${targetMember.id}`),
+			]);
 
 			const eventPayload = getWorkspaceEventPayload({
 				requestId: ctx.get("requestId"),
@@ -504,9 +532,18 @@ export const workspaceRoutes = new Hono()
 		const [workspaceUsers, pendingInvitations] = await db.transaction((tx) => {
 			return Promise.all([
 				tx
-					.select(pickKeys(users, ["createdAt", "email", "fullName", "id", "role", "suspendedAt"]))
-					.from(users)
-					.where(eq(users.workspaceId, currentUser.workspaceId)),
+					.select({
+						createdAt: workspaceMemberships.createdAt,
+						email: users.email,
+						fullName: users.fullName,
+						id: users.id,
+						role: workspaceMemberships.role,
+						status: workspaceMemberships.status,
+						suspendedAt: workspaceMemberships.suspendedAt,
+					})
+					.from(workspaceMemberships)
+					.innerJoin(users, eq(workspaceMemberships.userId, users.id))
+					.where(eq(workspaceMemberships.workspaceId, currentUser.workspaceId)),
 
 				tx
 					.select(
@@ -535,7 +572,14 @@ export const workspaceRoutes = new Hono()
 					...workspaceUsers.map((user) => {
 						const isCurrentUser = user.id === currentUser.id;
 
-						if (user.suspendedAt) {
+						if (user.status === "suspended") {
+							if (!user.suspendedAt) {
+								throw new AppError({
+									code: 500,
+									message: "Suspended membership is missing suspended date",
+								});
+							}
+
 							return {
 								createdAt: user.createdAt,
 								email: user.email,

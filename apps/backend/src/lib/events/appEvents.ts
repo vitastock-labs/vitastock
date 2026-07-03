@@ -15,7 +15,6 @@ export type AppEventMap = {
 	"auth.passwordResetCompleted": AppEventBase;
 	"auth.userSignedIn": AppEventBase;
 	"auth.userSignedOut": AppEventBase;
-	"dashboard.overviewRequested": AppEventBase;
 	"email.enqueueFailed": AppEventMap["email.enqueueRequested"] & {
 		error: unknown;
 	};
@@ -27,10 +26,6 @@ export type AppEventMap = {
 	"inventory.stockLogged": AppEventBase & {
 		drugId: string;
 		quantity: number;
-	};
-	"inventory.summaryUpdated": AppEventBase & {
-		drugId: string;
-		totalAvailable: number;
 	};
 	"workspace.invitationCanceled": AppEventMap["workspace.invitationSent"];
 	"workspace.invitationResent": AppEventMap["workspace.invitationSent"];

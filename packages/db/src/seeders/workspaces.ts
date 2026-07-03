@@ -1,4 +1,5 @@
 import { consola } from "consola";
+import { sql } from "drizzle-orm";
 import { db } from "../db";
 import { workspaces, type InsertWorkspaceType } from "../schema";
 
@@ -24,13 +25,22 @@ const WORKSPACE_SEED_DATA: InsertWorkspaceType[] = [
 export const seedWorkspaces = async () => {
 	consola.info(`Seeding ${WORKSPACE_SEED_DATA.length} workspaces...`);
 
-	const insertedWorkspaces = await db
+	const seededWorkspaces = await db
 		.insert(workspaces)
 		.values(WORKSPACE_SEED_DATA)
-		.onConflictDoNothing()
+		.onConflictDoUpdate({
+			set: {
+				alertEmail: sql`excluded.alert_email`,
+				emailAlertsEnabledAt: sql`excluded.email_alerts_enabled_at`,
+				lowStockThreshold: sql`excluded.low_stock_threshold`,
+				nearExpiryDays: sql`excluded.near_expiry_days`,
+				timezone: sql`excluded.timezone`,
+			},
+			target: workspaces.name,
+		})
 		.returning();
 
-	consola.success(`Seeded ${insertedWorkspaces.length} new workspaces.`);
+	consola.success(`Seeded ${seededWorkspaces.length} workspaces.`);
 
-	return insertedWorkspaces;
+	return seededWorkspaces;
 };

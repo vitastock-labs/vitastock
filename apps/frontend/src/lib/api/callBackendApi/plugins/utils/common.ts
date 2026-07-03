@@ -19,11 +19,11 @@ const REDIRECT_AUTH_ERROR_APP_CODES = new Set<AuthErrorAppCodeType>([
 export const isAuthErrorThatNeedsRedirect = (
 	error: ResponseErrorContext<{ ErrorData: BaseApiErrorResponse }>["error"]
 ) => {
-	if (!isAuthError(error)) {
+	if (!isAuthError(error) || !error.errorData.appCode) {
 		return false;
 	}
 
-	return REDIRECT_AUTH_ERROR_APP_CODES.has(error.errorData.appCode as AuthErrorAppCodeType);
+	return REDIRECT_AUTH_ERROR_APP_CODES.has(error.errorData.appCode);
 };
 
 export const redirectTo = (route: MainAppRoutes) => hardNavigate(route, "replace");

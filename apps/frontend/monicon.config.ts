@@ -89,5 +89,7 @@ function getIconsArray() {
 		"material-symbols:settings-rounded",
 		"material-symbols:error-outline-rounded",
 		"lucide:send-horizontal",
+		"solar:file-outline",
+		"solar:document-medicine-linear",
 	];
 }

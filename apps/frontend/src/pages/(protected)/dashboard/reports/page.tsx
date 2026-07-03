@@ -139,9 +139,9 @@ function ReportsLog() {
 							text-[14px] ring-1 ring-transparent transition-all focus-within:bg-white
 							focus-within:ring-vitastock-primary-main/50"
 					>
-						<Form.InputLeftItem>
+						<Form.InputGroupAddon>
 							<IconBox icon="lucide:search" className="size-4.5" />
-						</Form.InputLeftItem>
+						</Form.InputGroupAddon>
 						<Form.InputPrimitive
 							type="search"
 							placeholder="Search logs..."

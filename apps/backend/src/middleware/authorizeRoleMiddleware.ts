@@ -1,11 +1,11 @@
-import type { SelectUserType } from "@vitastock/db/schema/auth";
+import type { SessionUserType } from "@vitastock/db/schema/auth";
 import { AUTH_ERRORS } from "@vitastock/shared/constants";
 import { createMiddleware } from "hono/factory";
 import type { HonoAppBindings } from "@/lib/types/common";
 import { AppError } from "@/lib/utils";
 
 const authorizeRoleMiddleware = (
-	allowedRoles: Array<SelectUserType["role"]>,
+	allowedRoles: Array<SessionUserType["role"]>,
 	options?: { errorMessage?: string }
 ) => {
 	const { errorMessage } = options ?? {};

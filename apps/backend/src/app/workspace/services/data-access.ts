@@ -1,6 +1,6 @@
 import { db } from "@vitastock/db";
 import { users } from "@vitastock/db/schema/auth";
-import { workspaceInvitations } from "@vitastock/db/schema/workspace";
+import { workspaceInvitations, workspaceMemberships } from "@vitastock/db/schema/workspace";
 import { pickKeys } from "@zayne-labs/toolkit-core";
 import { and, eq, isNull } from "drizzle-orm";
 import { AppError } from "@/lib/utils";
@@ -9,9 +9,17 @@ export const getWorkspaceMemberForAction = async (options: { memberId: string; w
 	const { memberId, workspaceId } = options;
 
 	const [member] = await db
-		.select(pickKeys(users, ["email", "fullName", "id", "role", "suspendedAt", "workspaceId"]))
-		.from(users)
-		.where(and(eq(users.id, memberId), eq(users.workspaceId, workspaceId)))
+		.select({
+			...pickKeys(users, ["email", "fullName", "id"]),
+			membershipId: workspaceMemberships.id,
+			role: workspaceMemberships.role,
+			status: workspaceMemberships.status,
+			suspendedAt: workspaceMemberships.suspendedAt,
+			workspaceId: workspaceMemberships.workspaceId,
+		})
+		.from(workspaceMemberships)
+		.innerJoin(users, eq(workspaceMemberships.userId, users.id))
+		.where(and(eq(users.id, memberId), eq(workspaceMemberships.workspaceId, workspaceId)))
 		.limit(1);
 
 	if (!member) {

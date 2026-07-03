@@ -1,8 +1,8 @@
-import type { SelectUserType } from "@vitastock/db/schema/auth";
+import type { SessionUserType } from "@vitastock/db/schema/auth";
 import { subscribeToAppEvent } from "@/lib/events";
 import { sendPasswordChangedEmail, sendResetPasswordCompleteEmail } from "./emails";
 
-type AuthEventUser = Pick<SelectUserType, "email" | "fullName" | "id" | "workspaceId">;
+type AuthEventUser = Pick<SessionUserType, "email" | "fullName" | "id" | "workspaceId">;
 
 export const getAuthEventPayload = (options: { requestId: string; user: AuthEventUser }) => {
 	const { requestId, user } = options;

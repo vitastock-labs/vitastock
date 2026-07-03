@@ -1,6 +1,15 @@
 import { db } from "@vitastock/db";
-import type { SelectUserType } from "@vitastock/db/schema/auth";
-import { workspaces, type SelectWorkspaceType } from "@vitastock/db/schema/workspace";
+import type {
+	SelectUserType,
+	SessionMembershipType,
+	SessionUserType,
+	SessionWorkspaceType,
+} from "@vitastock/db/schema/auth";
+import {
+	workspaceMemberships,
+	workspaces,
+	type SelectWorkspaceType,
+} from "@vitastock/db/schema/workspace";
 import { pickKeys } from "@zayne-labs/toolkit-core";
 import { defineEnum } from "@zayne-labs/toolkit-type-helpers";
 import { eq } from "drizzle-orm";
@@ -13,9 +22,15 @@ export const necessaryUserDetails = defineEnum([
 	"email",
 	"emailVerifiedAt",
 	"mustChangePassword",
+] as const satisfies Array<keyof SelectUserType>);
+
+export const necessaryMembershipDetails = defineEnum([
+	"id",
 	"role",
+	"status",
+	"suspendedAt",
 	"workspaceId",
-] satisfies Array<keyof SelectUserType>);
+] as const satisfies Array<keyof SessionMembershipType>);
 
 export const necessaryWorkspaceDetails = defineEnum([
 	"id",
@@ -33,23 +48,41 @@ export const getNecessaryUserDetails = <const TKeys extends Array<keyof SelectUs
 	return pickKeys(user, [...necessaryUserDetails, ...keys] as const);
 };
 
-export const getAuthResponseData = async (
-	user: SelectUserType,
-	existingWorkspace?: SelectWorkspaceType
-) => {
-	const workspace =
-		existingWorkspace
-		?? (await getFromCache(`workspace:${user.workspaceId}`, {
-			onCacheMiss: async () => {
-				const [workspaceResult] = await db
-					.select(pickKeys(workspaces, necessaryWorkspaceDetails))
-					.from(workspaces)
-					.where(eq(workspaces.id, user.workspaceId))
-					.limit(1);
+export const getCurrentMembership = async (userId: string) => {
+	const membership = await getFromCache(`workspace-membership:${userId}`, {
+		onCacheMiss: async () => {
+			const [membershipResult] = await db
+				.select(pickKeys(workspaceMemberships, necessaryMembershipDetails))
+				.from(workspaceMemberships)
+				.where(eq(workspaceMemberships.userId, userId))
+				.limit(1);
 
-				return workspaceResult;
-			},
-		}));
+			return membershipResult;
+		},
+	});
+
+	if (!membership) {
+		throw new AppError({
+			code: 500,
+			message: "User workspace membership not found",
+		});
+	}
+
+	return membership;
+};
+
+export const getCurrentWorkspace = async (workspaceId: string) => {
+	const workspace = await getFromCache(`workspace:${workspaceId}`, {
+		onCacheMiss: async () => {
+			const [workspaceResult] = await db
+				.select(pickKeys(workspaces, necessaryWorkspaceDetails))
+				.from(workspaces)
+				.where(eq(workspaces.id, workspaceId))
+				.limit(1);
+
+			return workspaceResult;
+		},
+	});
 
 	if (!workspace) {
 		throw new AppError({
@@ -58,8 +91,48 @@ export const getAuthResponseData = async (
 		});
 	}
 
+	return workspace;
+};
+
+export const getCurrentSessionState = async (options: {
+	existingMembership?: SessionMembershipType;
+	existingWorkspace?: SessionWorkspaceType;
+	user: SelectUserType;
+}) => {
+	const { existingMembership, existingWorkspace, user } = options;
+
+	const currentMembership = existingMembership ?? (await getCurrentMembership(user.id));
+	const currentWorkspace =
+		existingWorkspace ?? (await getCurrentWorkspace(currentMembership.workspaceId));
+
+	const currentUser = {
+		...user,
+		membershipId: currentMembership.id,
+		role: currentMembership.role,
+		status: currentMembership.status,
+		suspendedAt: currentMembership.suspendedAt,
+		workspaceId: currentMembership.workspaceId,
+	} satisfies SessionUserType;
+
 	return {
-		user: getNecessaryUserDetails(user),
+		currentMembership,
+		currentUser,
+		currentWorkspace,
+	};
+};
+
+export const getAuthResponseData = async (
+	user: SessionUserType,
+	existingWorkspace?: SessionWorkspaceType
+) => {
+	const workspace = existingWorkspace ?? (await getCurrentWorkspace(user.workspaceId));
+
+	return {
+		user: {
+			...getNecessaryUserDetails(user),
+			role: user.role,
+			workspaceId: user.workspaceId,
+		},
 		workspace,
 	};
 };

@@ -1,5 +1,9 @@
 {
-	"extends": ["../../tsconfig.base.json", "@zayne-labs/tsconfig/bundler/dom"],
+	"extends": ["@zayne-labs/tsconfig/bundler/dom"],
+
+	"compilerOptions": {
+		"types": ["node"]
+	},
 
 	"include": ["src/**/*", "**/*"],
 	"exclude": ["node_modules/**"]

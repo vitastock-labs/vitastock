@@ -1,6 +1,6 @@
 /* eslint-disable import/no-named-as-default-member */
 
-import type { SelectUserType } from "@vitastock/db/schema/auth";
+import type { SelectUserType, SessionUserType } from "@vitastock/db/schema/auth";
 import { pickKeys } from "@zayne-labs/toolkit-core";
 import { isPast } from "date-fns";
 /* eslint-disable import/default */
@@ -123,7 +123,7 @@ export const isTokenInWhitelist = (
 
 export const warnAboutTokenReuse = (options: {
 	compromisedRefreshToken: string;
-	compromisedUser: SelectUserType;
+	compromisedUser: Pick<SessionUserType, "email" | "fullName" | "id" | "role" | "workspaceId">;
 	requestUserAgent: string;
 }) => {
 	const { compromisedRefreshToken, compromisedUser, requestUserAgent } = options;

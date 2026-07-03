@@ -1,12 +1,15 @@
 import crypto from "node:crypto";
 import { hash } from "@node-rs/argon2";
 import { consola } from "consola";
+import { and, inArray, isNull } from "drizzle-orm";
 import { db } from "../db";
 import { workspaceInvitations, type InsertWorkspaceInvitationType } from "../schema";
+import { seedWorkspaceMemberships } from "./memberships";
 import { seedUsers } from "./users";
 import type { seedWorkspaces } from "./workspaces";
 
 type SeededWorkspaces = Awaited<ReturnType<typeof seedWorkspaces>>;
+type SeededMemberships = Awaited<ReturnType<typeof seedWorkspaceMemberships>>;
 
 const hashPassword = (password: string) => {
 	return hash(password, {
@@ -72,6 +75,7 @@ type SeededUsers = Awaited<ReturnType<typeof seedUsers>>;
 
 export const seedWorkspaceInvitations = async (
 	seededUsers: SeededUsers,
+	seededMemberships: SeededMemberships,
 	seededWorkspaces: SeededWorkspaces
 ) => {
 	if (seededWorkspaces.length === 0) return;
@@ -83,10 +87,18 @@ export const seedWorkspaceInvitations = async (
 	const allInvitations: InsertWorkspaceInvitationType[] = [];
 
 	for (const workspace of seededWorkspaces) {
-		const owner = seededUsers.find((u) => u.workspaceId === workspace.id && u.role === "owner");
+		const ownerMembership = seededMemberships.find(
+			(membership) => membership.workspaceId === workspace.id && membership.role === "owner"
+		);
+
+		if (!ownerMembership) {
+			throw new Error("No owner found for workspace");
+		}
+
+		const owner = seededUsers.find((user) => user.id === ownerMembership.userId);
 
 		if (!owner) {
-			throw new Error("No owner found for workspace");
+			throw new Error("No owner user found for workspace");
 		}
 
 		const invitationsPerWorkspace = getInvitationSeedData({
@@ -101,11 +113,20 @@ export const seedWorkspaceInvitations = async (
 		consola.info(`${workspace.name}: ${invitationsPerWorkspace.length} invitations`);
 	}
 
-	const insertedWorkspaceInvitations = await db
-		.insert(workspaceInvitations)
-		.values(allInvitations)
-		.onConflictDoNothing()
-		.returning();
+	const seedInviteeEmails = allInvitations.map((invitation) => invitation.inviteeEmail);
+
+	const insertedWorkspaceInvitations = await db.transaction(async (tx) => {
+		await tx
+			.delete(workspaceInvitations)
+			.where(
+				and(
+					inArray(workspaceInvitations.inviteeEmail, seedInviteeEmails),
+					isNull(workspaceInvitations.acceptedAt)
+				)
+			);
+
+		return tx.insert(workspaceInvitations).values(allInvitations).onConflictDoNothing().returning();
+	});
 
 	consola.success(`Seeded ${insertedWorkspaceInvitations.length} workspace invitations.`);
 };

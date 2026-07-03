@@ -16,7 +16,7 @@ const [DialogStateContextProvider, useDialogStateContext] = createCustomContext<
 
 function DialogRoot(props: React.ComponentProps<typeof DialogPrimitive.Root>) {
 	const {
-		defaultOpen: defaultOpenProp,
+		defaultOpen: defaultOpenProp = false,
 		// eslint-disable-next-line ts-eslint/unbound-method
 		onOpenChange: onOpenChangeProp,
 		open: openProp,

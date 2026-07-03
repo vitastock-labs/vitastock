@@ -1,13 +1,13 @@
 /* eslint-disable import/no-named-as-default-member */
 
 import { db } from "@vitastock/db";
-import { users, type SelectUserType } from "@vitastock/db/schema/auth";
-import { workspaces, type SelectWorkspaceType } from "@vitastock/db/schema/workspace";
+import { users, type SessionUserType } from "@vitastock/db/schema/auth";
 import { AUTH_ERRORS } from "@vitastock/shared/constants";
 import type { UnionDiscriminator } from "@zayne-labs/toolkit-type-helpers";
 import { eq } from "drizzle-orm";
 /* eslint-disable import/default */
 import jwt from "jsonwebtoken";
+import { getCurrentMembership, getCurrentSessionState } from "@/app/auth/services/common";
 /* eslint-enable import/default */
 import {
 	decodeJwtToken,
@@ -24,13 +24,13 @@ import { requestContext } from "./requestContext";
 type VerifyOptions = UnionDiscriminator<
 	[
 		{
+			existingAccessToken: string;
+			existingRefreshToken: string;
 			variant: "accessToken";
-			zayneAccessToken: string;
-			zayneRefreshToken: string;
 		},
 		{
+			existingRefreshToken: string;
 			variant: "refreshToken";
-			zayneRefreshToken: string;
 		},
 	]
 >;
@@ -44,20 +44,20 @@ const handleTokenValidationError = () => {
 };
 
 const getAndVerifyUserFromToken = async (options: VerifyOptions) => {
-	const { variant, zayneAccessToken, zayneRefreshToken } = options;
+	const { existingAccessToken, existingRefreshToken, variant } = options;
 
 	const decodedPayload =
 		variant === "accessToken" ?
-			decodeJwtToken(zayneAccessToken, {
+			decodeJwtToken(existingAccessToken, {
 				onValidationError: handleTokenValidationError,
 				secretKey: ENVIRONMENT.ACCESS_SECRET,
 			})
-		:	decodeJwtToken(zayneRefreshToken, {
+		:	decodeJwtToken(existingRefreshToken, {
 				onValidationError: handleTokenValidationError,
 				secretKey: ENVIRONMENT.REFRESH_SECRET,
 			});
 
-	const currentUser = await getFromCache(`user:${decodedPayload.id}`, {
+	const baseUser = await getFromCache(`user:${decodedPayload.id}`, {
 		onCacheMiss: async () => {
 			const [user] = await db.select().from(users).where(eq(users.id, decodedPayload.id)).limit(1);
 
@@ -65,7 +65,7 @@ const getAndVerifyUserFromToken = async (options: VerifyOptions) => {
 		},
 	});
 
-	if (!currentUser) {
+	if (!baseUser) {
 		throw new AppError({
 			appCode: AUTH_ERRORS.SESSION_NOT_EXIST.appCode,
 			code: 401,
@@ -78,16 +78,23 @@ const getAndVerifyUserFromToken = async (options: VerifyOptions) => {
 	// == At this point, the refresh token is still valid but is not in the refreshTokenArray (whitelist)
 	// == So it can be seen as a token reuse situation
 	// == So clear the refreshTokenArray to log the user out from all devices including current device, greatly diminishing the risk of another token reuse attack
-	if (!isTokenInWhitelist(currentUser.refreshTokenArray, zayneRefreshToken)) {
+	if (!isTokenInWhitelist(baseUser.refreshTokenArray, existingRefreshToken)) {
+		const membership = await getCurrentMembership(baseUser.id);
+
 		warnAboutTokenReuse({
-			compromisedRefreshToken: zayneRefreshToken,
-			compromisedUser: currentUser,
+			compromisedRefreshToken: existingRefreshToken,
+			compromisedUser: {
+				...baseUser,
+				role: membership.role,
+				workspaceId: membership.workspaceId,
+			},
 			requestUserAgent: requestContextValue.honoCtx.req.header("user-agent") ?? "unknown",
 		});
 
 		await Promise.all([
-			db.update(users).set({ refreshTokenArray: [] }).where(eq(users.id, currentUser.id)),
-			removeFromCache(`user:${currentUser.id}`),
+			db.update(users).set({ refreshTokenArray: [] }).where(eq(users.id, baseUser.id)),
+			removeFromCache(`user:${baseUser.id}`),
+			removeFromCache(`workspace-membership:${baseUser.id}`),
 		]);
 
 		deleteCookie(requestContextValue.honoCtx, "vitaStockRefreshToken");
@@ -100,7 +107,11 @@ const getAndVerifyUserFromToken = async (options: VerifyOptions) => {
 		});
 	}
 
-	if (currentUser.suspendedAt) {
+	const { currentMembership, currentUser, currentWorkspace } = await getCurrentSessionState({
+		user: baseUser,
+	});
+
+	if (currentMembership.status === "suspended" || currentMembership.suspendedAt) {
 		throw new AppError({
 			appCode: AUTH_ERRORS.ACCOUNT_SUSPENDED.appCode,
 			code: 401,
@@ -130,37 +141,13 @@ const getAndVerifyUserFromToken = async (options: VerifyOptions) => {
 	// TODO csrf protection
 	// TODO browser client fingerprinting
 
-	return currentUser;
-};
-
-const getUserAndWorkspaceFromToken = async (options: VerifyOptions) => {
-	const currentUser = await getAndVerifyUserFromToken(options);
-
-	const currentWorkspace = await getFromCache(`workspace:${currentUser.workspaceId}`, {
-		onCacheMiss: async () => {
-			const [workspace] = await db
-				.select()
-				.from(workspaces)
-				.where(eq(workspaces.id, currentUser.workspaceId))
-				.limit(1);
-
-			return workspace;
-		},
-	});
-
-	if (!currentWorkspace) {
-		throw new AppError({
-			code: 500,
-			message: "User workspace not found",
-		});
-	}
-
-	return { currentUser, currentWorkspace };
+	return { currentMembership, currentUser, currentWorkspace };
 };
 
 type BaseSession = {
-	currentUser: SelectUserType;
-	currentWorkspace: SelectWorkspaceType;
+	currentMembership: Awaited<ReturnType<typeof getCurrentMembership>>;
+	currentUser: SessionUserType;
+	currentWorkspace: Awaited<ReturnType<typeof getCurrentSessionState>>["currentWorkspace"];
 };
 
 type NewSession = BaseSession & {
@@ -170,16 +157,21 @@ type NewSession = BaseSession & {
 /**
  * @description This function is used to validate the refresh token and generate a new access token
  */
-export const refreshUserSession = async (zayneRefreshToken: string): Promise<NewSession> => {
+export const refreshUserSession = async (
+	options: Pick<VerifyOptions, "existingRefreshToken">
+): Promise<NewSession> => {
+	const { existingRefreshToken } = options;
+
 	try {
-		const { currentUser, currentWorkspace } = await getUserAndWorkspaceFromToken({
+		const { currentMembership, currentUser, currentWorkspace } = await getAndVerifyUserFromToken({
+			existingRefreshToken,
 			variant: "refreshToken",
-			zayneRefreshToken,
 		});
 
 		const newZayneAccessTokenResult = generateAccessToken(currentUser);
 
 		return {
+			currentMembership,
 			currentUser,
 			currentWorkspace,
 			newZayneAccessTokenResult,
@@ -212,8 +204,8 @@ type ExistingSession = BaseSession & {
 };
 
 type TokenPairFromCookies = {
-	zayneAccessToken: string | undefined;
-	zayneRefreshToken: string | undefined;
+	existingAccessToken: string | undefined;
+	existingRefreshToken: string | undefined;
 };
 
 /**
@@ -223,9 +215,9 @@ type TokenPairFromCookies = {
 const validateUserSession = async (
 	tokens: TokenPairFromCookies
 ): Promise<ExistingSession | NewSession> => {
-	const { zayneAccessToken, zayneRefreshToken } = tokens;
+	const { existingAccessToken, existingRefreshToken } = tokens;
 
-	if (!zayneRefreshToken) {
+	if (!existingRefreshToken) {
 		throw new AppError({
 			appCode: AUTH_ERRORS.SESSION_NOT_EXIST.appCode,
 			code: 401,
@@ -233,25 +225,26 @@ const validateUserSession = async (
 		});
 	}
 
-	if (!zayneAccessToken) {
-		return refreshUserSession(zayneRefreshToken);
+	if (!existingAccessToken) {
+		return refreshUserSession({ existingRefreshToken });
 	}
 
 	try {
-		const { currentUser, currentWorkspace } = await getUserAndWorkspaceFromToken({
+		const { currentMembership, currentUser, currentWorkspace } = await getAndVerifyUserFromToken({
+			existingAccessToken,
+			existingRefreshToken,
 			variant: "accessToken",
-			zayneAccessToken,
-			zayneRefreshToken,
 		});
 
 		return {
+			currentMembership,
 			currentUser,
 			currentWorkspace,
 			newZayneAccessTokenResult: null,
 		};
 	} catch (error) {
 		if (error instanceof jwt.JsonWebTokenError || error instanceof jwt.TokenExpiredError) {
-			return refreshUserSession(zayneRefreshToken);
+			return refreshUserSession({ existingRefreshToken });
 		}
 
 		if (AppError.isError(error)) {

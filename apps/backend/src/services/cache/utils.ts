@@ -4,7 +4,9 @@ import * as superjson from "superjson";
 import { appLogger } from "@/lib/logger";
 import { initializeRedisCacheClient, redisCacheClient } from "./cacheClient";
 
-type CacheKeyType = UnmaskType<`user:${string}` | `workspace:${string}`>;
+type CacheKeyType = UnmaskType<
+	`user:${string}` | `workspace-membership:${string}` | `workspace:${string}`
+>;
 
 export const setCache = async (
 	key: CacheKeyType,

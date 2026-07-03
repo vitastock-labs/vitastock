@@ -1,5 +1,6 @@
 import { hash } from "@node-rs/argon2";
 import { consola } from "consola";
+import { sql } from "drizzle-orm";
 import { ENVIRONMENT } from "@/config/env";
 import { db } from "../db";
 import { users, type InsertUserType } from "../schema";
@@ -22,10 +23,9 @@ const getWorkspaceSlug = (workspaceName: string) => {
 
 const getUsersSeedData = (options: {
 	passwordHash: string;
-	workspaceId: string;
 	workspaceName: string;
 }) => {
-	const { passwordHash, workspaceId, workspaceName } = options;
+	const { passwordHash, workspaceName } = options;
 
 	const slug = getWorkspaceSlug(workspaceName);
 
@@ -34,17 +34,6 @@ const getUsersSeedData = (options: {
 		emailVerifiedAt: new Date(),
 		fullName: `${workspaceName} Owner`,
 		passwordHash,
-		role: "owner",
-		workspaceId,
-	};
-
-	const backupOwner: InsertUserType = {
-		email: `backup-owner.${slug}@seeded.com`,
-		emailVerifiedAt: new Date(),
-		fullName: `${workspaceName} Backup Owner`,
-		passwordHash,
-		role: "owner",
-		workspaceId,
 	};
 
 	const fixedAdmin: InsertUserType = {
@@ -52,8 +41,6 @@ const getUsersSeedData = (options: {
 		emailVerifiedAt: new Date(),
 		fullName: `${workspaceName} Admin`,
 		passwordHash,
-		role: "admin",
-		workspaceId,
 	};
 
 	const leadPharmacist: InsertUserType = {
@@ -61,8 +48,6 @@ const getUsersSeedData = (options: {
 		emailVerifiedAt: new Date(),
 		fullName: `${workspaceName} Lead Pharmacist`,
 		passwordHash,
-		role: "pharmacist",
-		workspaceId,
 	};
 
 	const extraPharmacists = [...Array(5).keys()].map((index): InsertUserType => {
@@ -73,8 +58,6 @@ const getUsersSeedData = (options: {
 			emailVerifiedAt: new Date(),
 			fullName: `${workspaceName} Pharmacist ${pharmacistNumber}`,
 			passwordHash,
-			role: "pharmacist",
-			workspaceId,
 		};
 	});
 
@@ -83,12 +66,9 @@ const getUsersSeedData = (options: {
 		emailVerifiedAt: new Date(),
 		fullName: `${workspaceName} Suspended Pharmacist`,
 		passwordHash,
-		role: "pharmacist",
-		suspendedAt: new Date("2026-01-15T09:00:00.000Z"),
-		workspaceId,
 	};
 
-	return [fixedOwner, backupOwner, fixedAdmin, leadPharmacist, ...extraPharmacists, suspendedPharmacist];
+	return [fixedOwner, fixedAdmin, leadPharmacist, ...extraPharmacists, suspendedPharmacist];
 };
 
 export const seedUsers = async (seededWorkspaces: SeededWorkspaces) => {
@@ -99,7 +79,6 @@ export const seedUsers = async (seededWorkspaces: SeededWorkspaces) => {
 	for (const workspace of seededWorkspaces) {
 		const usersPerWorkspace = getUsersSeedData({
 			passwordHash,
-			workspaceId: workspace.id,
 			workspaceName: workspace.name,
 		});
 
@@ -109,9 +88,20 @@ export const seedUsers = async (seededWorkspaces: SeededWorkspaces) => {
 	consola.info(`Seeding ${allUsers.length} users across ${seededWorkspaces.length} workspaces...`);
 	consola.info(`All users have password: "${ENVIRONMENT.SEED_PASSWORD}"`);
 
-	const insertedUsers = await db.insert(users).values(allUsers).onConflictDoNothing().returning();
+	const seededUsers = await db
+		.insert(users)
+		.values(allUsers)
+		.onConflictDoUpdate({
+			set: {
+				emailVerifiedAt: sql`excluded.email_verified_at`,
+				fullName: sql`excluded.full_name`,
+				passwordHash: sql`excluded.password_hash`,
+			},
+			target: users.email,
+		})
+		.returning();
 
-	consola.success(`Seeded ${insertedUsers.length} users.`);
+	consola.success(`Seeded ${seededUsers.length} users.`);
 
-	return insertedUsers;
+	return seededUsers;
 };

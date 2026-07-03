@@ -1,11 +1,12 @@
 {
-	"extends": ["../../tsconfig.base.json", "@zayne-labs/tsconfig/bundler/dom/app"],
+	"extends": ["@zayne-labs/tsconfig/bundler/dom/app"],
 
 	"compilerOptions": {
 		"jsx": "react-jsx",
 		"paths": {
 			"@/*": ["./*"]
-		}
+		},
+		"types": ["node"]
 	},
 
 	"include": ["**/*.ts", "**/*.tsx"],

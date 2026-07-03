@@ -1,6 +1,15 @@
 import { InsertUserSchema, SelectUserSchema } from "@vitastock/db/schema/auth";
 import {
+	INVENTORY_STATUS,
+	InsertStockBatchSchema,
+	InsertStockLogSchema,
+	SelectDrugSchema,
+	SelectStockBatchSchema,
+	SelectStockLogSchema,
+} from "@vitastock/db/schema/inventory";
+import {
 	InsertWorkspaceSchema,
+	SelectWorkspaceMembershipSchema,
 	SelectWorkspaceInvitationSchema,
 	SelectWorkspaceSchema,
 } from "@vitastock/db/schema/workspace";
@@ -48,8 +57,13 @@ const withBaseErrorResponse = <
 
 const PasswordSchema = z.string().min(8, "Password must be at least 8 characters long");
 
-const stringWithDateValidation = () =>
-	z.preprocess((value) => (typeof value === "string" ? new Date(value) : value), z.date());
+const stringWithDateValidation = () => {
+	return z.preprocess((value: string) => new Date(value), z.date());
+};
+
+const stringWithNumberValidation = <TNumberSchema extends z.ZodNumber>(numberSchema: TNumberSchema) => {
+	return z.preprocess((value: string) => Number(value), numberSchema);
+};
 
 const TokenObjectSchema = z.object({
 	expiresAt: stringWithDateValidation(),
@@ -93,10 +107,10 @@ const UserDetailsSchema = SelectUserSchema.pick({
 	fullName: true,
 	id: true,
 	mustChangePassword: true,
-	role: true,
-	workspaceId: true,
 }).extend({
 	emailVerifiedAt: stringWithDateValidation().nullable(),
+	role: SelectWorkspaceMembershipSchema.shape.role,
+	workspaceId: SelectWorkspaceMembershipSchema.shape.workspaceId,
 });
 
 const WorkspaceDetailsSchema = SelectWorkspaceSchema.pick({
@@ -200,27 +214,22 @@ export const workspaceRoutes = () => {
 	const ManageableWorkspaceRoleSchema = UserDetailsSchema.shape.role.exclude(["owner"]);
 
 	const WorkspaceMemberSchema = z.discriminatedUnion("status", [
-		SelectUserSchema.pick({
-			createdAt: true,
-			email: true,
-			fullName: true,
-			id: true,
-			role: true,
-		}).extend({
+		z.object({
 			createdAt: stringWithDateValidation(),
+			email: SelectUserSchema.shape.email,
+			fullName: SelectUserSchema.shape.fullName,
+			id: SelectUserSchema.shape.id,
 			isCurrentUser: z.boolean(),
+			role: SelectWorkspaceMembershipSchema.shape.role,
 			status: z.literal("active"),
 		}),
-		SelectUserSchema.pick({
-			createdAt: true,
-			email: true,
-			fullName: true,
-			id: true,
-			role: true,
-			suspendedAt: true,
-		}).extend({
+		z.object({
 			createdAt: stringWithDateValidation(),
+			email: SelectUserSchema.shape.email,
+			fullName: SelectUserSchema.shape.fullName,
+			id: SelectUserSchema.shape.id,
 			isCurrentUser: z.boolean(),
+			role: SelectWorkspaceMembershipSchema.shape.role,
 			status: z.literal("suspended"),
 			suspendedAt: stringWithDateValidation(),
 		}),
@@ -336,11 +345,111 @@ export const workspaceRoutes = () => {
 		},
 	});
 };
+
+const DrugDetailsSchema = SelectDrugSchema.pick({
+	form: true,
+	id: true,
+	name: true,
+	strength: true,
+	unit: true,
+});
+
+const RecentStockActivitySchema = SelectStockLogSchema.pick({
+	createdAt: true,
+	id: true,
+	logType: true,
+	quantity: true,
+}).extend({
+	createdAt: stringWithDateValidation(),
+	drug: DrugDetailsSchema.pick({
+		id: true,
+		name: true,
+		strength: true,
+	}),
+	person: z.string(),
+});
+
+const inventoryRoutes = () => {
+	const stockLogActionSchema = SelectStockLogSchema.shape.logType.extract([
+		"opening_stock",
+		"stock_in",
+		"stock_out",
+	]);
+
+	const InventorySummaryRowSchema = z.object({
+		drug: DrugDetailsSchema,
+		drugId: SelectDrugSchema.shape.id,
+		nearestBatch: SelectStockBatchSchema.pick({
+			batchNumber: true,
+			id: true,
+			quantityAvailable: true,
+			unitCostKobo: true,
+		}).extend({
+			expiryDate: stringWithDateValidation(),
+		}).optional(),
+		nearestExpiryDate: stringWithDateValidation().optional(),
+		status: z.enum(INVENTORY_STATUS),
+		stockValueKobo: z.number(),
+		totalAvailable: z.number(),
+	});
+
+	return defineSchemaRoutes({
+		"@get/inventory/summary": {
+			data: withBaseSuccessResponse(
+				z.object({
+					rows: z.array(InventorySummaryRowSchema),
+					stats: z.object({
+						criticalCount: z.number(),
+						stockValueKobo: z.number(),
+					}),
+				})
+			),
+		},
+
+		"@post/inventory/stock-log": {
+			body: InsertStockLogSchema.pick({
+				drugId: true,
+				logType: true,
+				notes: true,
+				quantity: true,
+				unitCostKobo: true,
+			}).extend({
+				batchNumber: InsertStockBatchSchema.shape.batchNumber.optional(),
+				expiryDate: stringWithDateValidation().optional(), // FIXME - why
+				logType: stockLogActionSchema,
+				quantity: stringWithNumberValidation(InsertStockLogSchema.shape.quantity.positive()),
+				unitCostKobo: stringWithNumberValidation(
+					InsertStockLogSchema.shape.unitCostKobo.unwrap().min(0)
+				).optional(),
+			}),
+			data: NullSuccessResponseSchema,
+		},
+	});
+};
+const dashboardRoutes = () => {
+	return defineSchemaRoutes({
+		"@get/dashboard/overview": {
+			data: withBaseSuccessResponse(
+				z.object({
+					recentActivity: z.array(RecentStockActivitySchema),
+					stats: z.object({
+						expiredCount: z.number(),
+						expiringSoonCount: z.number(),
+						lowStockCount: z.number(),
+						stockValueKobo: z.number(),
+					}),
+				})
+			),
+		},
+	});
+};
 export const backendApiSchema = defineSchema(
 	{
 		...defaultSchemaRoute,
 		...authRoutes(),
 		...workspaceRoutes(),
+		...inventoryRoutes(),
+		...dashboardRoutes(),
 	},
 	{ strict: true }
 );

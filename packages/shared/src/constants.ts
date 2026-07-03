@@ -34,6 +34,14 @@ export const AUTH_ERRORS = defineEnum(
 			appCode: "SESSION_VALIDATION_FAILED",
 			message: "Something went wrong while validating your session. Please log in again",
 		},
+		USER_ALREADY_EXISTS: {
+			appCode: "USER_ALREADY_EXISTS",
+			message: "User with this email already exists",
+		},
+		WORKSPACE_ALREADY_EXISTS: {
+			appCode: "WORKSPACE_ALREADY_EXISTS",
+			message: "Workspace with this name already exists",
+		},
 	},
 	{ inferredUnionVariant: "values" }
 );
