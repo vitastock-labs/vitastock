@@ -12,22 +12,22 @@ export const inventoryRoutes = new Hono()
 		const currentUser = ctx.get("currentUser");
 		const currentWorkspace = ctx.get("currentWorkspace");
 
-		const rows = await getInventorySummaryRows({
+		const inventorySummaryRows = await getInventorySummaryRows({
 			lowStockThreshold: currentWorkspace.lowStockThreshold,
 			workspaceId: currentUser.workspaceId,
 		});
 
 		return AppJsonResponse(ctx, {
 			data: {
-				rows,
+				rows: inventorySummaryRows,
 				stats: {
-					criticalCount: rows.filter(
+					criticalCount: inventorySummaryRows.filter(
 						(row) =>
 							row.status === "expired"
 							|| row.status === "low_stock"
 							|| row.status === "out_of_stock"
 					).length,
-					stockValueKobo: rows.reduce((total, row) => total + row.stockValueKobo, 0),
+					stockValueKobo: inventorySummaryRows.reduce((total, row) => total + row.stockValueKobo, 0),
 				},
 			},
 			message: "Inventory summary fetched successfully",
