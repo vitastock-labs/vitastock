@@ -57,9 +57,8 @@ WORKDIR /app/apps/backend
 
 EXPOSE 8000
 
-# Improved healthcheck with curl
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD node -e "fetch('http://localhost:8000/health').then((res) => process.exit(res.ok ? 0 : 1)).catch(() => process.exit(1))"
 
 # Run migrations and start app
 CMD ["sh", "-c", "pnpm start:dev"]

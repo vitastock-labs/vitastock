@@ -6,6 +6,7 @@ node_modules
 dist
 .turbo
 .next
+.output
 
 # Environment files
 .env

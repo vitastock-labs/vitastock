@@ -97,7 +97,11 @@ services:
          - REDIS_QUEUE_URL_DEV=redis://vitastock-redis-queue:6379
 
       healthcheck:
-         test: [CMD, curl, -f, "http://localhost:8000"]
+         test:
+            [
+               CMD-SHELL,
+               node -e "fetch('http://localhost:8000/health').then((res) => process.exit(res.ok ? 0: 1)).catch(() => process.exit(1))",
+            ]
          interval: 30s
          timeout: 3s
          start_period: 10s
