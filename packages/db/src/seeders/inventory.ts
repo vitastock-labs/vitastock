@@ -9,8 +9,8 @@ import {
 	type InsertStockBatchType,
 	type InsertStockLogType,
 } from "../schema";
-import type { seedUsers } from "./users";
 import type { seedWorkspaceMemberships } from "./memberships";
+import type { seedUsers } from "./users";
 import type { seedWorkspaces } from "./workspaces";
 
 type SeededUsers = Awaited<ReturnType<typeof seedUsers>>;
@@ -153,9 +153,7 @@ export const seedInventory = async (
 		});
 
 		const workspaceDrugs = new Map(
-			seededDrugs
-				.filter((drug) => drug.workspaceId === workspace.id)
-				.map((drug) => [drug.name, drug])
+			seededDrugs.filter((drug) => drug.workspaceId === workspace.id).map((drug) => [drug.name, drug])
 		);
 
 		return getBatchSeedData({

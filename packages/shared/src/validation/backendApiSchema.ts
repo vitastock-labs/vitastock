@@ -1,17 +1,19 @@
-import { InsertUserSchema, SelectUserSchema } from "@vitastock/db/schema/auth";
+import type { InsertUserType, SelectUserType } from "@vitastock/db/schema/auth";
 import {
 	INVENTORY_STATUS,
-	InsertStockBatchSchema,
-	InsertStockLogSchema,
-	SelectDrugSchema,
-	SelectStockBatchSchema,
-	SelectStockLogSchema,
+	STOCK_LOG_TYPES,
+	STOCK_OUT_REASONS,
+	type InsertStockBatchType,
+	type InsertStockLogType,
+	type SelectDrugType,
+	type SelectStockBatchType,
+	type SelectStockLogType,
 } from "@vitastock/db/schema/inventory";
-import {
-	InsertWorkspaceSchema,
-	SelectWorkspaceMembershipSchema,
-	SelectWorkspaceInvitationSchema,
-	SelectWorkspaceSchema,
+import type {
+	InsertWorkspaceType,
+	SelectWorkspaceInvitationType,
+	SelectWorkspaceMembershipType,
+	SelectWorkspaceType,
 } from "@vitastock/db/schema/workspace";
 import { AUTH_ERROR_APP_CODES } from "@vitastock/shared/constants";
 import type { InferAllMainRouteKeys, InferAllMainRoutes } from "@zayne-labs/callapi";
@@ -56,6 +58,49 @@ const withBaseErrorResponse = <
 };
 
 const PasswordSchema = z.string().min(8, "Password must be at least 8 characters long");
+const WorkspaceRoleSchema = z.enum(["owner", "admin", "pharmacist"]);
+
+type SignUpPayloadType = Pick<InsertUserType, "email" | "fullName"> & {
+	password: string;
+	pharmacyName: InsertWorkspaceType["name"];
+};
+type UserDetailsType = Pick<
+	SelectUserType,
+	"email" | "emailVerifiedAt" | "fullName" | "id" | "mustChangePassword"
+> & {
+	role: SelectWorkspaceMembershipType["role"];
+	workspaceId: SelectWorkspaceMembershipType["workspaceId"];
+};
+type WorkspaceDetailsType = Pick<
+	SelectWorkspaceType,
+	"alertEmail" | "id" | "lowStockThreshold" | "name" | "nearExpiryDays" | "timezone"
+>;
+type WorkspaceInvitationRecordType = Pick<
+	SelectWorkspaceInvitationType,
+	"createdAt" | "expiresAt" | "id" | "inviteeEmail" | "inviteeName" | "role"
+>;
+
+type DrugDetailsType = Pick<SelectDrugType, "form" | "id" | "name" | "strength" | "unit">;
+
+type RecentStockActivityType = Pick<SelectStockLogType, "createdAt" | "id" | "logType" | "quantity"> & {
+	drug: Pick<SelectDrugType, "id" | "name" | "strength">;
+	person: string;
+};
+
+type InventorySummaryRowType = {
+	drug: DrugDetailsType;
+	drugId: SelectDrugType["id"];
+	nearestBatch?: Pick<
+		SelectStockBatchType,
+		"batchNumber" | "id" | "quantityAvailable" | "unitCostKobo"
+	> & {
+		expiryDate: Date;
+	};
+	nearestExpiryDate?: Date;
+	status: typeof INVENTORY_STATUS.$inferUnion;
+	stockValueKobo: number;
+	totalAvailable: number;
+};
 
 const stringWithDateValidation = () => {
 	return z.preprocess((value: string) => new Date(value), z.date());
@@ -70,13 +115,12 @@ const TokenObjectSchema = z.object({
 	token: z.string(),
 });
 
-export const SignUpSchema = InsertUserSchema.pick({
-	email: true,
-	fullName: true,
-}).extend({
+export const SignUpSchema = z.object({
+	email: z.email("Please enter a valid email"),
+	fullName: z.string().min(1, "Name is required"),
 	password: PasswordSchema,
-	pharmacyName: InsertWorkspaceSchema.shape.name,
-});
+	pharmacyName: z.string().min(1, "Pharmacy name is required"),
+}) satisfies z.ZodType<SignUpPayloadType>;
 
 export const withMatchingPasswordFields = <
 	TPasswordKey extends "newPassword" | "password",
@@ -101,26 +145,24 @@ const defaultSchemaRoute = defineSchemaRoutes({
 	},
 });
 
-const UserDetailsSchema = SelectUserSchema.pick({
-	email: true,
-	emailVerifiedAt: true,
-	fullName: true,
-	id: true,
-	mustChangePassword: true,
-}).extend({
+const UserDetailsSchema = z.object({
+	email: z.email("Please enter a valid email"),
 	emailVerifiedAt: stringWithDateValidation().nullable(),
-	role: SelectWorkspaceMembershipSchema.shape.role,
-	workspaceId: SelectWorkspaceMembershipSchema.shape.workspaceId,
-});
+	fullName: z.string().min(1, "Name is required"),
+	id: z.uuid(),
+	mustChangePassword: z.boolean(),
+	role: WorkspaceRoleSchema,
+	workspaceId: z.uuid(),
+}) satisfies z.ZodType<UserDetailsType>;
 
-const WorkspaceDetailsSchema = SelectWorkspaceSchema.pick({
-	alertEmail: true,
-	id: true,
-	lowStockThreshold: true,
-	name: true,
-	nearExpiryDays: true,
-	timezone: true,
-});
+const WorkspaceDetailsSchema = z.object({
+	alertEmail: z.email().nullable(),
+	id: z.uuid(),
+	lowStockThreshold: z.number(),
+	name: z.string().min(1, "Pharmacy name is required"),
+	nearExpiryDays: z.number(),
+	timezone: z.string(),
+}) satisfies z.ZodType<WorkspaceDetailsType>;
 
 const AuthDataSchema = z.object({
 	user: UserDetailsSchema,
@@ -211,54 +253,43 @@ const authRoutes = () => {
 };
 
 export const workspaceRoutes = () => {
-	const ManageableWorkspaceRoleSchema = UserDetailsSchema.shape.role.exclude(["owner"]);
+	const ManageableWorkspaceRoleSchema = WorkspaceRoleSchema.exclude(["owner"]);
+
+	const InvitationRecordSchema = z.object({
+		createdAt: stringWithDateValidation(),
+		expiresAt: stringWithDateValidation(),
+		id: z.uuid(),
+		inviteeEmail: z.email("Please enter a valid email"),
+		inviteeName: z.string().min(1, "Name is required"),
+		role: ManageableWorkspaceRoleSchema,
+	}) satisfies z.ZodType<WorkspaceInvitationRecordType>;
 
 	const WorkspaceMemberSchema = z.discriminatedUnion("status", [
 		z.object({
 			createdAt: stringWithDateValidation(),
-			email: SelectUserSchema.shape.email,
-			fullName: SelectUserSchema.shape.fullName,
-			id: SelectUserSchema.shape.id,
+			email: z.email("Please enter a valid email"),
+			fullName: z.string().min(1, "Name is required"),
+			id: z.uuid(),
 			isCurrentUser: z.boolean(),
-			role: SelectWorkspaceMembershipSchema.shape.role,
+			role: WorkspaceRoleSchema,
 			status: z.literal("active"),
 		}),
 		z.object({
 			createdAt: stringWithDateValidation(),
-			email: SelectUserSchema.shape.email,
-			fullName: SelectUserSchema.shape.fullName,
-			id: SelectUserSchema.shape.id,
+			email: z.email("Please enter a valid email"),
+			fullName: z.string().min(1, "Name is required"),
+			id: z.uuid(),
 			isCurrentUser: z.boolean(),
-			role: SelectWorkspaceMembershipSchema.shape.role,
+			role: WorkspaceRoleSchema,
 			status: z.literal("suspended"),
 			suspendedAt: stringWithDateValidation(),
 		}),
-		SelectWorkspaceInvitationSchema.pick({
-			createdAt: true,
-			expiresAt: true,
-			id: true,
-			inviteeEmail: true,
-			inviteeName: true,
-			role: true,
-		}).extend({
-			createdAt: stringWithDateValidation(),
-			expiresAt: stringWithDateValidation(),
+		InvitationRecordSchema.extend({
 			isCurrentUser: z.literal(false),
-			role: ManageableWorkspaceRoleSchema,
 			status: z.literal("pending"),
 		}),
-		SelectWorkspaceInvitationSchema.pick({
-			createdAt: true,
-			expiresAt: true,
-			id: true,
-			inviteeEmail: true,
-			inviteeName: true,
-			role: true,
-		}).extend({
-			createdAt: stringWithDateValidation(),
-			expiresAt: stringWithDateValidation(),
+		InvitationRecordSchema.extend({
 			isCurrentUser: z.literal(false),
-			role: ManageableWorkspaceRoleSchema,
 			status: z.literal("expired"),
 		}),
 	]);
@@ -271,14 +302,11 @@ export const workspaceRoutes = () => {
 		memberId: z.uuid("Invalid member ID"),
 	});
 
-	const InvitationDataSchema = SelectWorkspaceInvitationSchema.pick({
-		expiresAt: true,
-		inviteeEmail: true,
-		inviteeName: true,
-		role: true,
-	}).extend({
+	const InvitationDataSchema = z.object({
 		defaultPassword: PasswordSchema,
 		expiresAt: stringWithDateValidation(),
+		inviteeEmail: z.email("Please enter a valid email"),
+		inviteeName: z.string().min(1, "Name is required"),
 		role: ManageableWorkspaceRoleSchema,
 	});
 
@@ -346,52 +374,89 @@ export const workspaceRoutes = () => {
 	});
 };
 
-const DrugDetailsSchema = SelectDrugSchema.pick({
-	form: true,
-	id: true,
-	name: true,
-	strength: true,
-	unit: true,
-});
-
-const RecentStockActivitySchema = SelectStockLogSchema.pick({
-	createdAt: true,
-	id: true,
-	logType: true,
-	quantity: true,
-}).extend({
-	createdAt: stringWithDateValidation(),
-	drug: DrugDetailsSchema.pick({
-		id: true,
-		name: true,
-		strength: true,
-	}),
-	person: z.string(),
-});
+const DrugDetailsSchema = z.object({
+	form: z.string(),
+	id: z.uuid(),
+	name: z.string(),
+	strength: z.string(),
+	unit: z.string(),
+}) satisfies z.ZodType<DrugDetailsType>;
 
 const inventoryRoutes = () => {
-	const stockLogActionSchema = SelectStockLogSchema.shape.logType.extract([
-		"opening_stock",
-		"stock_in",
-		"stock_out",
-	]);
+	const InsertStockLogSchema = z.object({
+		batchId: z.uuid().optional(),
+		createdAt: stringWithDateValidation(),
+		drugId: z.uuid(),
+		id: z.uuid(),
+		logType: z.enum(STOCK_LOG_TYPES),
+		notes: z.string().optional(),
+		performedByUserId: z.uuid(),
+		quantity: z.number(),
+		reason: z.enum(STOCK_OUT_REASONS).optional(),
+		stockTransactionId: z.uuid().optional(),
+		unitCostKobo: z.number().default(0),
+		workspaceId: z.uuid(),
+	}) satisfies z.ZodType<InsertStockLogType>;
+
+	const InsertStockBatchSchema = z.object({
+		batchNumber: z.string().optional(),
+		createdAt: stringWithDateValidation(),
+		drugId: z.uuid(),
+		expiryDate: stringWithDateValidation(),
+		id: z.uuid(),
+		quantityAvailable: z.number(),
+		quantityReceived: z.number(),
+		unitCostKobo: z.number().default(0),
+		updatedAt: stringWithDateValidation(),
+		userId: z.uuid(),
+		workspaceId: z.uuid(),
+	}) satisfies z.ZodType<InsertStockBatchType>;
+
+	const StockAdditionBodySchema = InsertStockLogSchema.pick({
+		drugId: true,
+		logType: true,
+		notes: true,
+		quantity: true,
+		unitCostKobo: true,
+	}).extend({
+		batchNumber: InsertStockBatchSchema.shape.batchNumber.optional(),
+		expiryDate: stringWithDateValidation(),
+		logType: z.enum(["opening_stock", "stock_in"]),
+		quantity: stringWithNumberValidation(InsertStockLogSchema.shape.quantity.positive()),
+		unitCostKobo: stringWithNumberValidation(
+			InsertStockLogSchema.shape.unitCostKobo.unwrap().min(0)
+		).optional(),
+	});
+
+	const StockOutBodySchema = InsertStockLogSchema.pick({
+		drugId: true,
+		logType: true,
+		notes: true,
+		quantity: true,
+		reason: true,
+	}).extend({
+		logType: z.literal("stock_out"),
+		quantity: stringWithNumberValidation(InsertStockLogSchema.shape.quantity.positive()),
+		reason: z.enum(["damaged", "expired", "patient", "ward"]),
+	});
 
 	const InventorySummaryRowSchema = z.object({
 		drug: DrugDetailsSchema,
-		drugId: SelectDrugSchema.shape.id,
-		nearestBatch: SelectStockBatchSchema.pick({
-			batchNumber: true,
-			id: true,
-			quantityAvailable: true,
-			unitCostKobo: true,
-		}).extend({
-			expiryDate: stringWithDateValidation(),
-		}).optional(),
+		drugId: z.uuid(),
+		nearestBatch: z
+			.object({
+				batchNumber: z.string().nullable(),
+				expiryDate: stringWithDateValidation(),
+				id: z.uuid(),
+				quantityAvailable: z.number(),
+				unitCostKobo: z.number(),
+			})
+			.optional(),
 		nearestExpiryDate: stringWithDateValidation().optional(),
 		status: z.enum(INVENTORY_STATUS),
 		stockValueKobo: z.number(),
 		totalAvailable: z.number(),
-	});
+	}) satisfies z.ZodType<InventorySummaryRowType>;
 
 	return defineSchemaRoutes({
 		"@get/inventory/summary": {
@@ -407,26 +472,26 @@ const inventoryRoutes = () => {
 		},
 
 		"@post/inventory/stock-log": {
-			body: InsertStockLogSchema.pick({
-				drugId: true,
-				logType: true,
-				notes: true,
-				quantity: true,
-				unitCostKobo: true,
-			}).extend({
-				batchNumber: InsertStockBatchSchema.shape.batchNumber.optional(),
-				expiryDate: stringWithDateValidation().optional(), // FIXME - why
-				logType: stockLogActionSchema,
-				quantity: stringWithNumberValidation(InsertStockLogSchema.shape.quantity.positive()),
-				unitCostKobo: stringWithNumberValidation(
-					InsertStockLogSchema.shape.unitCostKobo.unwrap().min(0)
-				).optional(),
-			}),
+			body: z.discriminatedUnion("logType", [StockAdditionBodySchema, StockOutBodySchema]),
 			data: NullSuccessResponseSchema,
 		},
 	});
 };
+
 const dashboardRoutes = () => {
+	const RecentStockActivitySchema = z.object({
+		createdAt: stringWithDateValidation(),
+		drug: DrugDetailsSchema.pick({
+			id: true,
+			name: true,
+			strength: true,
+		}),
+		id: z.uuid(),
+		logType: z.enum(["damaged", "expired", "opening_stock", "reconciliation", "stock_in", "stock_out"]),
+		person: z.string(),
+		quantity: z.number(),
+	}) satisfies z.ZodType<RecentStockActivityType>;
+
 	return defineSchemaRoutes({
 		"@get/dashboard/overview": {
 			data: withBaseSuccessResponse(

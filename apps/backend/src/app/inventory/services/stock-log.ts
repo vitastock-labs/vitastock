@@ -1,12 +1,11 @@
 import { db } from "@vitastock/db";
-import { stockBatches, stockLogs } from "@vitastock/db/schema/inventory";
+import { STOCK_OUT_REASONS, stockBatches, stockLogs } from "@vitastock/db/schema/inventory";
 import type { backendApiSchemaRoutes } from "@vitastock/shared/validation/backendApiSchema";
-import { add } from "date-fns";
 import { and, asc, eq, gt, gte } from "drizzle-orm";
 import type { z } from "zod";
 import { AppError } from "@/lib/utils";
 
-type StockLogBody = z.infer<typeof backendApiSchemaRoutes["@post/inventory/stock-log"]["body"]>;
+type StockLogBody = z.infer<(typeof backendApiSchemaRoutes)["@post/inventory/stock-log"]["body"]>;
 
 export const createInventoryStockLog = async (options: {
 	body: StockLogBody;
@@ -14,20 +13,14 @@ export const createInventoryStockLog = async (options: {
 	workspaceId: string;
 }) => {
 	const { body, userId, workspaceId } = options;
-	const { batchNumber, drugId, expiryDate, logType, notes, quantity, unitCostKobo = 0 } = body;
-
-	if (logType !== "stock_out" && !expiryDate) {
-		throw new AppError({
-			code: 400,
-			message: "Expiry date is required for stock additions",
-		});
-	}
+	const { drugId, logType, notes, quantity } = body;
 
 	if (logType === "stock_out") {
 		await createStockOutLog({
 			drugId,
 			notes: notes ?? undefined,
 			quantity,
+			reason: body.reason,
 			userId,
 			workspaceId,
 		});
@@ -35,14 +28,14 @@ export const createInventoryStockLog = async (options: {
 		return;
 	}
 
-	const batchExpiryDate = expiryDate ?? add(new Date(), { years: 1 });
+	const { batchNumber, expiryDate, unitCostKobo = 0 } = body;
 
 	const [batch] = await db
 		.insert(stockBatches)
 		.values({
 			batchNumber,
 			drugId,
-			expiryDate: batchExpiryDate,
+			expiryDate,
 			quantityAvailable: quantity,
 			quantityReceived: quantity,
 			unitCostKobo,
@@ -74,10 +67,11 @@ const createStockOutLog = async (options: {
 	drugId: string;
 	notes?: string;
 	quantity: number;
+	reason: (typeof STOCK_OUT_REASONS)[number];
 	userId: string;
 	workspaceId: string;
 }) => {
-	const { drugId, notes, quantity, userId, workspaceId } = options;
+	const { drugId, notes, quantity, reason, userId, workspaceId } = options;
 
 	await db.transaction(async (tx) => {
 		const batches = await tx
@@ -96,19 +90,12 @@ const createStockOutLog = async (options: {
 		const totalAvailable = batches.reduce((total, batch) => total + batch.quantityAvailable, 0);
 
 		if (totalAvailable < quantity) {
-			throw new AppError({
-				code: 400,
-				message: "Insufficient stock available",
-			});
+			throw new AppError({ code: 400, message: "Insufficient stock available" });
 		}
 
 		let remainingQuantity = quantity;
-		const movements: Array<{
-			batchId: string;
-			nextQuantityAvailable: number;
-			quantity: number;
-			unitCostKobo: number;
-		}> = [];
+
+		const movements = [];
 
 		for (const batch of batches) {
 			if (remainingQuantity <= 0) break;
@@ -117,10 +104,9 @@ const createStockOutLog = async (options: {
 			remainingQuantity -= deductedQuantity;
 
 			movements.push({
-				batchId: batch.id,
+				batch,
 				nextQuantityAvailable: batch.quantityAvailable - deductedQuantity,
-				quantity: -deductedQuantity,
-				unitCostKobo: batch.unitCostKobo,
+				quantity: deductedQuantity,
 			});
 		}
 
@@ -129,19 +115,23 @@ const createStockOutLog = async (options: {
 				tx
 					.update(stockBatches)
 					.set({ quantityAvailable: movement.nextQuantityAvailable })
-					.where(eq(stockBatches.id, movement.batchId))
+					.where(eq(stockBatches.id, movement.batch.id))
 			)
 		);
 
+		const stockTransactionId = crypto.randomUUID();
+
 		await tx.insert(stockLogs).values(
 			movements.map((movement) => ({
-				batchId: movement.batchId,
+				batchId: movement.batch.id,
 				drugId,
 				logType: "stock_out" as const,
 				notes,
 				performedByUserId: userId,
 				quantity: movement.quantity,
-				unitCostKobo: movement.unitCostKobo,
+				reason,
+				stockTransactionId,
+				unitCostKobo: movement.batch.unitCostKobo,
 				workspaceId,
 			}))
 		);

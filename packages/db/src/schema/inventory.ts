@@ -1,19 +1,13 @@
 import { defineEnum } from "@zayne-labs/toolkit-type-helpers";
+import { sql } from "drizzle-orm";
 import * as pg from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { users } from "./auth";
 import { workspaces } from "./workspace";
 
-export const STOCK_LOG_TYPES = defineEnum([
-	"damaged",
-	"expired",
-	"opening_stock",
-	"reconciliation",
-	"stock_in",
-	"stock_out",
-]);
-
-export const INVENTORY_STATUS = defineEnum(["expired", "low_stock", "normal", "out_of_stock"]);
+export const INVENTORY_STATUS = defineEnum(["expired", "low_stock", "normal", "out_of_stock"], {
+	inferredUnionVariant: "values",
+});
 
 export const drugs = pg.pgTable(
 	"drugs",
@@ -76,8 +70,25 @@ export const stockBatches = pg.pgTable(
 		pg
 			.uniqueIndex("stock_batch_workspace_drug_batch_number_index")
 			.on(table.workspaceId, table.drugId, table.batchNumber),
+		pg.check("stock_batch_quantity_available_check", sql`${table.quantityAvailable} >= 0`),
+		pg.check("stock_batch_quantity_received_check", sql`${table.quantityReceived} > 0`),
+		pg.check(
+			"stock_batch_available_lte_received_check",
+			sql`${table.quantityAvailable} <= ${table.quantityReceived}`
+		),
 	]
 );
+
+export const STOCK_LOG_TYPES = defineEnum([
+	"damaged",
+	"expired",
+	"opening_stock",
+	"reconciliation",
+	"stock_in",
+	"stock_out",
+]);
+
+export const STOCK_OUT_REASONS = defineEnum([STOCK_LOG_TYPES[0], STOCK_LOG_TYPES[1], "patient", "ward"]);
 
 export const stockLogs = pg.pgTable(
 	"stock_logs",
@@ -96,6 +107,8 @@ export const stockLogs = pg.pgTable(
 			.notNull()
 			.references(() => users.id, { onDelete: "restrict" }),
 		quantity: pg.integer().notNull(),
+		reason: pg.text({ enum: STOCK_OUT_REASONS }),
+		stockTransactionId: pg.uuid(),
 		unitCostKobo: pg.integer().notNull().default(0),
 		workspaceId: pg
 			.uuid()
@@ -105,6 +118,8 @@ export const stockLogs = pg.pgTable(
 	(table) => [
 		pg.index("stock_log_drug_index").on(table.drugId),
 		pg.index("stock_log_workspace_created_index").on(table.workspaceId, table.createdAt),
+		pg.index("stock_log_transaction_index").on(table.stockTransactionId),
+		pg.check("stock_log_quantity_positive_check", sql`${table.quantity} > 0`),
 	]
 );
 
