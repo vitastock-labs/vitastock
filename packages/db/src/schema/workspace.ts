@@ -1,5 +1,5 @@
 import { defineEnum, type NonEmptyArray } from "@zayne-labs/toolkit-type-helpers";
-import { eq } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import * as pg from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -67,7 +67,7 @@ export const workspaceMemberships = pg.pgTable(
 		pg
 			.uniqueIndex("workspace_membership_single_owner_index")
 			.on(table.workspaceId)
-			.where(eq(table.role, "owner")),
+			.where(sql`${table.role} = 'owner'`),
 		pg.index("workspace_membership_workspace_index").on(table.workspaceId),
 	]
 );

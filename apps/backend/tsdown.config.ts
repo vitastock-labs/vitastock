@@ -5,7 +5,9 @@ export default defineConfig({
 	deps: {
 		alwaysBundle: ["@vitastock/**"],
 	},
-	dts: true,
+	dts: {
+		eager: true,
+	},
 	entry: "./src/server.ts",
 	fixedExtension: false,
 	format: ["esm"],

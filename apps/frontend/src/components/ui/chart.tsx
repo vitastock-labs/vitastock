@@ -45,7 +45,7 @@ const useChart = () => {
 };
 
 function ChartContainer(
-	props: Pick<React.ComponentProps<typeof RechartsPrimitive.ResponsiveContainer>, "children">
+	props: Pick<React.ComponentProps<typeof RechartsPrimitive.ResponsiveContainer>, "children" | "debounce">
 		& React.ComponentProps<"div"> & {
 			config: ChartConfig;
 			initialDimension?: {
@@ -54,7 +54,15 @@ function ChartContainer(
 			};
 		}
 ) {
-	const { children, className, config, id, initialDimension = INITIAL_DIMENSION, ...restOfProps } = props;
+	const {
+		children,
+		className,
+		config,
+		debounce = 180,
+		id,
+		initialDimension = INITIAL_DIMENSION,
+		...restOfProps
+	} = props;
 
 	const uniqueId = useId();
 	const chartId = `chart-${id ?? uniqueId.replaceAll(":", "")}`;
@@ -84,7 +92,7 @@ function ChartContainer(
 			>
 				<ChartStyle id={chartId} config={config} />
 
-				<RechartsPrimitive.ResponsiveContainer initialDimension={initialDimension}>
+				<RechartsPrimitive.ResponsiveContainer debounce={debounce} initialDimension={initialDimension}>
 					{children}
 				</RechartsPrimitive.ResponsiveContainer>
 			</div>
@@ -297,6 +305,7 @@ function ChartLegendContent(
 		nameKey,
 		payload,
 		renderItem,
+		// eslint-disable-next-line ts-eslint/no-deprecated
 		verticalAlign = "bottom",
 		withIcon = true,
 	} = props;

@@ -211,7 +211,7 @@ export const seedInventory = async (
 						logType: "stock_out" as const,
 						notes: "Seed stock-out activity",
 						performedByUserId: actor.id,
-						quantity: -(batch.quantityReceived - batch.quantityAvailable),
+						quantity: batch.quantityReceived - batch.quantityAvailable,
 						unitCostKobo: batch.unitCostKobo,
 						workspaceId: workspace.id,
 					},

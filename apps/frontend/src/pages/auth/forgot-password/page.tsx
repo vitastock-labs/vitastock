@@ -1,14 +1,35 @@
+import { zodResolver } from "@hookform/resolvers/zod";
+import { backendApiSchemaRoutes } from "@vitastock/shared/validation/backendApiSchema";
 import { useForm } from "react-hook-form";
+import { useNavigate } from "react-router";
 import { IconBox } from "@/components/common/IconBox";
 import { NavLink } from "@/components/common/NavLink";
 import { Button } from "@/components/ui";
 import { Form } from "@/components/ui/form";
+import { callBackendApiForQuery } from "@/lib/api/callBackendApi";
 import { Main } from "../-components/Main";
 
-function ForgotPasswordPage() {
-	const form = useForm({});
+const ForgotPasswordSchema = backendApiSchemaRoutes["@post/auth/forgot-password"].body;
 
-	const onSubmit = form.handleSubmit(() => {});
+function ForgotPasswordPage() {
+	const form = useForm({
+		defaultValues: {
+			email: "",
+		},
+		resolver: zodResolver(ForgotPasswordSchema),
+	});
+
+	const navigate = useNavigate();
+
+	const onSubmit = form.handleSubmit(async (data) => {
+		await callBackendApiForQuery("@post/auth/forgot-password", {
+			body: data,
+
+			onSuccess: () => {
+				void navigate(`/auth/signin?${new URLSearchParams({ email: data.email })}`);
+			},
+		});
+	});
 
 	return (
 		<Main>

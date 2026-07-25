@@ -1,3 +1,4 @@
+/* eslint-disable react/immutability */
 /* eslint-disable react/no-unstable-default-props */
 "use client";
 
