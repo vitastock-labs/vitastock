@@ -23,10 +23,14 @@ const runSeeders = async () => {
 		]);
 
 		for (const workspace of seededWorkspaces) {
-			const workspaceMembershipRows = seededMemberships.filter((membership) => membership.workspaceId === workspace.id);
+			const workspaceMembershipRows = seededMemberships.filter(
+				(membership) => membership.workspaceId === workspace.id
+			);
 			const owners = workspaceMembershipRows.filter((membership) => membership.role === "owner");
 			const admins = workspaceMembershipRows.filter((membership) => membership.role === "admin");
-			const pharmacists = workspaceMembershipRows.filter((membership) => membership.role === "pharmacist");
+			const pharmacists = workspaceMembershipRows.filter(
+				(membership) => membership.role === "pharmacist"
+			);
 			const suspended = workspaceMembershipRows.filter((membership) => membership.suspendedAt);
 
 			consola.info(

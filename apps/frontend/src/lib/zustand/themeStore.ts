@@ -2,7 +2,7 @@ import { isBrowser, on, pipeline } from "@zayne-labs/toolkit-core";
 import { createReactStore } from "@zayne-labs/toolkit-react/zustand-compat";
 import { defineEnum } from "@zayne-labs/toolkit-type-helpers";
 import type { StateCreator } from "zustand";
-import {  persist } from "zustand/middleware";
+import { persist } from "zustand/middleware";
 
 const SYSTEM_THEMES = defineEnum(["light", "dark"], { inferredUnionVariant: "values" });
 const EXPLICIT_THEMES = defineEnum([...SYSTEM_THEMES], { inferredUnionVariant: "values" });

@@ -77,7 +77,7 @@ export function ForceChangePasswordDialog() {
 								type="password"
 								classNames={{
 									inputGroup: `h-12.5 rounded-lg border border-shadcn-border bg-white p-4
-										focus-within:border-vitastock-primary-main`,
+									focus-within:border-vitastock-primary-main`,
 								}}
 							/>
 							<Form.ErrorMessage />
@@ -92,7 +92,7 @@ export function ForceChangePasswordDialog() {
 								type="password"
 								classNames={{
 									inputGroup: `h-12.5 rounded-lg border border-shadcn-border bg-white p-4
-										focus-within:border-vitastock-primary-main`,
+									focus-within:border-vitastock-primary-main`,
 								}}
 							/>
 							<Form.ErrorMessage />
@@ -107,7 +107,7 @@ export function ForceChangePasswordDialog() {
 								type="password"
 								classNames={{
 									inputGroup: `h-12.5 rounded-lg border border-shadcn-border bg-white p-4
-										focus-within:border-vitastock-primary-main`,
+									focus-within:border-vitastock-primary-main`,
 								}}
 							/>
 							<Form.ErrorMessage />

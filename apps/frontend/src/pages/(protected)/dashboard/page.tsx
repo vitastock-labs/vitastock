@@ -206,7 +206,7 @@ const dashboardActivityColumns: Array<ColumnDef<DashboardActivityRow>> = [
 					"border-none px-3 py-1 text-[12px] font-semibold",
 					stockReductionLogTypes.has(row.original.logType)
 						&& `bg-vitastock-primary-main/10 text-vitastock-primary-main
-							hover:bg-vitastock-primary-main/20`,
+						hover:bg-vitastock-primary-main/20`,
 					!stockReductionLogTypes.has(row.original.logType)
 						&& "bg-shadcn-muted text-vitastock-body-color hover:bg-shadcn-muted/80"
 				)}

@@ -21,7 +21,7 @@ const SonnerToaster = (props: ToasterProps) => {
 
 					title: "group-[.toaster]:text-base group-[.toaster]:font-bold",
 
-					toast: "group toast p-5 mx-auto max-w-[280px] md:max-w-[300px]",
+					toast: "group toast mx-auto max-w-[280px] p-5 md:max-w-[300px]",
 					// toast: "group toast p-5 max-md:p-4 mx-auto max-md:h-auto max-md:max-w-[284px] group-[.toaster]:bg-shadcn-background group-[.toaster]:text-shadcn-foreground group-[.toaster]:border-shadcn-border group-[.toaster]:shadow-lg",
 					// success:
 					// 	"group success group-[.toaster]:data-[type=success]:bg-sonner-success-bg group-[.toaster]:data-[type=success]:text-sonner-success-text data-[type=success]:border-sonner-success-border",

@@ -42,9 +42,7 @@ const dashboardUtilityItems = [
 	},
 ] as const;
 
-type DashboardNavItem =
-	| (typeof dashboardNavItems)[number]
-	| (typeof dashboardUtilityItems)[number];
+type DashboardNavItem = (typeof dashboardNavItems)[number] | (typeof dashboardUtilityItems)[number];
 
 function DashboardSidebar() {
 	return (
@@ -61,14 +59,15 @@ function DashboardSidebar() {
 						width={40}
 						classNames={{
 							base: `flex min-w-0 items-center gap-3 overflow-hidden
-								group-data-[state=collapsed]:justify-center`,
+							group-data-[state=collapsed]:justify-center`,
 							image: "size-10",
 						}}
 					>
 						<div
-							className="min-w-0 overflow-hidden whitespace-nowrap opacity-100 transition-[width,opacity]
-								duration-200 ease-linear group-data-[state=collapsed]:absolute
-								group-data-[state=collapsed]:w-0 group-data-[state=collapsed]:opacity-0"
+							className="min-w-0 overflow-hidden whitespace-nowrap opacity-100
+								transition-[width,opacity] duration-200 ease-linear
+								group-data-[state=collapsed]:absolute group-data-[state=collapsed]:w-0
+								group-data-[state=collapsed]:opacity-0"
 						>
 							<h3 className="text-[19px] leading-none font-extrabold text-vitastock-primary-main">
 								VitaStock
@@ -132,8 +131,8 @@ function DashboardSidebarLink(props: { item: DashboardNavItem }) {
 	return (
 		<Sidebar.MenuButton
 			tooltip={item.title}
-			className="h-11 gap-3 rounded-lg px-3.5 text-[14px] font-semibold
-				text-vitastock-body-color transition-[background-color,color,box-shadow,padding] duration-200
+			className="h-11 gap-3 rounded-lg px-3.5 text-[14px] font-semibold text-vitastock-body-color
+				transition-[background-color,color,box-shadow,padding] duration-200
 				group-data-[state=collapsed]:px-0 hover:bg-white hover:text-vitastock-primary-dark
 				data-active:bg-white data-active:text-vitastock-primary-dark
 				data-active:shadow-[0_1px_2px_rgba(15,23,42,0.04),0_0_0_1px_rgba(15,23,42,0.05)]
@@ -149,10 +148,7 @@ function DashboardSidebarLink(props: { item: DashboardNavItem }) {
 							className="flex size-7 shrink-0 items-center justify-center rounded-md
 								group-data-[state=collapsed]:mx-auto"
 						>
-							<IconBox
-								icon={ctx.isActive ? item.iconActive : item.icon}
-								className="size-5"
-							/>
+							<IconBox icon={ctx.isActive ? item.iconActive : item.icon} className="size-5" />
 						</span>
 
 						<p

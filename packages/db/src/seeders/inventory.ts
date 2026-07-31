@@ -201,16 +201,16 @@ export const seedInventory = async (
 		return workspaceBatches.flatMap((batch): InsertStockLogType[] => {
 			const batchLogs: InsertStockLogType[] = [
 				{
-				batchId: batch.id,
-				drugId: batch.drugId,
-				logType: "opening_stock",
-				notes: "Seed opening stock",
-				performedByUserId: actor.id,
-				quantity: batch.quantityReceived,
-				stockTransactionId: crypto.randomUUID(),
-				unitCostKobo: batch.unitCostKobo,
-				workspaceId: workspace.id,
-			},
+					batchId: batch.id,
+					drugId: batch.drugId,
+					logType: "opening_stock",
+					notes: "Seed opening stock",
+					performedByUserId: actor.id,
+					quantity: batch.quantityReceived,
+					stockTransactionId: crypto.randomUUID(),
+					unitCostKobo: batch.unitCostKobo,
+					workspaceId: workspace.id,
+				},
 			];
 
 			if (batch.quantityReceived > batch.quantityAvailable) {

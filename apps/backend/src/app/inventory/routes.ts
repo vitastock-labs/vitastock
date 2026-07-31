@@ -3,24 +3,21 @@ import { Hono } from "hono";
 import { AppJsonResponse } from "@/lib/utils";
 import { authMiddleware, authorizeRoleMiddleware } from "@/middleware";
 import { validateWithZodMiddleware } from "@/middleware/validateWithZodMiddleware";
-import { getInventoryActivity } from "./services/data-access/activity";
 import {
 	acknowledgeInventoryAlert,
 	getPersistedInventoryAlerts,
 	getUnreadInventoryAlertCount,
 	syncInventoryAlerts,
 } from "./services/alertLifecycle";
+import { getInventoryActivity } from "./services/data-access/activity";
 import {
 	createDrugForWorkspace,
 	getDrugsForWorkspace,
 	handleDrugAction,
 	updateDrug,
 } from "./services/data-access/drugs";
+import { getDrugForStockMovement, getInventorySummaryRows } from "./services/data-access/summary";
 import { createInventoryStockLog } from "./services/stock-log";
-import {
-	getDrugForStockMovement,
-	getInventorySummaryRows,
-} from "./services/data-access/summary";
 
 export const inventoryRoutes = new Hono()
 	.basePath("/inventory")
@@ -216,10 +213,7 @@ export const inventoryRoutes = new Hono()
 
 	.post(
 		"/stock-log",
-		validateWithZodMiddleware(
-			"header",
-			backendApiSchemaRoutes["@post/inventory/stock-log"].headers
-		),
+		validateWithZodMiddleware("header", backendApiSchemaRoutes["@post/inventory/stock-log"].headers),
 		validateWithZodMiddleware("json", backendApiSchemaRoutes["@post/inventory/stock-log"].body),
 		async (ctx) => {
 			const body = ctx.req.valid("json");

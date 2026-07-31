@@ -141,11 +141,9 @@ const problems = [
 		classNames: {
 			blur: tw`bg-white/20`,
 			card: tw`border-vitastock-primary-main bg-vitastock-primary-main text-shadcn-primary-foreground`,
-			chip: tw`bg-shadcn-primary-foreground/10 text-shadcn-primary-foreground ring-1
-			ring-shadcn-primary-foreground/20`,
+			chip: tw`bg-shadcn-primary-foreground/10 text-shadcn-primary-foreground ring-1 ring-shadcn-primary-foreground/20`,
 			desc: tw`text-shadcn-primary-foreground/80`,
-			iconWrap: tw`bg-shadcn-primary-foreground/15 text-shadcn-primary-foreground ring-1
-			ring-shadcn-primary-foreground/20`,
+			iconWrap: tw`bg-shadcn-primary-foreground/15 text-shadcn-primary-foreground ring-1 ring-shadcn-primary-foreground/20`,
 			title: tw`text-shadcn-primary-foreground`,
 		},
 		desc: "Stockouts and expiry issues are usually discovered after the damage is done.",
@@ -200,12 +198,7 @@ function ProblemSection() {
 									problem.classNames.iconWrap
 								)}
 							>
-								<IconBox
-									icon={problem.icon}
-									width={24}
-									height={24}
-									className="size-6"
-								/>
+								<IconBox icon={problem.icon} width={24} height={24} className="size-6" />
 							</span>
 
 							<h3

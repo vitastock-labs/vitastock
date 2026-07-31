@@ -75,8 +75,7 @@ function DrugManagementSection() {
 	return (
 		<section
 			className="flex flex-col items-start justify-between gap-5 rounded-xl border
-				border-vitastock-primary-main/20 bg-vitastock-primary-dark/5 p-6 sm:flex-row
-				sm:items-center"
+				border-vitastock-primary-main/20 bg-vitastock-primary-dark/5 p-6 sm:flex-row sm:items-center"
 		>
 			<div className="flex flex-col gap-1.5">
 				<h2 className="text-[16px] font-bold text-black">Drug Management</h2>
@@ -231,10 +230,7 @@ function AlertSettingsSection() {
 					<div className="mt-6 flex justify-end">
 						<Form.Submit asChild={true}>
 							{(formState) => (
-								<Button
-									isDisabled={formState.isSubmitting}
-									isLoading={formState.isSubmitting}
-								>
+								<Button isDisabled={formState.isSubmitting} isLoading={formState.isSubmitting}>
 									Save Alert Settings
 								</Button>
 							)}
@@ -872,8 +868,8 @@ function ConfirmRemoveMemberDialog(props: {
 						<DialogAnimated.Description
 							className="mt-2 text-[14px] leading-relaxed text-vitastock-body-color"
 						>
-							This removes {getMemberName(member)} ({getMemberEmail(member)}) from the workspace
-							and revokes their access. Their identity is retained in historical stock records.
+							This removes {getMemberName(member)} ({getMemberEmail(member)}) from the workspace and
+							revokes their access. Their identity is retained in historical stock records.
 						</DialogAnimated.Description>
 					</DialogAnimated.Header>
 

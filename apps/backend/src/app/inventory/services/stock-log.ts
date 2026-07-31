@@ -152,9 +152,7 @@ const createStockOutLog = async (options: {
 		const isExpiredStockRemoval = reason === STOCK_OUT_REASONS[1];
 		const today = startOfDay(new Date());
 		const expiryCondition =
-			isExpiredStockRemoval ?
-				lt(stockBatches.expiryDate, today)
-			:	gte(stockBatches.expiryDate, today);
+			isExpiredStockRemoval ? lt(stockBatches.expiryDate, today) : gte(stockBatches.expiryDate, today);
 
 		const batches = await tx
 			.select()

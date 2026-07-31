@@ -13,10 +13,7 @@ import { AppError, AppJsonResponse } from "@/lib/utils";
 import { generateRandomBytes } from "@/lib/utils/random";
 import { authMiddleware, authorizeRoleMiddleware, validateWithZodMiddleware } from "@/middleware";
 import { removeFromCache } from "@/services/cache";
-import {
-	getAuthResponseData,
-	getCurrentSessionState,
-} from "../auth/services/data-access/common";
+import { getAuthResponseData, getCurrentSessionState } from "../auth/services/data-access/common";
 import { hashToken, hashValue } from "../auth/services/utils/hash";
 import { syncInventoryAlerts } from "../inventory/services/alertLifecycle";
 import {

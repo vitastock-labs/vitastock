@@ -23,10 +23,7 @@ const getWorkspaceSlug = (workspaceName: string) => {
 	return workspaceName.toLowerCase().replaceAll(/[^a-z0-9]+/g, "");
 };
 
-const getUsersSeedData = (options: {
-	passwordHash: string;
-	workspaceName: string;
-}) => {
+const getUsersSeedData = (options: { passwordHash: string; workspaceName: string }) => {
 	const { passwordHash, workspaceName } = options;
 
 	const slug = getWorkspaceSlug(workspaceName);

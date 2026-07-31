@@ -82,25 +82,22 @@ export function DataTable<TData>(
 		}
 
 		return rows.map((row) => (
-				<Table.Row
-					key={row.id}
-					data-state={row.getIsSelected() ? "selected" : undefined}
-					className={cnMerge(classNames?.tableRow, getRowClassName?.(row))}
-				>
-					{row.getVisibleCells().map((cell) => (
-						<Table.Cell key={cell.id} className={classNames?.tableCell}>
-							{flexRender(cell.column.columnDef.cell, cell.getContext())}
-						</Table.Cell>
+			<Table.Row
+				key={row.id}
+				data-state={row.getIsSelected() ? "selected" : undefined}
+				className={cnMerge(classNames?.tableRow, getRowClassName?.(row))}
+			>
+				{row.getVisibleCells().map((cell) => (
+					<Table.Cell key={cell.id} className={classNames?.tableCell}>
+						{flexRender(cell.column.columnDef.cell, cell.getContext())}
+					</Table.Cell>
 				))}
 			</Table.Row>
 		));
 	};
 
 	return (
-		<div
-			className={cnMerge("flex min-w-0 flex-col", className, classNames?.base)}
-			{...restOfProps}
-		>
+		<div className={cnMerge("flex min-w-0 flex-col", className, classNames?.base)} {...restOfProps}>
 			{children}
 
 			<Table.Root
@@ -132,11 +129,7 @@ export function DataTable<TData>(
 			</Table.Root>
 
 			{showPagination && !isLoading && !isError && (
-				<DataTablePagination
-					table={table}
-					totalRows={totalRows}
-					className={classNames?.pagination}
-				/>
+				<DataTablePagination table={table} totalRows={totalRows} className={classNames?.pagination} />
 			)}
 		</div>
 	);

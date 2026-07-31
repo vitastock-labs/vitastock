@@ -7,7 +7,7 @@ import {
 } from "@vitastock/db/schema/inventory";
 import { workspaces } from "@vitastock/db/schema/workspace";
 import { addMilliseconds, subMilliseconds } from "date-fns";
-import { and, asc, count, eq, isNull, lte, lt, or } from "drizzle-orm";
+import { and, asc, count, eq, isNull, lt, lte, or } from "drizzle-orm";
 import { appLogger } from "@/lib/logger";
 import { addEmailToQueue } from "@/services/queues/emailQueue";
 import { getAlertRecipients, syncInventoryAlerts } from "./alertLifecycle";
@@ -45,7 +45,11 @@ const getAlertSummary = (alert: {
 
 export const evaluateAllInventoryAlerts = async () => {
 	const workspaceRows = await db
-		.select({ id: workspaces.id, lowStockThreshold: workspaces.lowStockThreshold, nearExpiryDays: workspaces.nearExpiryDays })
+		.select({
+			id: workspaces.id,
+			lowStockThreshold: workspaces.lowStockThreshold,
+			nearExpiryDays: workspaces.nearExpiryDays,
+		})
 		.from(workspaces);
 
 	await Promise.all(
@@ -215,10 +219,7 @@ const enqueueImmediateInventoryAlert = async (outboxRecord: SelectInventoryAlert
 	});
 };
 
-const recordAlertOutboxFailure = async (
-	outboxRecord: SelectInventoryAlertOutboxType,
-	error: unknown
-) => {
+const recordAlertOutboxFailure = async (outboxRecord: SelectInventoryAlertOutboxType, error: unknown) => {
 	const { hasExhaustedRetries, nextAttemptCount, retryDelayMs } = getAlertOutboxRetry(
 		outboxRecord.attemptCount
 	);
@@ -255,9 +256,7 @@ const recordAlertOutboxFailure = async (
 	appLogger.pretty.error(message, logInfo);
 };
 
-const dispatchInventoryAlertOutboxRecord = async (
-	outboxRecord: SelectInventoryAlertOutboxType
-) => {
+const dispatchInventoryAlertOutboxRecord = async (outboxRecord: SelectInventoryAlertOutboxType) => {
 	try {
 		switch (outboxRecord.type) {
 			case "alert_raised": {

@@ -47,10 +47,7 @@ const maximumAlertRetryDelayMs = 60 * 60 * 1000;
 export const getAlertOutboxRetry = (attemptCount: number) => {
 	const nextAttemptCount = attemptCount + 1;
 	const hasExhaustedRetries = nextAttemptCount >= alertOutboxMaxAttempts;
-	const retryDelayMs = Math.min(
-		60_000 * 2 ** (nextAttemptCount - 1),
-		maximumAlertRetryDelayMs
-	);
+	const retryDelayMs = Math.min(60_000 * 2 ** (nextAttemptCount - 1), maximumAlertRetryDelayMs);
 
 	return { hasExhaustedRetries, nextAttemptCount, retryDelayMs };
 };

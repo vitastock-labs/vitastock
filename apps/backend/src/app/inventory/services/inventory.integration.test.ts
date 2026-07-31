@@ -14,8 +14,8 @@ import { AppError } from "@/lib/utils";
 import { createInventoryFixture } from "@/test/inventoryFixture";
 import { acknowledgeInventoryAlert, syncInventoryAlerts } from "./alertLifecycle";
 import { getInventoryActivity } from "./data-access/activity";
-import { createInventoryStockLog } from "./stock-log";
 import { getDrugForStockMovement } from "./data-access/summary";
+import { createInventoryStockLog } from "./stock-log";
 
 afterAll(async () => {
 	await db.$client.end();

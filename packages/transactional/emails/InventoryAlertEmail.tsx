@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Heading, Hr, Section, Text, render } from "react-email";
+import { Heading, Hr, render, Section, Text } from "react-email";
 import { EmailButton } from "../src/components/EmailButton";
 import { FRONTEND_URL } from "../src/constants";
 import { BaseLayout } from "../src/layouts/BaseLayout";

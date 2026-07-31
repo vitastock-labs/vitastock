@@ -187,7 +187,9 @@ export const inventoryAlerts = pg.pgTable(
 	},
 	(table) => [
 		pg.uniqueIndex("inventory_alert_workspace_dedupe_key_index").on(table.workspaceId, table.dedupeKey),
-		pg.index("inventory_alert_workspace_status_created_index").on(table.workspaceId, table.status, table.createdAt),
+		pg
+			.index("inventory_alert_workspace_status_created_index")
+			.on(table.workspaceId, table.status, table.createdAt),
 		pg.index("inventory_alert_workspace_acknowledged_index").on(table.workspaceId, table.acknowledgedAt),
 	]
 );
