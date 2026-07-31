@@ -21,7 +21,7 @@ export const emailQueue = new Queue<EmailJobOptions>(emailQueueKey, {
 });
 
 export const addEmailToQueue = async (options: EmailJobOptions) => {
-	const { data, onError, onSuccess, type } = options;
+	const { data, jobId, onError, onSuccess, type } = options;
 
 	try {
 		emitAppEvent("email.enqueueRequested", {
@@ -31,6 +31,7 @@ export const addEmailToQueue = async (options: EmailJobOptions) => {
 
 		await emailQueue.add(type, options, {
 			...(data.priority !== "high" && { priority: 2 }),
+			...(jobId && { jobId }),
 		});
 
 		await onSuccess?.();

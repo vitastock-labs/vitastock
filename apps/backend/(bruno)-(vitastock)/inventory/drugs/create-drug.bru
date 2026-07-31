@@ -1,0 +1,80 @@
+meta {
+  name: create-drug
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseURL}}/inventory/drugs
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "name": "Amoxicillin",
+    "strength": "500 mg",
+    "form": "Capsule",
+    "unit": "Capsule"
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  # Create Drug
+
+  Adds a drug to the authenticated workspace's drug master. The combination of name, strength, and form is unique within a workspace.
+
+  ## Authorization
+
+  Requires an authenticated user with an active workspace membership.
+
+  ## Request Body
+
+  | Field | Type | Required | Description |
+  |-------|------|----------|-------------|
+  | `name` | string | Yes | Drug/generic name. Must not be empty. |
+  | `strength` | string | Yes | Strength label, for example `500 mg`. |
+  | `form` | string | Yes | Dosage form, for example `Capsule` or `Tablet`. |
+  | `unit` | string | Yes | Stock-counting unit, for example `Capsule`, `Tablet`, or `Bottle`. |
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Drug created successfully",
+    "data": {
+      "drug": {
+        "id": "drug-uuid",
+        "name": "Amoxicillin",
+        "strength": "500 mg",
+        "form": "Capsule",
+        "unit": "Capsule",
+        "isActive": true
+      }
+    }
+  }
+  ```
+
+  ## Persistence Rules
+
+  - `workspaceId` is supplied from the authenticated session, never from the request.
+  - New drugs are active by default.
+  - The database prevents duplicate `(workspaceId, name, strength, form)` combinations.
+  - The returned `id` is used by stock movements and drug-management endpoints.
+
+  ## Errors
+
+  | Status | Description |
+  |--------|-------------|
+  | `401 Unauthorized` | Authentication is invalid or workspace access is suspended. |
+  | `422 Unprocessable Entity` | A required field is missing or empty. |
+  | `500 Internal Server Error` | The insert failed, including an unhandled database constraint failure. |
+}

@@ -1,4 +1,4 @@
-import { defineEnum, type NonEmptyArray } from "@zayne-labs/toolkit-type-helpers";
+import type { NonEmptyArray } from "@zayne-labs/toolkit-type-helpers";
 import { sql } from "drizzle-orm";
 import * as pg from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
@@ -30,23 +30,12 @@ export const SelectWorkspaceSchema = createSelectSchema(workspaces);
 export type InsertWorkspaceType = typeof workspaces.$inferInsert;
 export type SelectWorkspaceType = typeof workspaces.$inferSelect;
 
-const ROLES_WITHOUT_OWNER = ROLES.filter((role) => role !== "owner");
-export const WORKSPACE_MEMBERSHIP_STATUSES = defineEnum(["active", "suspended"]);
-
 export const workspaceMemberships = pg.pgTable(
 	"workspace_memberships",
 	{
 		createdAt: pg.timestamp({ withTimezone: true }).notNull().defaultNow(),
 		id: pg.uuid().defaultRandom().primaryKey(),
 		role: pg.text({ enum: ROLES }).notNull(),
-		status: pg
-			.text({
-				enum: WORKSPACE_MEMBERSHIP_STATUSES as NonEmptyArray<
-					(typeof WORKSPACE_MEMBERSHIP_STATUSES)[number]
-				>,
-			})
-			.notNull()
-			.default("active"),
 		suspendedAt: pg.timestamp({ withTimezone: true }),
 		updatedAt: pg
 			.timestamp({ withTimezone: true })
@@ -63,7 +52,7 @@ export const workspaceMemberships = pg.pgTable(
 			.references(() => workspaces.id, { onDelete: "cascade" }),
 	},
 	(table) => [
-		pg.uniqueIndex("workspace_membership_user_workspace_index").on(table.userId, table.workspaceId),
+		pg.uniqueIndex("workspace_membership_single_workspace_per_user_index").on(table.userId),
 		pg
 			.uniqueIndex("workspace_membership_single_owner_index")
 			.on(table.workspaceId)
@@ -71,6 +60,8 @@ export const workspaceMemberships = pg.pgTable(
 		pg.index("workspace_membership_workspace_index").on(table.workspaceId),
 	]
 );
+
+const ROLES_WITHOUT_OWNER = [ROLES[1], ROLES[2]] as NonEmptyArray<"admin" | "pharmacist">;
 
 export const workspaceInvitations = pg.pgTable("workspace_invitations", {
 	acceptedAt: pg.timestamp({ withTimezone: true }),
@@ -84,10 +75,7 @@ export const workspaceInvitations = pg.pgTable("workspace_invitations", {
 		.references(() => users.id, { onDelete: "cascade" }),
 	inviteeEmail: pg.text().notNull(),
 	inviteeName: pg.text().notNull(),
-	role: pg
-		.text({ enum: ROLES_WITHOUT_OWNER as NonEmptyArray<(typeof ROLES_WITHOUT_OWNER)[number]> })
-		.notNull()
-		.default("pharmacist"),
+	role: pg.text({ enum: ROLES_WITHOUT_OWNER }).notNull().default("pharmacist"),
 	tokenHash: pg.text().notNull().unique(),
 	updatedAt: pg
 		.timestamp({ withTimezone: true })

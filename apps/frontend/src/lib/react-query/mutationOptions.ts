@@ -64,7 +64,7 @@ export const changeWorkspaceMemberRoleMutation = () => {
 	});
 };
 
-export const permanentlyRemoveWorkspaceMemberMutation = () => {
+export const removeWorkspaceMemberMutation = () => {
 	return mutationOptions({
 		mutationFn: (params: z.infer<BackendApiRoutes["@delete/workspace/member/:memberId"]["params"]>) => {
 			return callBackendApiForQuery("@delete/workspace/member/:memberId", {
@@ -76,26 +76,41 @@ export const permanentlyRemoveWorkspaceMemberMutation = () => {
 	});
 };
 
-export const resendWorkspaceInvitationMutation = () => {
+export const suspendWorkspaceMemberMutation = () => {
 	return mutationOptions({
-		mutationFn: (body: z.infer<BackendApiRoutes["@post/workspace/invitation/resend"]["body"]>) => {
-			return callBackendApiForQuery("@post/workspace/invitation/resend", {
+		mutationFn: (body: z.infer<BackendApiRoutes["@post/workspace/member/suspension"]["body"]>) => {
+			return callBackendApiForQuery("@post/workspace/member/suspension", {
 				body,
 				meta: { toast: { success: true } },
 			});
 		},
-		mutationKey: ["workspace", "invitation", "resend"],
+		mutationKey: ["workspace", "member", "suspend"],
 	});
 };
 
-export const suspendWorkspaceMemberMutation = () => {
+export const acknowledgeInventoryAlertMutation = () => {
 	return mutationOptions({
-		mutationFn: (bodyData: z.infer<BackendApiRoutes["@post/workspace/member/suspension"]["body"]>) => {
-			return callBackendApiForQuery("@post/workspace/member/suspension", {
-				body: bodyData,
+		mutationFn: (body: z.infer<BackendApiRoutes["@post/inventory/alerts/acknowledge"]["body"]>) => {
+			return callBackendApiForQuery("@post/inventory/alerts/acknowledge", {
+				body,
 				meta: { toast: { success: true } },
 			});
 		},
-		mutationKey: ["workspace", "member", "suspend"],
+		mutationKey: ["inventory", "alerts", "acknowledge"],
+	});
+};
+
+export const handleInventoryDrugActionMutation = (
+	params: z.infer<BackendApiRoutes["@post/inventory/drugs/:drugId/action"]["params"]>
+) => {
+	return mutationOptions({
+		mutationFn: (body: z.infer<BackendApiRoutes["@post/inventory/drugs/:drugId/action"]["body"]>) => {
+			return callBackendApiForQuery("@post/inventory/drugs/:drugId/action", {
+				body,
+				meta: { toast: { success: true } },
+				params,
+			});
+		},
+		mutationKey: ["inventory", "drugs", "action", params.drugId],
 	});
 };

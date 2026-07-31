@@ -2,12 +2,12 @@ import { db } from "@vitastock/db";
 import { users } from "@vitastock/db/schema/auth";
 import { drugs, stockBatches, stockLogs } from "@vitastock/db/schema/inventory";
 import { backendApiSchemaRoutes } from "@vitastock/shared/validation/backendApiSchema";
-import { add } from "date-fns";
-import { and, countDistinct, desc, eq, gt, gte, lte } from "drizzle-orm";
+import { add, endOfDay, startOfDay } from "date-fns";
+import { and, countDistinct, desc, eq, gt, gte, lt, lte } from "drizzle-orm";
 import { Hono } from "hono";
 import { AppJsonResponse } from "@/lib/utils";
 import { authMiddleware } from "@/middleware";
-import { getInventorySummaryRows } from "../inventory/services/summary";
+import { getInventorySummaryRows } from "../inventory/services/data-access/summary";
 
 export const dashboardRoutes = new Hono()
 	.basePath("/dashboard")
@@ -16,8 +16,8 @@ export const dashboardRoutes = new Hono()
 	.get("/overview", async (ctx) => {
 		const currentUser = ctx.get("currentUser");
 		const currentWorkspace = ctx.get("currentWorkspace");
-		const now = new Date();
-		const nearExpiryDate = add(now, { days: currentWorkspace.nearExpiryDays });
+		const today = startOfDay(new Date());
+		const nearExpiryDate = endOfDay(add(today, { days: currentWorkspace.nearExpiryDays }));
 
 		const [rows, nearExpiryResult, expiredResult, recentActivity] = await Promise.all([
 			getInventorySummaryRows({
@@ -31,7 +31,7 @@ export const dashboardRoutes = new Hono()
 					and(
 						eq(stockBatches.workspaceId, currentUser.workspaceId),
 						gt(stockBatches.quantityAvailable, 0),
-						gte(stockBatches.expiryDate, now),
+						gte(stockBatches.expiryDate, today),
 						lte(stockBatches.expiryDate, nearExpiryDate)
 					)
 				),
@@ -42,7 +42,7 @@ export const dashboardRoutes = new Hono()
 					and(
 						eq(stockBatches.workspaceId, currentUser.workspaceId),
 						gt(stockBatches.quantityAvailable, 0),
-						lte(stockBatches.expiryDate, now)
+						lt(stockBatches.expiryDate, today)
 					)
 				),
 			db
@@ -66,15 +66,17 @@ export const dashboardRoutes = new Hono()
 				.limit(8),
 		]);
 
+		const lowStockRows = rows.filter(
+			(row) => row.status === "low_stock" || row.status === "out_of_stock"
+		);
+
 		return AppJsonResponse(ctx, {
 			data: {
 				recentActivity,
 				stats: {
-					expiredCount: expiredResult[0]?.total ?? 0,
-					expiringSoonCount: nearExpiryResult[0]?.total ?? 0,
-					lowStockCount: rows.filter(
-						(row) => row.status === "low_stock" || row.status === "out_of_stock"
-					).length,
+					expiredCount: Number(expiredResult[0]?.total ?? 0),
+					expiringSoonCount: Number(nearExpiryResult[0]?.total ?? 0),
+					lowStockCount: lowStockRows.length,
 					stockValueKobo: rows.reduce((total, row) => total + row.stockValueKobo, 0),
 				},
 			},

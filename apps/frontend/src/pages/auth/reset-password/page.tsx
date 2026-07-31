@@ -3,11 +3,11 @@ import {
 	backendApiSchemaRoutes,
 	withMatchingPasswordFields,
 } from "@vitastock/shared/validation/backendApiSchema";
-import { useSearchParamsObject } from "@zayne-labs/toolkit-react";
+import { parseAsString, useQueryState } from "nuqs";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router";
 import { IconBox } from "@/components/common/IconBox";
-import { NavLink } from "@/components/common/NavLink";
+import { NavLinkEphemeral } from "@/components/common/NavLink";
 import { Button } from "@/components/ui";
 import { Form } from "@/components/ui/form";
 import { callBackendApiForQuery } from "@/lib/api/callBackendApi";
@@ -20,7 +20,7 @@ const ResetPasswordSchema = withMatchingPasswordFields({
 });
 
 function ResetPasswordPage() {
-	const [{ token }] = useSearchParamsObject<{ token: string }>();
+	const [token] = useQueryState("token", parseAsString.withDefault(""));
 
 	const form = useForm({
 		defaultValues: {
@@ -108,12 +108,12 @@ function ResetPasswordPage() {
 							)}
 						</Form.Submit>
 
-						<Button theme="primary-ghost" size="full-width" asChild={true}>
-							<NavLink to="/auth/sign-in">
+						<NavLinkEphemeral to="/auth/sign-in">
+							<Button theme="primary-ghost" size="full-width">
 								<IconBox icon="lucide:arrow-left" className="size-3.5" />
 								<p>Back to sign in</p>
-							</NavLink>
-						</Button>
+							</Button>
+						</NavLinkEphemeral>
 					</div>
 				</Form.Root>
 			</section>

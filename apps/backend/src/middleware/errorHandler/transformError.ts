@@ -13,7 +13,7 @@ const handleJWTError = (error: jwt.JsonWebTokenError) => {
 };
 
 const handleJWTExpiredError = (error: jwt.TokenExpiredError) => {
-	return new AppError({ cause: error, code: 401, message: " Your token has expired!" });
+	return new AppError({ cause: error, code: 401, message: "Your token has expired!" });
 };
 
 const isDatabaseError = (error: Error) => {
@@ -51,13 +51,13 @@ export const transformError = (error: AppError | Error | HTTPException) => {
 			break;
 		}
 
-		case error instanceof jwt.JsonWebTokenError: {
-			modifiedError = handleJWTError(error);
+		case error instanceof jwt.TokenExpiredError: {
+			modifiedError = handleJWTExpiredError(error);
 			break;
 		}
 
-		case error instanceof jwt.TokenExpiredError: {
-			modifiedError = handleJWTExpiredError(error);
+		case error instanceof jwt.JsonWebTokenError: {
+			modifiedError = handleJWTError(error);
 			break;
 		}
 

@@ -1,0 +1,72 @@
+meta {
+  name: list-drugs
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseURL}}/inventory/drugs
+  body: none
+  auth: inherit
+}
+
+params:query {
+  ~search: amoxicillin
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  # List Drugs
+
+  Returns the complete drug master for the authenticated workspace, ordered by drug name.
+
+  ## Authorization
+
+  Requires an authenticated user with an active workspace membership.
+
+  ## Query Parameters
+
+  | Parameter | Type | Required | Description |
+  |-----------|------|----------|-------------|
+  | `search` | string | No | Case-insensitive partial match against name, strength, or form. |
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Drugs fetched successfully",
+    "data": {
+      "drugs": [
+        {
+          "id": "drug-uuid",
+          "name": "Amoxicillin",
+          "strength": "500 mg",
+          "form": "Capsule",
+          "unit": "Capsule",
+          "isActive": true
+        }
+      ]
+    }
+  }
+  ```
+
+  ## Notes
+
+  - Active and inactive drugs are returned; use `isActive` to distinguish them.
+  - Search is scoped to the authenticated workspace.
+  - An empty catalogue returns `drugs: []`.
+
+  ## Errors
+
+  | Status | Description |
+  |--------|-------------|
+  | `401 Unauthorized` | Authentication is invalid or workspace access is suspended. |
+  | `500 Internal Server Error` | Drug retrieval failed unexpectedly. |
+}

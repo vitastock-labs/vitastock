@@ -1,11 +1,11 @@
 import { db } from "@vitastock/db";
-import { drugs, INVENTORY_STATUS, stockBatches } from "@vitastock/db/schema/inventory";
+import { drugs, stockBatches } from "@vitastock/db/schema/inventory";
+import { startOfDay } from "date-fns";
 import { and, asc, eq, gt, gte, sql } from "drizzle-orm";
 import { AppError } from "@/lib/utils";
+import { getInventoryStatus } from "../utils/common";
 
-type InventoryStatus = (typeof INVENTORY_STATUS)[number];
-
-export const getDrugForWorkspace = async (options: { drugId: string; workspaceId: string }) => {
+export const getDrugForStockMovement = async (options: { drugId: string; workspaceId: string }) => {
 	const { drugId, workspaceId } = options;
 
 	const [drug] = await db
@@ -21,23 +21,14 @@ export const getDrugForWorkspace = async (options: { drugId: string; workspaceId
 		});
 	}
 
+	if (!drug.isActive) {
+		throw new AppError({
+			code: 400,
+			message: "Inactive drugs cannot be used for stock movements",
+		});
+	}
+
 	return drug;
-};
-
-export const getInventoryStatus = (options: {
-	hasExpiredStock: boolean;
-	lowStockThreshold: number;
-	totalAvailable: number;
-}): InventoryStatus => {
-	const { hasExpiredStock, lowStockThreshold, totalAvailable } = options;
-
-	if (hasExpiredStock) return "expired";
-
-	if (totalAvailable <= 0) return "out_of_stock";
-
-	if (totalAvailable <= lowStockThreshold) return "low_stock";
-
-	return "normal";
 };
 
 export const getInventorySummaryRows = async (options: {
@@ -45,7 +36,7 @@ export const getInventorySummaryRows = async (options: {
 	workspaceId: string;
 }) => {
 	const { lowStockThreshold, workspaceId } = options;
-	const now = new Date();
+	const today = startOfDay(new Date());
 
 	const [aggregatedRows, nearestBatchRows] = await Promise.all([
 		db
@@ -53,6 +44,7 @@ export const getInventorySummaryRows = async (options: {
 				drug: {
 					form: drugs.form,
 					id: drugs.id,
+					isActive: drugs.isActive,
 					name: drugs.name,
 					strength: drugs.strength,
 					unit: drugs.unit,
@@ -62,7 +54,7 @@ export const getInventorySummaryRows = async (options: {
 					coalesce(
 						bool_or(
 							${stockBatches.quantityAvailable} > 0
-							and ${stockBatches.expiryDate} <= ${now}
+							and ${stockBatches.expiryDate} < ${today}
 						),
 						false
 					)
@@ -71,20 +63,31 @@ export const getInventorySummaryRows = async (options: {
 					min(
 						case
 							when ${stockBatches.quantityAvailable} > 0
-							and ${stockBatches.expiryDate} >= ${now}
+							and ${stockBatches.expiryDate} >= ${today}
 							then ${stockBatches.expiryDate}
 						end
 					)
 				`,
 				stockValueKobo: sql<number>`
 					coalesce(
-						sum(${stockBatches.quantityAvailable} * ${stockBatches.unitCostKobo}),
+						sum(
+							case when ${stockBatches.expiryDate} >= ${today}
+							then ${stockBatches.quantityAvailable} * ${stockBatches.unitCostKobo}
+							else 0 end
+						),
 						0
 					)
-				`,
+				`.mapWith(Number),
 				totalAvailable: sql<number>`
-					coalesce(sum(${stockBatches.quantityAvailable}), 0)
-				`,
+					coalesce(
+						sum(
+							case when ${stockBatches.expiryDate} >= ${today}
+							then ${stockBatches.quantityAvailable}
+							else 0 end
+						),
+						0
+					)
+				`.mapWith(Number),
 			})
 			.from(drugs)
 			.leftJoin(
@@ -108,7 +111,7 @@ export const getInventorySummaryRows = async (options: {
 				and(
 					eq(stockBatches.workspaceId, workspaceId),
 					gt(stockBatches.quantityAvailable, 0),
-					gte(stockBatches.expiryDate, now)
+					gte(stockBatches.expiryDate, today)
 				)
 			)
 			.orderBy(asc(stockBatches.drugId), asc(stockBatches.expiryDate)),
@@ -125,6 +128,7 @@ export const getInventorySummaryRows = async (options: {
 	return aggregatedRows.map((row) => ({
 		drug: row.drug,
 		drugId: row.drugId,
+		hasExpiredStock: row.hasExpiredStock,
 		nearestBatch: nearestBatchByDrugId.get(row.drugId),
 		nearestExpiryDate: row.nearestExpiryDate ?? undefined,
 		status: getInventoryStatus({

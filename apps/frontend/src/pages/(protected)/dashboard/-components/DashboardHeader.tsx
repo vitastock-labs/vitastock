@@ -2,39 +2,28 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router";
 import { AvatarGroupAnimated } from "@/components/animated/ui";
 import { IconBox } from "@/components/common/IconBox";
-import { NavLink } from "@/components/common/NavLink";
+import { NavLink, NavLinkEphemeral } from "@/components/common/NavLink";
 import { Button, DropdownMenu } from "@/components/ui";
 import * as Avatar from "@/components/ui/avatar";
 import { Form } from "@/components/ui/form";
 import { signoutMutation } from "@/lib/react-query/mutationOptions";
-import { sessionQuery } from "@/lib/react-query/queryOptions";
+import { inventoryAlertsUnreadCountQuery, sessionQuery } from "@/lib/react-query/queryOptions";
 import { getNameInitials } from "@/lib/utils/common";
 
-const getPlaceholder = (pathname: string) => {
-	switch (pathname) {
-		case "/dashboard":
-		case "/dashboard/inventory": {
-			return "Search inventory...";
-		}
-		case "/dashboard/alerts": {
-			return "Search alerts...";
-		}
-		case "/dashboard/reports": {
-			return "Search reports...";
-		}
-		case "/dashboard/settings": {
-			return "Search settings...";
-		}
-		default: {
-			return null;
-		}
-	}
-};
+const searchPlaceholderByPath = new Map([
+	["/dashboard", "Search inventory..."],
+	["/dashboard/alerts", "Search alerts..."],
+	["/dashboard/inventory", "Search inventory..."],
+	["/dashboard/reports", "Search reports..."],
+	["/dashboard/settings", "Search settings..."],
+]);
 
 function DashboardHeader() {
 	const pathname = useLocation().pathname;
+	const inventoryAlertsUnreadCountQueryResult = useQuery(inventoryAlertsUnreadCountQuery());
+	const unreadAlertCount = inventoryAlertsUnreadCountQueryResult.data?.count ?? 0;
 
-	const placeholder = getPlaceholder(pathname);
+	const placeholder = searchPlaceholderByPath.get(pathname);
 
 	return (
 		<header className="flex justify-between gap-10 border-b border-[hsl(231,20%,80%,0.15)] px-6 py-7">
@@ -58,10 +47,24 @@ function DashboardHeader() {
 			</Form.InputGroup>
 
 			<div className="flex items-center gap-6">
-				<Button unstyled={true} className="relative hover:text-vitastock-primary-main">
-					<IconBox icon="lucide:bell" className="size-5" />
-					<span className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-shadcn-destructive" />
-				</Button>
+				<NavLinkEphemeral to="/dashboard/alerts">
+					<Button
+						unstyled={true}
+						className="relative hover:text-vitastock-primary-main"
+						aria-label={`Inventory alerts, ${unreadAlertCount} unread`}
+					>
+						<IconBox icon="lucide:bell" className="size-5" />
+						{unreadAlertCount > 0 && (
+							<span
+								className="absolute -top-1 -right-1 grid min-w-4 place-items-center rounded-full
+									bg-shadcn-destructive px-1 py-0.5 text-[9px] leading-none font-bold text-white
+									ring-2 ring-white"
+							>
+								{unreadAlertCount > 99 ? "99+" : unreadAlertCount}
+							</span>
+						)}
+					</Button>
+				</NavLinkEphemeral>
 
 				<ProfileDropdown />
 			</div>

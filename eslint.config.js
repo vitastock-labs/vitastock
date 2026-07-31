@@ -32,7 +32,7 @@ export default zayne(
 			query: true,
 		},
 		typescript: {
-			tsconfigPath: ["packages/*/tsconfig.json", "apps/*/tsconfig.json"],
+			tsconfigPath: ["**/tsconfig.json"],
 		},
 	},
 	{

@@ -1,5 +1,14 @@
 import { startEmailQueueAndWorker, stopEmailQueueAndWorker } from "../emailQueue";
+import {
+	startInventoryAlertQueueAndWorker,
+	stopInventoryAlertQueueAndWorker,
+} from "../inventoryAlertQueue";
 
-export const startAllQueuesAndWorkers = () => startEmailQueueAndWorker();
+export const startAllQueuesAndWorkers = async () => {
+	await startEmailQueueAndWorker();
+	await startInventoryAlertQueueAndWorker();
+};
 
-export const stopAllQueuesAndWorkers = () => stopEmailQueueAndWorker();
+export const stopAllQueuesAndWorkers = async () => {
+	await Promise.all([stopInventoryAlertQueueAndWorker(), stopEmailQueueAndWorker()]);
+};

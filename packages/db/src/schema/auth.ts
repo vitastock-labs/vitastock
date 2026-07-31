@@ -38,7 +38,7 @@ export type SelectUserType = typeof users.$inferSelect;
 
 export type SessionMembershipType = Pick<
 	SelectWorkspaceMembershipType,
-	"id" | "role" | "status" | "suspendedAt" | "workspaceId"
+	"id" | "role" | "suspendedAt" | "workspaceId"
 >;
 
 export type SessionWorkspaceType = Pick<
@@ -49,7 +49,6 @@ export type SessionWorkspaceType = Pick<
 export type SessionUserType = SelectUserType & {
 	membershipId: SessionMembershipType["id"];
 	role: SessionMembershipType["role"];
-	status: SessionMembershipType["status"];
 	suspendedAt: SessionMembershipType["suspendedAt"];
 	workspaceId: SessionMembershipType["workspaceId"];
 };

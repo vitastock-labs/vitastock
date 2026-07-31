@@ -4,6 +4,7 @@ import {
 	SignUpSchema as SignUpSchemaPrimitive,
 	withMatchingPasswordFields,
 } from "@vitastock/shared/validation/backendApiSchema";
+import { createSearchParams } from "@zayne-labs/toolkit-core";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router";
 import { Logo } from "@/components/common/Logo";
@@ -43,9 +44,10 @@ function SignupPage() {
 
 			onSuccess: async (ctx) => {
 				await queryClient.invalidateQueries(sessionQuery());
-				void navigate(
-					`/auth/verify-email?${new URLSearchParams({ email: ctx.data.data.user.email })}`
-				);
+				void navigate({
+					pathname: "/auth/verify-email",
+					search: createSearchParams({ email: ctx.data.data.user.email }).toString(),
+				});
 			},
 		});
 	});

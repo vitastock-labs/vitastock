@@ -1,0 +1,102 @@
+meta {
+  name: stock-in
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseURL}}/inventory/stock-log
+  body: json
+  auth: inherit
+}
+
+headers {
+  idempotency-key: {{stockInIdempotencyKey}}
+}
+
+body:json {
+  {
+    "drugId": "{{drugId}}",
+    "logType": "stock_in",
+    "quantity": "100",
+    "expiryDate": "2027-12-31T00:00:00.000Z",
+    "batchNumber": "BATCH-001",
+    "unitCostKobo": "25000",
+    "notes": "Supplier delivery"
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  # Record Stock In
+
+  Records incoming stock or an opening balance for an existing drug. The stock transaction, batch update/creation, and audit log are committed atomically.
+
+  ## Authorization
+
+  Requires an authenticated user with an active workspace membership.
+
+  ## Required Header
+
+  | Header | Type | Required | Description |
+  |--------|------|----------|-------------|
+  | `idempotency-key` | UUID | Yes | Stable identifier for this logical stock transaction. |
+
+  Generate a new UUID for each distinct movement. Reuse the same key only when retrying the exact same request.
+
+  ## Request Body
+
+  | Field | Type | Required | Rules / Description |
+  |-------|------|----------|---------------------|
+  | `drugId` | UUID | Yes | Existing active drug in the authenticated workspace. |
+  | `logType` | string | Yes | `stock_in` or `opening_stock`. |
+  | `quantity` | numeric string | Yes | Must be greater than `0`. |
+  | `expiryDate` | ISO 8601 date string | Yes | Expiry date assigned to the stock batch. |
+  | `batchNumber` | string or null | No | Supplier/manufacturer batch identifier. |
+  | `unitCostKobo` | numeric string | No | Non-negative cost per unit in kobo. |
+  | `notes` | string or null | No | Operational context for the movement. |
+
+  ## Batch Matching
+
+  - When `batchNumber` is supplied and that number already exists for the same workspace and drug, the existing batch is locked and incremented.
+  - An existing batch number must keep its original expiry date; a different expiry is rejected.
+  - A positive supplied `unitCostKobo` replaces the existing batch's unit cost.
+  - When no matching batch number exists, a new batch is created.
+  - When `batchNumber` is omitted, a new batch is created rather than inferred from expiry or cost.
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Stock movement recorded successfully",
+    "data": null
+  }
+  ```
+
+  ## Side Effects
+
+  - Creates an idempotency transaction record.
+  - Creates or increments a stock batch.
+  - Writes an immutable stock log with the authenticated user as actor.
+  - Re-evaluates persisted low-stock and expiry alerts after the transaction commits.
+
+  ## Errors
+
+  | Status | Description |
+  |--------|-------------|
+  | `400 Bad Request` | The referenced drug is inactive or the movement cannot be applied. |
+  | `401 Unauthorized` | Authentication is invalid or workspace access is suspended. |
+  | `404 Not Found` | The drug does not exist in the authenticated workspace. |
+  | `422 Unprocessable Entity` | Header or body validation failed. |
+
+  ## Idempotency
+
+  Retrying an already-completed request with the same key does not add stock twice. The current implementation does not compare the new payload with the original payload, so never reuse a key for a different logical movement.
+}

@@ -5,6 +5,7 @@ import {
 	drugs,
 	stockBatches,
 	stockLogs,
+	stockTransactions,
 	type InsertDrugType,
 	type InsertStockBatchType,
 	type InsertStockLogType,
@@ -33,6 +34,9 @@ const getBatchSeedData = (options: {
 	workspaceId: string;
 }) => {
 	const { drugByName, userId, workspaceId } = options;
+	const nearExpiryDate = new Date();
+	nearExpiryDate.setUTCDate(nearExpiryDate.getUTCDate() + 14);
+	nearExpiryDate.setUTCHours(0, 0, 0, 0);
 
 	const getDrugId = (name: string) => {
 		const drug = drugByName.get(name);
@@ -86,7 +90,7 @@ const getBatchSeedData = (options: {
 		{
 			batchNumber: `LEV-${workspaceId.slice(0, 8)}`,
 			drugId: getDrugId("Levothyroxine"),
-			expiryDate: new Date("2027-04-30T00:00:00.000Z"),
+			expiryDate: nearExpiryDate,
 			quantityAvailable: 0,
 			quantityReceived: 60,
 			unitCostKobo: 18_000,
@@ -179,8 +183,10 @@ export const seedInventory = async (
 		.returning();
 
 	const seededDrugIds = seededDrugs.map((drug) => drug.id);
+	const seededWorkspaceIds = seededWorkspaces.map((workspace) => workspace.id);
 
 	await db.delete(stockLogs).where(inArray(stockLogs.drugId, seededDrugIds));
+	await db.delete(stockTransactions).where(inArray(stockTransactions.workspaceId, seededWorkspaceIds));
 
 	const allLogSeeds = seededWorkspaces.flatMap((workspace) => {
 		const actor = getWorkspaceOwnerUser({
@@ -192,34 +198,48 @@ export const seedInventory = async (
 
 		const workspaceBatches = seededBatches.filter((batch) => batch.workspaceId === workspace.id);
 
-		return workspaceBatches.flatMap((batch): InsertStockLogType[] => [
-			{
+		return workspaceBatches.flatMap((batch): InsertStockLogType[] => {
+			const batchLogs: InsertStockLogType[] = [
+				{
 				batchId: batch.id,
 				drugId: batch.drugId,
 				logType: "opening_stock",
 				notes: "Seed opening stock",
 				performedByUserId: actor.id,
 				quantity: batch.quantityReceived,
+				stockTransactionId: crypto.randomUUID(),
 				unitCostKobo: batch.unitCostKobo,
 				workspaceId: workspace.id,
 			},
-			...(batch.quantityReceived > batch.quantityAvailable ?
-				[
-					{
-						batchId: batch.id,
-						drugId: batch.drugId,
-						logType: "stock_out" as const,
-						notes: "Seed stock-out activity",
-						performedByUserId: actor.id,
-						quantity: batch.quantityReceived - batch.quantityAvailable,
-						unitCostKobo: batch.unitCostKobo,
-						workspaceId: workspace.id,
-					},
-				]
-			:	[]),
-		]);
+			];
+
+			if (batch.quantityReceived > batch.quantityAvailable) {
+				batchLogs.push({
+					batchId: batch.id,
+					drugId: batch.drugId,
+					logType: "stock_out" as const,
+					notes: "Seed stock-out activity",
+					performedByUserId: actor.id,
+					quantity: batch.quantityReceived - batch.quantityAvailable,
+					reason: "patient",
+					stockTransactionId: crypto.randomUUID(),
+					unitCostKobo: batch.unitCostKobo,
+					workspaceId: workspace.id,
+				});
+			}
+
+			return batchLogs;
+		});
 	});
 
+	await db.insert(stockTransactions).values(
+		allLogSeeds.map((stockLog) => ({
+			id: stockLog.stockTransactionId,
+			idempotencyKey: stockLog.stockTransactionId,
+			performedByUserId: stockLog.performedByUserId,
+			workspaceId: stockLog.workspaceId,
+		}))
+	);
 	await db.insert(stockLogs).values(allLogSeeds);
 
 	consola.success(

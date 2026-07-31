@@ -91,5 +91,9 @@ function getIconsArray() {
 		"lucide:send-horizontal",
 		"solar:file-outline",
 		"solar:document-medicine-linear",
+		"lucide:plus",
+		"lucide:minus",
+		"lucide:clipboard-list",
+		"lucide:circle-dollar-sign",
 	];
 }

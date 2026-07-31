@@ -1,5 +1,4 @@
 {
-   "$schema": "https://cdn.statically.io/gh/nguyenngoclongdev/cdn/main/schema/v11/terminal-keeper.json",
    "theme": "dice",
    "active": "default",
    "activateOnStartup": false,

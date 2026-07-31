@@ -22,6 +22,7 @@ const errorHandler: ErrorHandler<HonoAppBindings> = (error: AppError | Error | H
 
 	const errorLogInfo = {
 		...errorInfo,
+		durationMs: Math.round((performance.now() - ctx.get("requestStartedAt")) * 100) / 100,
 		method: ctx.req.method,
 		path: ctx.req.path,
 		requestId: ctx.get("requestId"),
@@ -34,7 +35,7 @@ const errorHandler: ErrorHandler<HonoAppBindings> = (error: AppError | Error | H
 
 	const logger = ctx.get("logger");
 
-	appLogger.pretty.error(`${error.name}: ${errorLogInfo.message}\n`, errorLogInfo);
+	appLogger.pretty.error(`${error.name}: ${errorLogInfo.message}\n`, error, errorLogInfo);
 
 	logger.error({ err: modifiedError, ...errorLogInfo }, modifiedError.message);
 

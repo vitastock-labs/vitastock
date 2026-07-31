@@ -27,7 +27,7 @@ const runSeeders = async () => {
 			const owners = workspaceMembershipRows.filter((membership) => membership.role === "owner");
 			const admins = workspaceMembershipRows.filter((membership) => membership.role === "admin");
 			const pharmacists = workspaceMembershipRows.filter((membership) => membership.role === "pharmacist");
-			const suspended = workspaceMembershipRows.filter((membership) => membership.status === "suspended");
+			const suspended = workspaceMembershipRows.filter((membership) => membership.suspendedAt);
 
 			consola.info(
 				`${workspace.name}: ${owners.length} owners, ${admins.length} admin, ${pharmacists.length} pharmacists, ${suspended.length} suspended`

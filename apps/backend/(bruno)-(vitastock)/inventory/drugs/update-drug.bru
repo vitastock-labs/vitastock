@@ -1,0 +1,87 @@
+meta {
+  name: update-drug
+  type: http
+  seq: 3
+}
+
+patch {
+  url: {{baseURL}}/inventory/drugs/{{drugId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "strength": "500 mg",
+    "form": "Capsule",
+    "unit": "Capsule"
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  # Update Drug
+
+  Partially updates a drug belonging to the authenticated workspace.
+
+  ## Authorization
+
+  Requires an authenticated user with an active workspace membership.
+
+  ## Path Parameters
+
+  | Parameter | Type | Required | Description |
+  |-----------|------|----------|-------------|
+  | `drugId` | UUID | Yes | Drug to update. Replace `{{drugId}}` with an ID from the list/create request. |
+
+  ## Request Body
+
+  Every field is optional; include only fields that should change.
+
+  | Field | Type | Description |
+  |-------|------|-------------|
+  | `name` | string | Updated drug name. |
+  | `strength` | string | Updated strength label. |
+  | `form` | string | Updated dosage form. |
+  | `unit` | string | Updated stock-counting unit. |
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Drug updated successfully",
+    "data": {
+      "drug": {
+        "id": "drug-uuid",
+        "name": "Amoxicillin",
+        "strength": "500 mg",
+        "form": "Capsule",
+        "unit": "Capsule",
+        "isActive": true
+      }
+    }
+  }
+  ```
+
+  ## Notes
+
+  - Existing batches and stock logs continue referencing the same drug ID.
+  - The update is workspace-scoped; a valid drug ID from another workspace behaves as not found.
+  - Activity state is changed through the separate drug-action endpoint.
+
+  ## Errors
+
+  | Status | Description |
+  |--------|-------------|
+  | `401 Unauthorized` | Authentication is invalid or workspace access is suspended. |
+  | `404 Not Found` | No matching drug exists in the authenticated workspace. |
+  | `422 Unprocessable Entity` | The UUID or body is invalid. |
+  | `500 Internal Server Error` | The update failed unexpectedly. |
+}

@@ -1,9 +1,10 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { backendApiSchemaRoutes } from "@vitastock/shared/validation/backendApiSchema";
+import { createSearchParams } from "@zayne-labs/toolkit-core";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router";
 import { IconBox } from "@/components/common/IconBox";
-import { NavLink } from "@/components/common/NavLink";
+import { NavLinkEphemeral } from "@/components/common/NavLink";
 import { Button } from "@/components/ui";
 import { Form } from "@/components/ui/form";
 import { callBackendApiForQuery } from "@/lib/api/callBackendApi";
@@ -26,7 +27,10 @@ function ForgotPasswordPage() {
 			body: data,
 
 			onSuccess: () => {
-				void navigate(`/auth/signin?${new URLSearchParams({ email: data.email })}`);
+				void navigate({
+					pathname: "/auth/signin",
+					search: createSearchParams({ email: data.email }).toString(),
+				});
 			},
 		});
 	});
@@ -69,12 +73,12 @@ function ForgotPasswordPage() {
 							)}
 						</Form.Submit>
 
-						<Button theme="primary-ghost" size="full-width" asChild={true}>
-							<NavLink to="/auth/signin">
+						<NavLinkEphemeral to="/auth/signin">
+							<Button theme="primary-ghost" size="full-width">
 								<IconBox icon="lucide:arrow-left" className="size-3.5" />
 								<p>Back to sign in</p>
-							</NavLink>
-						</Button>
+							</Button>
+						</NavLinkEphemeral>
 					</div>
 				</Form.Root>
 			</section>

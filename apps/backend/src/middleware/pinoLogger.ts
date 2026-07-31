@@ -11,6 +11,7 @@ export const pinoLoggerMiddleware = () => {
 					method: ctx.req.method,
 					url: ctx.req.path,
 				},
+				requestId: ctx.get("requestId"),
 			}),
 			onResBindings: (ctx) => ({
 				res: {

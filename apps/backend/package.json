@@ -16,6 +16,7 @@
 		"dev:nitro:prod": "cross-env NODE_ENV=production vite dev",
 		"dev:prod": "cross-env NODE_ENV=production pnpm dev:watch",
 		"dev:watch": "tsx watch src/server.ts --clear-screen=false",
+		"dev:worker": "cross-env NODE_ENV=development PROCESS_TYPE=worker tsx watch src/worker.ts --clear-screen=false",
 		"lint:eslint": "eslint . --max-warnings=0",
 		"lint:format": "prettier --write .",
 		"lint:type-check": "tsc --pretty -p tsconfig.json",
@@ -23,7 +24,12 @@
 		"start": "cross-env NODE_ENV=production tsx src/server.ts",
 		"start:built": "cross-env NODE_ENV=production node dist/server.js",
 		"start:built:nitro": "cross-env NODE_ENV=production node .output/server/index.mjs",
-		"start:dev": "cross-env NODE_ENV=development tsx src/server.ts"
+		"start:dev": "cross-env NODE_ENV=development tsx src/server.ts",
+		"start:worker": "cross-env NODE_ENV=production PROCESS_TYPE=worker tsx src/worker.ts",
+		"start:worker:built": "cross-env NODE_ENV=production PROCESS_TYPE=worker node dist/worker.js",
+		"test": "vitest run",
+		"test:integration": "cross-env NODE_ENV=test vitest run --config vitest.integration.config.ts",
+		"test:watch": "vitest"
 	},
 	"dependencies": {
 		"@bull-board/api": "^8.3.0",
@@ -31,14 +37,14 @@
 		"@colors/colors": "^1.6.0",
 		"@getbrevo/brevo": "^6.0.2",
 		"@hono-storage/node-disk": "^0.0.17",
-		"@hono/node-server": "2.0.11",
+		"@hono/node-server": "2.0.12",
 		"@hono/structured-logger": "^0.1.0",
 		"@node-rs/argon2": "^2.0.2",
 		"@vitastock/db": "workspace:*",
 		"@vitastock/env": "workspace:*",
 		"@vitastock/shared": "workspace:*",
 		"@vitastock/transactional": "workspace:*",
-		"@zayne-labs/callapi": "1.14.0",
+		"@zayne-labs/callapi": "1.14.1",
 		"@zayne-labs/toolkit-core": "0.12.56",
 		"@zayne-labs/toolkit-type-helpers": "0.12.56",
 		"@zayne-labs/tsconfig": "^0.13.14",
@@ -59,16 +65,17 @@
 		"redis": "^6.1.0",
 		"superjson": "^2.2.6",
 		"tsx": "4.23.1",
-		"zod": "4.4.3"
+		"zod": "4.4.1"
 	},
 	"devDependencies": {
 		"@total-typescript/ts-reset": "0.6.1",
 		"@types/jsonwebtoken": "^9.0.10",
-		"@types/node": "26.1.1",
+		"@types/node": "26.1.2",
 		"@types/nodemailer": "^8.0.1",
 		"nitro": "3.0.260610-beta",
 		"tsdown": "0.22.14",
 		"typescript": "6.0.3",
-		"vite": "^8.1.5"
+		"vite": "^8.1.5",
+		"vitest": "^4.1.10"
 	}
 }

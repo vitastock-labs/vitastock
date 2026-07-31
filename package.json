@@ -3,7 +3,7 @@
 	"type": "module",
 	"version": "0.0.0",
 	"private": true,
-	"packageManager": "pnpm@10.33.4",
+	"packageManager": "pnpm@11.18.0",
 	"scripts": {
 		"build": "turbo run build",
 		"build:backend": "turbo run --filter=@vitastock/backend build",
@@ -15,6 +15,8 @@
 		"db:push": "turbo run --filter=@vitastock/db db:push",
 		"db:seed": "turbo run --filter=@vitastock/db db:seed",
 		"db:studio": "turbo run --filter=@vitastock/db db:studio",
+		"db:test:start": "docker compose --profile test up --build --wait vitastock-test-db-setup",
+		"db:test:stop": "docker compose --profile test rm --stop --force vitastock-test-db-setup vitastock-postgres-test-db",
 		"dev:backend": "turbo run --filter=@vitastock/backend dev",
 		"dev:backend:nitro": "turbo run --filter=@vitastock/backend dev:nitro",
 		"dev:frontend": "turbo run --filter=@vitastock/frontend dev",
@@ -26,13 +28,14 @@
 		"lint:format": "turbo run lint:format",
 		"lint:format:root": "prettier --write .",
 		"lint:type-check": "turbo run lint:type-check",
-		"prepare": "husky || true"
+		"prepare": "husky || true",
+		"test:backend:integration": "pnpm db:test:start && pnpm --filter @vitastock/backend test:integration && pnpm db:test:stop"
 	},
 	"devDependencies": {
 		"@eslint-react/eslint-plugin": "5.18.0",
-		"@next/eslint-plugin-next": "^16.2.11",
+		"@next/eslint-plugin-next": "^16.2.12",
 		"@tanstack/eslint-plugin-query": "5.101.4",
-		"@types/node": "26.1.1",
+		"@types/node": "26.1.2",
 		"@zayne-labs/eslint-config": "0.13.14",
 		"@zayne-labs/prettier-config": "0.13.14",
 		"eslint": "10.8.0",
@@ -47,7 +50,7 @@
 		"prettier-plugin-merge": "0.10.1",
 		"prettier-plugin-tailwindcss": "0.8.1",
 		"tailwindcss": "4.3.3",
-		"turbo": "2.10.6",
+		"turbo": "2.10.7",
 		"typescript": "6.0.3"
 	}
 }

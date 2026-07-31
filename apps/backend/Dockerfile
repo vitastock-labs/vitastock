@@ -4,7 +4,7 @@
 FROM node:24.14.0-slim AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable && corepack prepare pnpm@10.33.4 --activate
+RUN corepack enable && corepack prepare pnpm@11.18.0 --activate
 
 WORKDIR /app
 
@@ -60,5 +60,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
     CMD node -e "fetch('http://localhost:8000/health').then((res) => process.exit(res.ok ? 0 : 1)).catch(() => process.exit(1))"
 
-# Run migrations and start app
-CMD ["sh", "-c", "pnpm start:dev"]
+# Schema migrations are a separate release step.
+CMD ["pnpm", "start"]

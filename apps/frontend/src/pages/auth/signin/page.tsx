@@ -1,8 +1,10 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
 import { backendApiSchemaRoutes } from "@vitastock/shared/validation/backendApiSchema";
+import { createSearchParams } from "@zayne-labs/toolkit-core";
+import { parseAsString, useQueryState } from "nuqs";
 import { useForm } from "react-hook-form";
-import { useNavigate, useSearchParams } from "react-router";
+import { useNavigate } from "react-router";
 import { Logo } from "@/components/common/Logo";
 import { NavLink } from "@/components/common/NavLink";
 import { Button } from "@/components/ui";
@@ -14,8 +16,7 @@ import { Main } from "../-components/Main";
 const SignInSchema = backendApiSchemaRoutes["@post/auth/signin"].body;
 
 function SigninPage() {
-	const [searchParams] = useSearchParams();
-	const email = searchParams.get("email") ?? "";
+	const [email] = useQueryState("email", parseAsString.withDefault(""));
 
 	const form = useForm({
 		defaultValues: {
@@ -37,7 +38,10 @@ function SigninPage() {
 					ctx.response.status === 401 && ctx.error.errorData.appCode === "EMAIL_UNVERIFIED";
 
 				if (isEmailUnverifiedError) {
-					void navigate(`/auth/verify-email?${new URLSearchParams({ email: data.email })}`);
+					void navigate({
+						pathname: "/auth/verify-email",
+						search: createSearchParams({ email: data.email }).toString(),
+					});
 				}
 			},
 

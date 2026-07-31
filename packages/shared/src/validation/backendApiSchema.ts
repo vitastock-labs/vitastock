@@ -1,5 +1,7 @@
 import type { InsertUserType, SelectUserType } from "@vitastock/db/schema/auth";
 import {
+	INVENTORY_ALERT_STATUSES,
+	INVENTORY_ALERT_TYPES,
 	INVENTORY_STATUS,
 	STOCK_LOG_TYPES,
 	STOCK_OUT_REASONS,
@@ -58,7 +60,19 @@ const withBaseErrorResponse = <
 };
 
 const PasswordSchema = z.string().min(8, "Password must be at least 8 characters long");
-const WorkspaceRoleSchema = z.enum(["owner", "admin", "pharmacist"]);
+
+export const WorkspaceRoleSchema = z.enum(["owner", "admin", "pharmacist"]);
+
+export const StockLogTypeSchema = z.enum(STOCK_LOG_TYPES);
+export const StockOutReasonSchema = z.enum(STOCK_OUT_REASONS);
+export const StockAdditionLogTypeSchema = z.enum([STOCK_LOG_TYPES[2], STOCK_LOG_TYPES[4]]);
+export const StockOutLogTypeSchema = z.enum([STOCK_LOG_TYPES[5]]);
+export const StockMovementLogTypeSchema = z.enum([STOCK_LOG_TYPES[4], STOCK_LOG_TYPES[5]]);
+export const StockReductionLogTypeSchema = z.enum([
+	STOCK_LOG_TYPES[0],
+	STOCK_LOG_TYPES[1],
+	STOCK_LOG_TYPES[5],
+]);
 
 type SignUpPayloadType = Pick<InsertUserType, "email" | "fullName"> & {
 	password: string;
@@ -80,7 +94,7 @@ type WorkspaceInvitationRecordType = Pick<
 	"createdAt" | "expiresAt" | "id" | "inviteeEmail" | "inviteeName" | "role"
 >;
 
-type DrugDetailsType = Pick<SelectDrugType, "form" | "id" | "name" | "strength" | "unit">;
+type DrugDetailsType = Pick<SelectDrugType, "form" | "id" | "isActive" | "name" | "strength" | "unit">;
 
 type RecentStockActivityType = Pick<SelectStockLogType, "createdAt" | "id" | "logType" | "quantity"> & {
 	drug: Pick<SelectDrugType, "id" | "name" | "strength">;
@@ -90,6 +104,7 @@ type RecentStockActivityType = Pick<SelectStockLogType, "createdAt" | "id" | "lo
 type InventorySummaryRowType = {
 	drug: DrugDetailsType;
 	drugId: SelectDrugType["id"];
+	hasExpiredStock: boolean;
 	nearestBatch?: Pick<
 		SelectStockBatchType,
 		"batchNumber" | "id" | "quantityAvailable" | "unitCostKobo"
@@ -310,6 +325,23 @@ export const workspaceRoutes = () => {
 		role: ManageableWorkspaceRoleSchema,
 	});
 
+	const WorkspaceAlertSettingsSchema = z
+		.object({
+			alertEmail: z.email("Please enter a valid alert email").optional(),
+			emailAlertsEnabled: z.boolean(),
+			lowStockThreshold: z.number().int().min(0),
+			nearExpiryDays: z.number().int().positive(),
+		})
+		.superRefine((data, ctx) => {
+			if (data.emailAlertsEnabled && !data.alertEmail) {
+				ctx.addIssue({
+					code: "custom",
+					message: "An alert email is required when email alerts are enabled",
+					path: ["alertEmail"],
+				});
+			}
+		});
+
 	return defineSchemaRoutes({
 		"@delete/workspace/invitation/:invitationId": {
 			data: NullSuccessResponseSchema,
@@ -327,6 +359,11 @@ export const workspaceRoutes = () => {
 					members: z.array(WorkspaceMemberSchema),
 				})
 			),
+		},
+
+		"@patch/workspace/alert-settings": {
+			body: WorkspaceAlertSettingsSchema,
+			data: NullSuccessResponseSchema,
 		},
 
 		"@patch/workspace/member/role": {
@@ -377,23 +414,35 @@ export const workspaceRoutes = () => {
 const DrugDetailsSchema = z.object({
 	form: z.string(),
 	id: z.uuid(),
+	isActive: z.boolean(),
 	name: z.string(),
 	strength: z.string(),
 	unit: z.string(),
 }) satisfies z.ZodType<DrugDetailsType>;
 
 const inventoryRoutes = () => {
+	const DrugCreateSchema = z.object({
+		form: z.string().min(1, "Form is required"),
+		name: z.string().min(1, "Drug name is required"),
+		strength: z.string().min(1, "Strength is required"),
+		unit: z.string().min(1, "Unit is required"),
+	});
+
+	const DrugIdParamSchema = z.object({
+		drugId: z.uuid("Invalid drug ID"),
+	});
+
 	const InsertStockLogSchema = z.object({
 		batchId: z.uuid().optional(),
 		createdAt: stringWithDateValidation(),
 		drugId: z.uuid(),
 		id: z.uuid(),
-		logType: z.enum(STOCK_LOG_TYPES),
+		logType: StockLogTypeSchema,
 		notes: z.string().optional(),
 		performedByUserId: z.uuid(),
 		quantity: z.number(),
-		reason: z.enum(STOCK_OUT_REASONS).optional(),
-		stockTransactionId: z.uuid().optional(),
+		reason: StockOutReasonSchema.optional(),
+		stockTransactionId: z.uuid(),
 		unitCostKobo: z.number().default(0),
 		workspaceId: z.uuid(),
 	}) satisfies z.ZodType<InsertStockLogType>;
@@ -421,7 +470,7 @@ const inventoryRoutes = () => {
 	}).extend({
 		batchNumber: InsertStockBatchSchema.shape.batchNumber.optional(),
 		expiryDate: stringWithDateValidation(),
-		logType: z.enum(["opening_stock", "stock_in"]),
+		logType: StockAdditionLogTypeSchema,
 		quantity: stringWithNumberValidation(InsertStockLogSchema.shape.quantity.positive()),
 		unitCostKobo: stringWithNumberValidation(
 			InsertStockLogSchema.shape.unitCostKobo.unwrap().min(0)
@@ -429,20 +478,22 @@ const inventoryRoutes = () => {
 	});
 
 	const StockOutBodySchema = InsertStockLogSchema.pick({
+		batchId: true,
 		drugId: true,
 		logType: true,
 		notes: true,
 		quantity: true,
 		reason: true,
 	}).extend({
-		logType: z.literal("stock_out"),
+		logType: StockOutLogTypeSchema,
 		quantity: stringWithNumberValidation(InsertStockLogSchema.shape.quantity.positive()),
-		reason: z.enum(["damaged", "expired", "patient", "ward"]),
+		reason: StockOutReasonSchema,
 	});
 
 	const InventorySummaryRowSchema = z.object({
 		drug: DrugDetailsSchema,
 		drugId: z.uuid(),
+		hasExpiredStock: z.boolean(),
 		nearestBatch: z
 			.object({
 				batchNumber: z.string().nullable(),
@@ -458,7 +509,102 @@ const inventoryRoutes = () => {
 		totalAvailable: z.number(),
 	}) satisfies z.ZodType<InventorySummaryRowType>;
 
+	const InventoryAlertItemSchema = z.object({
+		acknowledgedAt: stringWithDateValidation().nullable(),
+		action: z.enum(["remove", "restock", "review"]),
+		batchId: z.uuid().nullable(),
+		batchNumber: z.string().nullable(),
+		drug: DrugDetailsSchema,
+		expiryDate: stringWithDateValidation().nullable(),
+		id: z.uuid(),
+		quantityAffected: z.number().nullable(),
+		status: z.enum(INVENTORY_ALERT_STATUSES),
+		threshold: z.number().nullable(),
+		type: z.enum(INVENTORY_ALERT_TYPES),
+	});
+
+	const InventoryActivityQuerySchema = z
+		.object({
+			logType: StockLogTypeSchema,
+			page: stringWithNumberValidation(z.number().int().min(1)),
+			pageSize: stringWithNumberValidation(z.number().int().min(1).max(100)),
+			search: z.string().trim().min(1),
+		})
+		.partial()
+		.optional();
+
+	const InventoryActivityRowSchema = z.object({
+		createdAt: stringWithDateValidation(),
+		drug: DrugDetailsSchema.pick({
+			id: true,
+			name: true,
+			strength: true,
+			unit: true,
+		}),
+		id: z.uuid(),
+		logType: StockLogTypeSchema,
+		notes: z.string().nullable(),
+		person: z.string(),
+		quantity: z.number(),
+		reason: StockOutReasonSchema.nullable(),
+		unitCostKobo: z.number(),
+	});
+
 	return defineSchemaRoutes({
+		"@get/inventory/activity": {
+			data: withBaseSuccessResponse(
+				z.object({
+					pagination: z.object({
+						page: z.number(),
+						pageCount: z.number(),
+						pageSize: z.number(),
+						total: z.number(),
+					}),
+					rows: z.array(InventoryActivityRowSchema),
+					stats: z.object({
+						expiredLossQuantity: z.number(),
+						expiredLossValueKobo: z.number(),
+						weeklyMovementCount: z.number(),
+						weeklyStockInQuantity: z.number(),
+						weeklyStockOutQuantity: z.number(),
+					}),
+				})
+			),
+			query: InventoryActivityQuerySchema,
+		},
+
+		"@get/inventory/alerts": {
+			data: withBaseSuccessResponse(
+				z.object({
+					alerts: z.array(InventoryAlertItemSchema),
+				})
+			),
+			query: z
+				.object({
+					status: z.enum(INVENTORY_ALERT_STATUSES),
+				})
+				.partial()
+				.optional(),
+		},
+
+		"@get/inventory/alerts/unread-count": {
+			data: withBaseSuccessResponse(z.object({ count: z.number() })),
+		},
+
+		"@get/inventory/drugs": {
+			data: withBaseSuccessResponse(
+				z.object({
+					drugs: z.array(DrugDetailsSchema),
+				})
+			),
+			query: z
+				.object({
+					search: z.string(),
+				})
+				.partial()
+				.optional(),
+		},
+
 		"@get/inventory/summary": {
 			data: withBaseSuccessResponse(
 				z.object({
@@ -471,9 +617,48 @@ const inventoryRoutes = () => {
 			),
 		},
 
+		"@patch/inventory/drugs/:drugId": {
+			body: DrugCreateSchema.partial(),
+			data: withBaseSuccessResponse(
+				z.object({
+					drug: DrugDetailsSchema,
+				})
+			),
+			params: DrugIdParamSchema,
+		},
+
+		"@post/inventory/alerts/acknowledge": {
+			body: z.object({ alertId: z.uuid() }),
+			data: NullSuccessResponseSchema,
+		},
+
+		"@post/inventory/drugs": {
+			body: DrugCreateSchema,
+			data: withBaseSuccessResponse(
+				z.object({
+					drug: DrugDetailsSchema,
+				})
+			),
+		},
+
+		"@post/inventory/drugs/:drugId/action": {
+			body: z.object({
+				action: z.enum(["deactivate", "reactivate"]),
+			}),
+			data: withBaseSuccessResponse(
+				z.object({
+					drug: DrugDetailsSchema,
+				})
+			),
+			params: DrugIdParamSchema,
+		},
+
 		"@post/inventory/stock-log": {
 			body: z.discriminatedUnion("logType", [StockAdditionBodySchema, StockOutBodySchema]),
 			data: NullSuccessResponseSchema,
+			headers: z.object({
+				"idempotency-key": z.uuid(),
+			}),
 		},
 	});
 };
@@ -487,7 +672,7 @@ const dashboardRoutes = () => {
 			strength: true,
 		}),
 		id: z.uuid(),
-		logType: z.enum(["damaged", "expired", "opening_stock", "reconciliation", "stock_in", "stock_out"]),
+		logType: StockLogTypeSchema,
 		person: z.string(),
 		quantity: z.number(),
 	}) satisfies z.ZodType<RecentStockActivityType>;

@@ -1,7 +1,7 @@
 import { useScrollObserver } from "@zayne-labs/toolkit-react";
 import { ForWithWrapper } from "@zayne-labs/ui-react/common/for";
 import { Logo } from "@/components/common/Logo";
-import { NavLink } from "@/components/common/NavLink";
+import { NavLink, NavLinkEphemeral } from "@/components/common/NavLink";
 import { Button } from "@/components/ui/button";
 import { cnJoin, cnMerge } from "@/lib/utils/cn";
 import { navLinkItems } from "../-constants/navLinkItems";
@@ -51,13 +51,15 @@ function DesktopNavigation(props: { className?: string }) {
 			/>
 
 			<div className="flex min-w-fit items-center gap-3">
-				<Button theme="primary-ghost" className="h-10" asChild={true}>
-					<NavLink to="/auth/signin">Sign in</NavLink>
-				</Button>
+				<NavLinkEphemeral to="/auth/signin">
+					<Button theme="primary-ghost" className="h-10">
+						Sign in
+					</Button>
+				</NavLinkEphemeral>
 
-				<Button className="h-10" asChild={true}>
-					<NavLink to="/auth/signup">Sign up for free</NavLink>
-				</Button>
+				<NavLinkEphemeral to="/auth/signup">
+					<Button className="h-10">Sign up for free</Button>
+				</NavLinkEphemeral>
 			</div>
 		</section>
 	);

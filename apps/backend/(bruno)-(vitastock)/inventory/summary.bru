@@ -1,0 +1,98 @@
+meta {
+  name: summary
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseURL}}/inventory/summary
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  # Inventory Summary
+
+  Returns one current inventory row per drug for the authenticated workspace. The summary is calculated from the drug master and stock batches at query time; it is not stored in a duplicate summary table.
+
+  ## Authorization
+
+  Requires an authenticated user with an active workspace membership.
+
+  ## Request
+
+  No path parameters, query parameters, or request body.
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Inventory summary fetched successfully",
+    "data": {
+      "stats": {
+        "criticalCount": 2,
+        "stockValueKobo": 18450000
+      },
+      "rows": [
+        {
+          "drugId": "drug-uuid",
+          "drug": {
+            "id": "drug-uuid",
+            "name": "Amoxicillin",
+            "strength": "500 mg",
+            "form": "Capsule",
+            "unit": "Capsule",
+            "isActive": true
+          },
+          "totalAvailable": 40,
+          "stockValueKobo": 1000000,
+          "status": "normal",
+          "hasExpiredStock": false,
+          "nearestExpiryDate": "2027-12-31T00:00:00.000Z",
+          "nearestBatch": {
+            "id": "batch-uuid",
+            "batchNumber": "BATCH-001",
+            "quantityAvailable": 40,
+            "expiryDate": "2027-12-31T00:00:00.000Z",
+            "unitCostKobo": 25000
+          }
+        }
+      ]
+    }
+  }
+  ```
+
+  ## Derived Fields
+
+  | Field | Meaning |
+  |-------|---------|
+  | `totalAvailable` | Sum of usable quantity remaining across the drug's non-expired batches. |
+  | `stockValueKobo` | Sum of each usable batch's available quantity multiplied by its unit cost. |
+  | `nearestBatch` | Available, non-expired batch with the earliest expiry date. Omitted when no usable batch exists. |
+  | `nearestExpiryDate` | Expiry date of `nearestBatch`. Omitted when no usable batch exists. |
+  | `hasExpiredStock` | Whether the drug still has quantity in at least one expired batch. |
+  | `status` | `expired`, `low_stock`, `normal`, or `out_of_stock`, derived from batches and the workspace threshold. |
+
+  `criticalCount` includes rows with `expired`, `low_stock`, or `out_of_stock` status.
+
+  ## Notes
+
+  - Monetary values are integer kobo.
+  - A drug can have usable stock and still have `hasExpiredStock: true` when another batch has expired.
+  - Workspace isolation is enforced by the authenticated membership.
+
+  ## Errors
+
+  | Status | Description |
+  |--------|-------------|
+  | `401 Unauthorized` | Authentication is invalid or workspace access is suspended. |
+  | `500 Internal Server Error` | Inventory aggregation failed unexpectedly. |
+}

@@ -1,12 +1,14 @@
 import { hash } from "@node-rs/argon2";
+import { getDatabaseSeedEnv } from "@vitastock/env/backend";
 import { consola } from "consola";
 import { sql } from "drizzle-orm";
-import { ENVIRONMENT } from "@/config/env";
 import { db } from "../db";
 import { users, type InsertUserType } from "../schema";
 import type { seedWorkspaces } from "./workspaces";
 
 type SeededWorkspaces = Awaited<ReturnType<typeof seedWorkspaces>>;
+
+const SEED_ENVIRONMENT = getDatabaseSeedEnv();
 
 const hashPassword = (password: string) => {
 	return hash(password, {
@@ -72,7 +74,7 @@ const getUsersSeedData = (options: {
 };
 
 export const seedUsers = async (seededWorkspaces: SeededWorkspaces) => {
-	const passwordHash = await hashPassword(ENVIRONMENT.SEED_PASSWORD);
+	const passwordHash = await hashPassword(SEED_ENVIRONMENT.SEED_PASSWORD);
 
 	const allUsers: InsertUserType[] = [];
 
@@ -86,7 +88,7 @@ export const seedUsers = async (seededWorkspaces: SeededWorkspaces) => {
 	}
 
 	consola.info(`Seeding ${allUsers.length} users across ${seededWorkspaces.length} workspaces...`);
-	consola.info(`All users have password: "${ENVIRONMENT.SEED_PASSWORD}"`);
+	consola.info("Seeded users use the configured SEED_PASSWORD.");
 
 	const seededUsers = await db
 		.insert(users)

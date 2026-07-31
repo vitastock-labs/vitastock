@@ -40,14 +40,34 @@ const prettyStream = pretty({
 	singleLine: true,
 });
 
-export const structuredLogger = pino(
-	{
-		enabled: ENVIRONMENT.NODE_ENV !== "test",
-		level: ENVIRONMENT.LOG_LEVEL,
-		timestamp: pino.stdTimeFunctions.isoTime,
+const loggerOptions = {
+	base: {
+		service: ENVIRONMENT.PROCESS_TYPE,
 	},
-	prettyStream
-);
+	enabled: ENVIRONMENT.NODE_ENV !== "test",
+	level: ENVIRONMENT.LOG_LEVEL,
+	redact: {
+		censor: "[REDACTED]",
+		paths: [
+			"authorization",
+			"cookie",
+			"req.headers.authorization",
+			"req.headers.cookie",
+			"*.accessToken",
+			"*.defaultPassword",
+			"*.password",
+			"*.refreshToken",
+			"*.resetToken",
+			"*.token",
+			"*.tokenHash",
+			"*.verificationCode",
+		],
+	},
+	timestamp: pino.stdTimeFunctions.isoTime,
+} satisfies Parameters<typeof pino>[0];
+
+export const structuredLogger =
+	ENVIRONMENT.NODE_ENV === "development" ? pino(loggerOptions, prettyStream) : pino(loggerOptions);
 
 type CriticalLogOptions = {
 	error?: unknown;

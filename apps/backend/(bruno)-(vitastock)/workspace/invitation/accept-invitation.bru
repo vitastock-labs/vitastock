@@ -24,7 +24,7 @@ settings {
 docs {
   # Accept Workspace Invitation
 
-  Accepts a workspace invitation and creates the pharmacist account. This endpoint should be called by the invited user after clicking the invitation link in their email. It does not sign the pharmacist in.
+  Accepts a workspace invitation and creates the invited account and workspace membership. This endpoint is called after the invited user follows the invitation link. It does not create a session.
 
   ## Request Body
 
@@ -40,7 +40,7 @@ docs {
       "user": {
         "id": "user-uuid",
         "email": "pharmacist@example.com",
-        "name": "Jane Smith",
+        "fullName": "Jane Smith",
         "role": "pharmacist",
         "emailVerifiedAt": "2024-05-20T10:30:00Z",
         "mustChangePassword": true,
@@ -82,7 +82,7 @@ docs {
 
   - Invitations expire after 7 days
   - After acceptance, the user's email is marked as verified
-  - The `mustChangePassword` flag is set to true, requiring the pharmacist to change password on first login
+  - The `mustChangePassword` flag is set to true, requiring the invited member to change password on first login
   - The default password provided in the invitation email can be used for the first login
   - No access or refresh cookies are set by this endpoint
   - Rate limited to prevent brute-force attacks

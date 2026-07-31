@@ -11,8 +11,8 @@ docs {
 
   VitaStock uses a cookie-based authentication system with Access and Refresh tokens.
 
-  - **Access Token**: Short-lived JWT stored in the `zayneVitaStockAccessToken` cookie.
-  - **Refresh Token**: Long-lived JWT stored in the `zayneVitaStockRefreshToken` cookie, used to generate new access tokens.
+  - **Access Token**: Short-lived JWT stored in the `vitaStockAccessToken` cookie.
+  - **Refresh Token**: Long-lived JWT stored in the `vitaStockRefreshToken` cookie, used to generate new access tokens.
 
   ### Authentication Flow
 
@@ -21,14 +21,14 @@ docs {
   3. **Signin**: Authenticate with email/password. Returns tokens via cookies.
   4. **Session**: Retrieve current user details from the session.
   5. **Password Management**: Forgot password, reset password, and change password features.
-  6. **Invitations**: Workspace owners can invite new pharmacists to join.
+  6. **Invitations**: Workspace owners and admins can invite eligible members.
 
-  *Note: Owners sign up directly. Pharmacists are provisioned only through invitations from workspace owners.*
+  *Note: Owners sign up directly. Admins and pharmacists are provisioned through workspace invitations.*
 
   ## Security Features
 
   - **Rate Limiting**: Authentication routes are rate-limited to prevent brute-force attacks.
-  - **Account Suspension**: Accounts are suspended after 3 failed password reset attempts or failed login attempts.
+  - **Retry Protection**: Repeated failed sign-in attempts temporarily block authentication; repeated invalid password-reset attempts can suspend workspace access.
   - **Token Rotation**: Refresh tokens are rotated on each use to prevent session hijacking.
   - **Input Validation**: All requests are validated using Zod schemas on both frontend and backend.
 
@@ -57,8 +57,9 @@ docs {
 
   ## Core Modules
 
-  - **Auth**: Signup, Email verification, Signin, Session management, Password management, Workspace invitations.
+  - **Auth**: Signup, email verification, signin, session management, and password management.
+  - **Workspace**: Membership, invitations, role and suspension management, and alert settings.
+  - **Inventory**: Drug master, stock movements, activity, stock summaries, and inventory alerts.
+  - **Dashboard**: Workspace inventory overview and recent activity.
   - **Health Check**: Server status endpoint.
-  - **Workspaces**: Managing pharmacies (coming soon).
-  - **Inventory**: Managing stock (coming soon).
 }

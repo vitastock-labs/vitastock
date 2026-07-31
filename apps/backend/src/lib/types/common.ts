@@ -12,5 +12,6 @@ export type HonoAppBindings = {
 		currentWorkspace: SessionWorkspaceType;
 		logger: PinoLogger;
 		requestId: string;
+		requestStartedAt: number;
 	};
 };

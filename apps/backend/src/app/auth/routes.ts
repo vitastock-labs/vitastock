@@ -15,17 +15,17 @@ import { AppError, AppJsonResponse } from "@/lib/utils";
 import { deleteCookie, getCookie, setCookie } from "@/lib/utils/cookie";
 import { authMiddleware, validateWithZodMiddleware } from "@/middleware";
 import { removeFromCache, setCache } from "@/services/cache";
-import { getAuthResponseData, getCurrentSessionState } from "./services/common";
+import { getAuthResponseData, getCurrentSessionState } from "./services/data-access/common";
 import { sendPasswordResetEmail, sendVerificationEmail, TokenSchema } from "./services/emails";
 import { getAuthEventPayload } from "./services/events";
-import { hashToken, hashValue, verifyHashedValue } from "./services/hash";
+import { hashToken, hashValue, verifyHashedValue } from "./services/utils/hash";
 import {
 	decodeJwtToken,
 	generateAccessToken,
 	generateRefreshToken,
 	getRefreshTokenResultWithHash,
 	getUpdatedTokenResultArray,
-} from "./services/token";
+} from "./services/utils/token";
 
 const authRoutes = new Hono()
 	.basePath("/auth")
@@ -170,7 +170,7 @@ const authRoutes = new Hono()
 				currentWorkspace,
 			} = await getCurrentSessionState({ user: currentUser });
 
-			if (currentMembership.status === "suspended" || currentMembership.suspendedAt) {
+			if (currentMembership.suspendedAt) {
 				throw new AppError({
 					appCode: AUTH_ERRORS.ACCOUNT_SUSPENDED.appCode,
 					code: 401,
@@ -418,7 +418,6 @@ const authRoutes = new Hono()
 					db
 						.update(workspaceMemberships)
 						.set({
-							status: "suspended",
 							suspendedAt,
 						})
 						.where(eq(workspaceMemberships.userId, result.user.id)),
@@ -466,7 +465,6 @@ const authRoutes = new Hono()
 					membership: {
 						id: workspaceMemberships.id,
 						role: workspaceMemberships.role,
-						status: workspaceMemberships.status,
 						suspendedAt: workspaceMemberships.suspendedAt,
 						workspaceId: workspaceMemberships.workspaceId,
 					},
@@ -479,7 +477,7 @@ const authRoutes = new Hono()
 				.where(eq(passwordResetTokens.tokenHash, hashedIncomingToken))
 				.limit(1);
 
-			if (!result?.token || result.membership.status === "suspended") {
+			if (!result?.token || result.membership.suspendedAt) {
 				throw new AppError({
 					code: 400,
 					message: "Invalid or expired reset token",
@@ -514,7 +512,6 @@ const authRoutes = new Hono()
 				const [membershipUpdate] = await tx
 					.update(workspaceMemberships)
 					.set({
-						status: "active",
 						suspendedAt: null,
 					})
 					.where(eq(workspaceMemberships.id, result.membership.id))

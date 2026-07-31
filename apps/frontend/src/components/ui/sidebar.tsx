@@ -12,6 +12,7 @@ import * as Tooltip from "@/components/ui/tooltip";
 import { useIsMobile } from "@/components/ui/useMobile";
 import { cnMerge } from "@/lib/utils/cn";
 import { IconBox } from "../common/IconBox";
+import { Presence } from "../common/presence";
 import { shadcnButtonVariants } from "./constants";
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state";
@@ -28,6 +29,7 @@ type SidebarContextType = {
 	setOpen: (open: boolean) => void;
 	setOpenMobile: (open: boolean) => void;
 	sidebarWidth?: string;
+	sidebarWidthDesktop?: string;
 	sidebarWidthIcon?: string;
 	sidebarWidthIconDesktop?: string;
 	sidebarWidthMobile?: string;
@@ -43,7 +45,11 @@ const [SidebarContextProvider, useSidebarContext] = createCustomContext({
 function SidebarProvider(
 	props: Pick<
 		SidebarContextType,
-		"sidebarWidth" | "sidebarWidthIcon" | "sidebarWidthIconDesktop" | "sidebarWidthMobile"
+		| "sidebarWidth"
+		| "sidebarWidthDesktop"
+		| "sidebarWidthIcon"
+		| "sidebarWidthIconDesktop"
+		| "sidebarWidthMobile"
 	>
 		& React.ComponentProps<"div"> & {
 			defaultOpen?: boolean;
@@ -52,13 +58,16 @@ function SidebarProvider(
 			withMobileBreakpoint?: boolean;
 		}
 ) {
+	const isMobileOrTabletWindow = useIsMobile({ mobileBreakpoint: 1000 });
+
 	const {
 		children,
 		className,
-		defaultOpen: defaultOpenProp = true,
+		defaultOpen: defaultOpenProp = !isMobileOrTabletWindow,
 		onOpenChange: onOpenChangeProp,
 		open: openProp,
 		sidebarWidth = SIDEBAR_WIDTH,
+		sidebarWidthDesktop = sidebarWidth,
 		sidebarWidthIcon = SIDEBAR_WIDTH_ICON,
 		sidebarWidthIconDesktop = sidebarWidthIcon,
 		sidebarWidthMobile = SIDEBAR_WIDTH_MOBILE,
@@ -113,8 +122,6 @@ function SidebarProvider(
 	// This makes it easier to style the sidebar with Tailwind classes.
 	const sidebarState = open ? "expanded" : "collapsed";
 
-	const isMobileOrTabletWindow = useIsMobile({ mobileBreakpoint: 1000 });
-
 	const contextValue = useMemo<SidebarContextType>(
 		() => ({
 			isMobile,
@@ -149,12 +156,13 @@ function SidebarProvider(
 				data-slot="sidebar-wrapper"
 				data-state={sidebarState}
 				className={cnMerge(
-					"group/sidebar-wrapper flex min-h-svh flex-col has-data-[variant=inset]:bg-shadcn-sidebar",
+					`group/sidebar-wrapper relative isolate z-70 flex min-h-svh flex-col
+					has-data-[variant=inset]:bg-shadcn-sidebar`,
 					className
 				)}
 				style={
 					{
-						"--sidebar-width": sidebarWidth,
+						"--sidebar-width": isMobileOrTabletWindow ? sidebarWidth : sidebarWidthDesktop,
 						"--sidebar-width-icon":
 							isMobileOrTabletWindow ? sidebarWidthIcon : sidebarWidthIconDesktop,
 						...style,
@@ -198,7 +206,8 @@ function SidebarRoot(
 			<aside
 				data-slot="sidebar-root"
 				className={cnMerge(
-					"flex w-(--sidebar-width) grow flex-col bg-shadcn-sidebar text-shadcn-sidebar-foreground",
+					`z-50 flex w-(--sidebar-width) grow flex-col bg-shadcn-sidebar
+					text-shadcn-sidebar-foreground`,
 					className,
 					classNames?.base
 				)}
@@ -235,7 +244,7 @@ function SidebarRoot(
 						<Sheet.Description>Displays the mobile sidebar.</Sheet.Description>
 					</Sheet.Header>
 
-					<aside className="flex size-full flex-col">{children}</aside>
+					<aside className="z-50 flex size-full flex-col">{children}</aside>
 				</Sheet.Content>
 			</Sheet.Root>
 		);
@@ -244,7 +253,7 @@ function SidebarRoot(
 	return (
 		<aside
 			className={cnMerge(
-				"group peer grow text-shadcn-sidebar-foreground data-[side=right]:order-last",
+				"group peer z-50 grow text-shadcn-sidebar-foreground data-[side=right]:order-last",
 				className,
 				classNames?.base
 			)}
@@ -270,8 +279,8 @@ function SidebarRoot(
 			<div
 				data-slot="sidebar-container"
 				className={cnMerge(
-					`fixed inset-y-0 z-10 flex h-svh w-(--sidebar-width) transition-[left,right,width]
-					duration-200 ease-linear data-[side=left]:left-0
+					`fixed inset-y-0 flex h-svh w-(--sidebar-width) transition-[left,right,width] duration-300
+					ease-linear data-[side=left]:left-0
 					data-[side=left]:group-data-[collapsible=offcanvas]:-left-(--sidebar-width)
 					data-[side=right]:right-0
 					data-[side=right]:group-data-[collapsible=offcanvas]:-right-(--sidebar-width)`,
@@ -307,8 +316,13 @@ function SidebarRoot(
 	);
 }
 
-function SidebarTrigger(props: React.ComponentProps<"button"> & { unstyled?: boolean }) {
-	const { children, className, onClick, unstyled = false, ...restOfProps } = props;
+function SidebarTrigger(
+	props: React.ComponentProps<"button"> & {
+		classNames?: { base?: string; icon?: string };
+		unstyled?: boolean;
+	}
+) {
+	const { children, className, classNames, onClick, unstyled = false, ...restOfProps } = props;
 
 	const { toggleSidebar } = useSidebarContext();
 
@@ -319,7 +333,8 @@ function SidebarTrigger(props: React.ComponentProps<"button"> & { unstyled?: boo
 			data-slot="sidebar-trigger"
 			className={cnMerge(
 				!unstyled && shadcnButtonVariants({ size: "icon-sm", variant: "ghost" }),
-				className
+				className,
+				classNames?.base
 			)}
 			onClick={(event) => {
 				onClick?.(event);
@@ -327,7 +342,7 @@ function SidebarTrigger(props: React.ComponentProps<"button"> & { unstyled?: boo
 			}}
 			{...restOfProps}
 		>
-			{children ?? <IconBox icon="lucide:panel-left" className="size-4" />}
+			{children ?? <IconBox icon="lucide:panel-left" className={cnMerge("size-4", classNames?.icon)} />}
 			<div className="sr-only">Toggle Sidebar</div>
 		</button>
 	);
@@ -478,6 +493,27 @@ function SidebarContent(props: React.ComponentProps<"div">) {
 	);
 }
 
+export function SidebarOverlay(props: React.ComponentProps<"div"> & { enabled?: boolean }) {
+	const { className, enabled = true, ...restOfProps } = props;
+
+	const { open, setOpen, state } = useSidebarContext();
+
+	return (
+		<Presence present={enabled && open}>
+			<div
+				data-state={state}
+				onClick={() => setOpen(false)}
+				className={cnMerge(
+					`data-[state=collapsed]:animate-fade-out data-[state=expanded]:animate-fade-in fixed inset-0
+					z-40 backdrop-blur-xs`,
+					className
+				)}
+				{...restOfProps}
+			/>
+		</Presence>
+	);
+}
+
 function SidebarGroup(props: React.ComponentProps<"div">) {
 	const { className, ...restOfProps } = props;
 
@@ -576,11 +612,11 @@ function SidebarMenuItem(props: React.ComponentProps<"li">) {
 
 const sidebarMenuButtonVariants = tv({
 	base: `peer/menu-button group/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md p-2
-	text-left text-sm ring-shadcn-sidebar-ring outline-hidden transition-[width,height,padding]
-	group-has-data-[sidebar=menu-action]/menu-item:pr-8 focus-visible:ring-2 disabled:pointer-events-none
-	disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50
-	data-active:bg-shadcn-sidebar-accent data-active:text-shadcn-sidebar-accent-foreground
-	[&>span:last-child]:truncate`,
+	text-left text-sm ring-shadcn-sidebar-ring outline-hidden transition-[width,height,padding,gap]
+	duration-300 ease-in-out group-has-data-[sidebar=menu-action]/menu-item:pr-8 focus-visible:ring-2
+	disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none
+	aria-disabled:opacity-50 data-active:bg-shadcn-sidebar-accent
+	data-active:text-shadcn-sidebar-accent-foreground [&>span:last-child]:truncate`,
 
 	defaultVariants: {
 		size: "default",
@@ -604,11 +640,12 @@ function SidebarMenuButton(
 	props: React.ComponentProps<"button">
 		& VariantProps<typeof sidebarMenuButtonVariants> & {
 			asChild?: boolean;
+			classNames?: { base?: string; tooltipArrow?: string; tooltipContent?: string };
 			isActive?: boolean;
 			tooltip?: string | React.ComponentProps<typeof Tooltip.Content>;
 		}
 ) {
-	let { asChild, className, isActive, size, tooltip, variant, ...restOfProps } = props;
+	let { asChild, className, classNames, isActive, size, tooltip, variant, ...restOfProps } = props;
 
 	const { isMobile, state } = useSidebarContext();
 
@@ -620,7 +657,7 @@ function SidebarMenuButton(
 			data-sidebar="menu-button"
 			data-size={size}
 			{...(isActive != null && { "data-active": isActive })}
-			className={cnMerge(sidebarMenuButtonVariants({ size, variant }), className)}
+			className={cnMerge(sidebarMenuButtonVariants({ size, variant }), className, classNames?.base)}
 			{...restOfProps}
 		/>
 	);
@@ -643,6 +680,10 @@ function SidebarMenuButton(
 				side="right"
 				align="center"
 				hidden={state !== "collapsed" || isMobile}
+				classNames={{
+					arrow: classNames?.tooltipArrow,
+					base: classNames?.tooltipContent,
+				}}
 				{...tooltip}
 			/>
 		</Tooltip.Root>
@@ -810,6 +851,7 @@ export {
 	SidebarHeader as Header,
 	SidebarInput as Input,
 	SidebarInset as Inset,
+	SidebarOverlay as Overlay,
 	SidebarMenu as Menu,
 	SidebarMenuAction as MenuAction,
 	SidebarMenuBadge as MenuBadge,

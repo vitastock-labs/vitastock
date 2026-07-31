@@ -76,8 +76,8 @@ export function ForceChangePasswordDialog() {
 								placeholder="Enter current password"
 								type="password"
 								classNames={{
-									inputGroup:
-										"h-12.5 rounded-lg border-none bg-[hsl(210,9%,96%)] p-4 focus-visible:ring-1",
+									inputGroup: `h-12.5 rounded-lg border border-shadcn-border bg-white p-4
+										focus-within:border-vitastock-primary-main`,
 								}}
 							/>
 							<Form.ErrorMessage />
@@ -91,8 +91,8 @@ export function ForceChangePasswordDialog() {
 								placeholder="Enter new password"
 								type="password"
 								classNames={{
-									inputGroup:
-										"h-12.5 rounded-lg border-none bg-[hsl(210,9%,96%)] p-4 focus-visible:ring-1",
+									inputGroup: `h-12.5 rounded-lg border border-shadcn-border bg-white p-4
+										focus-within:border-vitastock-primary-main`,
 								}}
 							/>
 							<Form.ErrorMessage />
@@ -106,8 +106,8 @@ export function ForceChangePasswordDialog() {
 								placeholder="Confirm new password"
 								type="password"
 								classNames={{
-									inputGroup:
-										"h-12.5 rounded-lg border-none bg-[hsl(210,9%,96%)] p-4 focus-visible:ring-1",
+									inputGroup: `h-12.5 rounded-lg border border-shadcn-border bg-white p-4
+										focus-within:border-vitastock-primary-main`,
 								}}
 							/>
 							<Form.ErrorMessage />

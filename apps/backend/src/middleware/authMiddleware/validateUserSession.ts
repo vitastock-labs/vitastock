@@ -7,14 +7,17 @@ import type { UnionDiscriminator } from "@zayne-labs/toolkit-type-helpers";
 import { eq } from "drizzle-orm";
 /* eslint-disable import/default */
 import jwt from "jsonwebtoken";
-import { getCurrentMembership, getCurrentSessionState } from "@/app/auth/services/common";
+import {
+	getCurrentMembership,
+	getCurrentSessionState,
+} from "@/app/auth/services/data-access/common";
 /* eslint-enable import/default */
 import {
 	decodeJwtToken,
 	generateAccessToken,
 	isTokenInWhitelist,
 	warnAboutTokenReuse,
-} from "@/app/auth/services/token";
+} from "@/app/auth/services/utils/token";
 import { ENVIRONMENT } from "@/config/env";
 import { AppError } from "@/lib/utils";
 import { deleteCookie } from "@/lib/utils/cookie";
@@ -111,7 +114,7 @@ const getAndVerifyUserFromToken = async (options: VerifyOptions) => {
 		user: baseUser,
 	});
 
-	if (currentMembership.status === "suspended" || currentMembership.suspendedAt) {
+	if (currentMembership.suspendedAt) {
 		throw new AppError({
 			appCode: AUTH_ERRORS.ACCOUNT_SUSPENDED.appCode,
 			code: 401,
