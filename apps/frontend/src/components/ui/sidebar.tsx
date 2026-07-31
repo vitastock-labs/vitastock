@@ -504,8 +504,8 @@ export function SidebarOverlay(props: React.ComponentProps<"div"> & { enabled?: 
 				data-state={state}
 				onClick={() => setOpen(false)}
 				className={cnMerge(
-					`data-[state=collapsed]:animate-fade-out data-[state=expanded]:animate-fade-in fixed inset-0
-					z-40 backdrop-blur-xs`,
+					`fixed inset-0 z-40 backdrop-blur-xs data-[state=collapsed]:animate-fade-out
+					data-[state=expanded]:animate-fade-in`,
 					className
 				)}
 				{...restOfProps}

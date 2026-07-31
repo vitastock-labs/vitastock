@@ -683,8 +683,8 @@ const dashboardRoutes = () => {
 				z.object({
 					recentActivity: z.array(RecentStockActivitySchema),
 					stats: z.object({
-						expiredCount: z.number(),
-						expiringSoonCount: z.number(),
+						expiredCount: z.preprocess((value) => Number(value), z.number()),
+						expiringSoonCount: z.preprocess((value) => Number(value), z.number()),
 						lowStockCount: z.number(),
 						stockValueKobo: z.number(),
 					}),

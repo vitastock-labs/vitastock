@@ -74,8 +74,8 @@ export const dashboardRoutes = new Hono()
 			data: {
 				recentActivity,
 				stats: {
-					expiredCount: Number(expiredResult[0]?.total ?? 0),
-					expiringSoonCount: Number(nearExpiryResult[0]?.total ?? 0),
+					expiredCount: expiredResult[0]?.total ?? 0,
+					expiringSoonCount: nearExpiryResult[0]?.total ?? 0,
 					lowStockCount: lowStockRows.length,
 					stockValueKobo: rows.reduce((total, row) => total + row.stockValueKobo, 0),
 				},

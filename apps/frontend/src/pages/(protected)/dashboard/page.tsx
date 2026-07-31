@@ -27,11 +27,11 @@ import { Main } from "./-components/Main";
 function DashboardPage() {
 	const dashboardOverviewQueryResult = useQuery(dashboardOverviewQuery());
 	const overview = dashboardOverviewQueryResult.data;
-	const hasNoInventory = Boolean(
+
+	const hasNoInventory =
 		dashboardOverviewQueryResult.isSuccess
 		&& overview?.recentActivity.length === 0
-		&& overview.stats.stockValueKobo === 0
-	);
+		&& overview.stats.stockValueKobo === 0;
 
 	return (
 		<Main className="gap-10 px-12 pt-12">

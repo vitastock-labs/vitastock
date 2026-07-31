@@ -1,6 +1,5 @@
 import "@colors/colors";
 import { serve } from "@hono/node-server";
-import { app } from "./app";
 import { registerAuthEventSubscribers } from "./app/auth/services/events";
 import { registerWorkspaceEventSubscribers } from "./app/workspace/services/events";
 import { ENVIRONMENT } from "./config/env";
@@ -28,6 +27,8 @@ try {
 	// eslint-disable-next-line node/no-process-exit, unicorn/no-process-exit
 	process.exit(1);
 }
+
+const { app } = await import("./app");
 
 const server = serve(
 	{
@@ -101,5 +102,4 @@ process.on("unhandledRejection", (error) => {
 	});
 });
 
-// eslint-disable-next-line unicorn/prefer-export-from
 export default app;

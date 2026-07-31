@@ -43,7 +43,9 @@ const drugFormInputClassName =
 export function DrugMasterDialog() {
 	const inventoryDrugsQueryResult = useQuery(inventoryDrugsQuery());
 	const drugs = inventoryDrugsQueryResult.data?.drugs ?? [];
+
 	const [drugToEdit, setDrugToEdit] = useState<Drug | null>(null);
+
 	const columns = useMemo<Array<ColumnDef<Drug>>>(
 		() => [
 			{
@@ -249,7 +251,6 @@ export function EditDrugDialog(props: { drug: Drug; onComplete: () => void }) {
 		await callBackendApiForQuery("@patch/inventory/drugs/:drugId", {
 			body: data,
 			meta: { toast: { success: true } },
-			params: { drugId: drug.id },
 			onSuccess: () => {
 				void Promise.all([
 					queryClient.invalidateQueries(inventoryDrugsQuery()),
@@ -260,6 +261,7 @@ export function EditDrugDialog(props: { drug: Drug; onComplete: () => void }) {
 				]);
 				onComplete();
 			},
+			params: { drugId: drug.id },
 		});
 	});
 
