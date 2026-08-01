@@ -7,7 +7,7 @@ import { redisQueueClient } from "./utils/queueClient";
 
 const emailQueueKey = "emailQueue";
 
-const connection = redisQueueClient as never;
+const connection = redisQueueClient;
 
 export const emailQueue = new Queue<EmailJobOptions>(emailQueueKey, {
 	connection,

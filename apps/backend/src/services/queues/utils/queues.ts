@@ -1,8 +1,8 @@
-import { startEmailQueueAndWorker, stopEmailQueueAndWorker } from "../emailQueue";
 import {
 	startInventoryAlertQueueAndWorker,
 	stopInventoryAlertQueueAndWorker,
-} from "../inventoryAlertQueue";
+} from "../../../app/inventory/services/alertQueue";
+import { startEmailQueueAndWorker, stopEmailQueueAndWorker } from "../emailQueue";
 
 export const startAllQueuesAndWorkers = async () => {
 	await startEmailQueueAndWorker();

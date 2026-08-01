@@ -1,25 +1,25 @@
 import { Queue, Worker } from "bullmq";
+import { appLogger } from "@/lib/logger";
+import { redisQueueClient } from "@/services/queues/utils/queueClient";
 import {
 	dispatchInventoryAlertOutbox,
-	evaluateAllInventoryAlerts,
 	queueDailyInventoryAlertDigests,
-} from "@/app/inventory/services/alertWorker";
-import { appLogger } from "@/lib/logger";
-import { redisQueueClient } from "./utils/queueClient";
+	runDailyInventoryAlertMaintenance,
+} from "./alertWorker";
 
 const inventoryAlertQueueKey = "inventoryAlertQueue";
-const connection = redisQueueClient as never;
+const connection = redisQueueClient;
 
 const inventoryAlertJobs = [
 	{
-		every: 10_000,
+		every: 5 * 60 * 1000,
 		name: "dispatch-alert-outbox",
 		run: dispatchInventoryAlertOutbox,
 	},
 	{
-		every: 60 * 60 * 1000,
+		every: 24 * 60 * 60 * 1000,
 		name: "evaluate-inventory-alerts",
-		run: evaluateAllInventoryAlerts,
+		run: runDailyInventoryAlertMaintenance,
 	},
 	{
 		every: 60 * 60 * 1000,

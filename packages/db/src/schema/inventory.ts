@@ -198,15 +198,10 @@ export const inventoryAlertOutbox = pg.pgTable(
 	"inventory_alert_outbox",
 	{
 		alertId: pg.uuid().references(() => inventoryAlerts.id, { onDelete: "cascade" }),
-		attemptCount: pg.integer().notNull().default(0),
 		createdAt: pg.timestamp({ withTimezone: true }).notNull().defaultNow(),
 		dedupeKey: pg.text().notNull(),
 		dispatchedAt: pg.timestamp({ withTimezone: true }),
-		failedAt: pg.timestamp({ withTimezone: true }),
 		id: pg.uuid().defaultRandom().primaryKey(),
-		lastError: pg.text(),
-		lockedAt: pg.timestamp({ withTimezone: true }),
-		nextAttemptAt: pg.timestamp({ withTimezone: true }),
 		recipientEmail: pg.text().notNull(),
 		recipientName: pg.text().notNull(),
 		type: pg.text({ enum: INVENTORY_ALERT_OUTBOX_TYPES }).notNull(),
@@ -217,9 +212,7 @@ export const inventoryAlertOutbox = pg.pgTable(
 	},
 	(table) => [
 		pg.uniqueIndex("inventory_alert_outbox_dedupe_key_index").on(table.dedupeKey),
-		pg
-			.index("inventory_alert_outbox_dispatch_index")
-			.on(table.dispatchedAt, table.failedAt, table.nextAttemptAt, table.createdAt),
+		pg.index("inventory_alert_outbox_dispatched_at_index").on(table.dispatchedAt),
 	]
 );
 

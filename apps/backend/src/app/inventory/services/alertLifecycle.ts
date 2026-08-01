@@ -168,80 +168,102 @@ export const getAlertRecipients = async (workspaceId: string) => {
 	return [...recipients.values()];
 };
 
+const persistInventoryAlertChanges = async (options: {
+	currentConditions: AlertCondition[];
+	recipients: Awaited<ReturnType<typeof getAlertRecipients>>;
+	workspaceId: string;
+}) => {
+	const { currentConditions, recipients, workspaceId } = options;
+	const now = new Date();
+
+	await db.transaction(async (tx) => {
+		const storedAlerts = await tx
+			.select()
+			.from(inventoryAlerts)
+			.where(eq(inventoryAlerts.workspaceId, workspaceId));
+		const storedAlertsByDedupeKey = new Map(storedAlerts.map((alert) => [alert.dedupeKey, alert]));
+
+		const reconciledAlerts = await Promise.all(
+			currentConditions.map(async (condition) => {
+				const storedAlert = storedAlertsByDedupeKey.get(condition.dedupeKey);
+				const isNewOccurrence = !storedAlert || storedAlert.status === "resolved";
+
+				if (storedAlert) {
+					const [alert] = await tx
+						.update(inventoryAlerts)
+						.set({
+							...condition,
+							acknowledgedAt: isNewOccurrence ? null : storedAlert.acknowledgedAt,
+							acknowledgedByUserId: isNewOccurrence ? null : storedAlert.acknowledgedByUserId,
+							lastNotifiedAt: isNewOccurrence ? null : storedAlert.lastNotifiedAt,
+							resolvedAt: null,
+							status: "active",
+						})
+						.where(eq(inventoryAlerts.id, storedAlert.id))
+						.returning();
+
+					return { alert, isNewOccurrence };
+				}
+
+				const [alert] = await tx
+					.insert(inventoryAlerts)
+					.values({ ...condition, status: "active", workspaceId })
+					.returning();
+
+				return { alert, isNewOccurrence };
+			})
+		);
+
+		const newlyRaisedAlerts = reconciledAlerts.flatMap(({ alert, isNewOccurrence }) => {
+			if (!alert || !isNewOccurrence) return [];
+
+			return [alert];
+		});
+		const outboxRecords = newlyRaisedAlerts.flatMap((alert) =>
+			recipients.map((recipient) => ({
+				alertId: alert.id,
+				dedupeKey: `alert_raised:${alert.id}:${now.toISOString()}:${recipient.email.toLowerCase()}`,
+				recipientEmail: recipient.email,
+				recipientName: recipient.name,
+				type: "alert_raised" as const,
+				workspaceId,
+			}))
+		);
+
+		if (outboxRecords.length > 0) {
+			await tx.insert(inventoryAlertOutbox).values(outboxRecords).onConflictDoNothing();
+		}
+
+		const currentDedupeKeys = currentConditions.map((condition) => condition.dedupeKey);
+		const alertsToResolveWhere =
+			currentDedupeKeys.length > 0 ?
+				and(
+					eq(inventoryAlerts.workspaceId, workspaceId),
+					eq(inventoryAlerts.status, "active"),
+					notInArray(inventoryAlerts.dedupeKey, currentDedupeKeys)
+				)
+			:	and(eq(inventoryAlerts.workspaceId, workspaceId), eq(inventoryAlerts.status, "active"));
+
+		await tx
+			.update(inventoryAlerts)
+			.set({ resolvedAt: now, status: "resolved" })
+			.where(alertsToResolveWhere);
+	});
+};
+
 export const syncInventoryAlerts = async (options: {
 	lowStockThreshold: number;
 	nearExpiryDays: number;
 	workspaceId: string;
 }) => {
 	const { lowStockThreshold, nearExpiryDays, workspaceId } = options;
-	const conditions = await getAlertConditions({ lowStockThreshold, nearExpiryDays, workspaceId });
-	const recipients = await getAlertRecipients(workspaceId);
-	const now = new Date();
 
-	await db.transaction(async (tx) => {
-		const existingAlerts = await tx
-			.select()
-			.from(inventoryAlerts)
-			.where(eq(inventoryAlerts.workspaceId, workspaceId));
-		const existingAlertsByDedupeKey = new Map(existingAlerts.map((alert) => [alert.dedupeKey, alert]));
+	const [currentConditions, recipients] = await Promise.all([
+		getAlertConditions({ lowStockThreshold, nearExpiryDays, workspaceId }),
+		getAlertRecipients(workspaceId),
+	]);
 
-		await Promise.all(
-			conditions.map(async (condition) => {
-				const existingAlert = existingAlertsByDedupeKey.get(condition.dedupeKey);
-				const shouldNotify = !existingAlert || existingAlert.status === "resolved";
-				const [alert] = await (async () => {
-					if (existingAlert) {
-						return tx
-							.update(inventoryAlerts)
-							.set({
-								...condition,
-								acknowledgedAt: shouldNotify ? null : existingAlert.acknowledgedAt,
-								acknowledgedByUserId: shouldNotify ? null : existingAlert.acknowledgedByUserId,
-								lastNotifiedAt: shouldNotify ? null : existingAlert.lastNotifiedAt,
-								resolvedAt: null,
-								status: "active",
-							})
-							.where(eq(inventoryAlerts.id, existingAlert.id))
-							.returning();
-					}
-
-					return tx
-						.insert(inventoryAlerts)
-						.values({ ...condition, status: "active", workspaceId })
-						.returning();
-				})();
-
-				if (!alert || !shouldNotify) return;
-
-				await tx
-					.insert(inventoryAlertOutbox)
-					.values(
-						recipients.map((recipient) => ({
-							alertId: alert.id,
-							dedupeKey: `alert_raised:${alert.id}:${now.toISOString()}:${recipient.email.toLowerCase()}`,
-							recipientEmail: recipient.email,
-							recipientName: recipient.name,
-							type: "alert_raised" as const,
-							workspaceId,
-						}))
-					)
-					.onConflictDoNothing();
-			})
-		);
-
-		const activeDedupeKeys = conditions.map((condition) => condition.dedupeKey);
-
-		const activeAlertScope = [
-			eq(inventoryAlerts.workspaceId, workspaceId),
-			eq(inventoryAlerts.status, "active"),
-			...(activeDedupeKeys.length > 0 ? [notInArray(inventoryAlerts.dedupeKey, activeDedupeKeys)] : []),
-		];
-
-		await tx
-			.update(inventoryAlerts)
-			.set({ resolvedAt: now, status: "resolved" })
-			.where(and(...activeAlertScope));
-	});
+	await persistInventoryAlertChanges({ currentConditions, recipients, workspaceId });
 };
 
 const getInventoryAlertAction = (type: AlertCondition["type"]) => {

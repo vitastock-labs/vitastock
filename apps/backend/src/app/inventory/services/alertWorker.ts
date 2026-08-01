@@ -6,15 +6,14 @@ import {
 	type SelectInventoryAlertOutboxType,
 } from "@vitastock/db/schema/inventory";
 import { workspaces } from "@vitastock/db/schema/workspace";
-import { addMilliseconds, subMilliseconds } from "date-fns";
-import { and, asc, count, eq, isNull, lt, lte, or } from "drizzle-orm";
-import { appLogger } from "@/lib/logger";
+import { subDays } from "date-fns";
+import { and, asc, count, eq, isNull, lt } from "drizzle-orm";
 import { addEmailToQueue } from "@/services/queues/emailQueue";
 import { getAlertRecipients, syncInventoryAlerts } from "./alertLifecycle";
-import { getAlertOutboxRetry } from "./utils/common";
 
 const alertOutboxBatchSize = 50;
-const alertOutboxLockTimeoutMs = 15 * 60 * 1000;
+const dispatchedOutboxRetentionDays = 7;
+const resolvedAlertRetentionDays = 180;
 
 const getWorkspaceDate = (date: Date, timeZone: string) => {
 	const parts = new Intl.DateTimeFormat("en-CA", {
@@ -43,7 +42,7 @@ const getAlertSummary = (alert: {
 	return `${alert.drugName} has ${alert.quantityAffected ?? 0} units ${alert.type === "expired" ? "that have expired" : "approaching expiry"}.`;
 };
 
-export const evaluateAllInventoryAlerts = async () => {
+const evaluateAllInventoryAlerts = async () => {
 	const workspaceRows = await db
 		.select({
 			id: workspaces.id,
@@ -61,6 +60,27 @@ export const evaluateAllInventoryAlerts = async () => {
 			})
 		)
 	);
+};
+
+const cleanupInventoryAlertRecords = async () => {
+	await Promise.all([
+		db
+			.delete(inventoryAlertOutbox)
+			.where(lt(inventoryAlertOutbox.dispatchedAt, subDays(new Date(), dispatchedOutboxRetentionDays))),
+		db
+			.delete(inventoryAlerts)
+			.where(
+				and(
+					eq(inventoryAlerts.status, "resolved"),
+					lt(inventoryAlerts.resolvedAt, subDays(new Date(), resolvedAlertRetentionDays))
+				)
+			),
+	]);
+};
+
+export const runDailyInventoryAlertMaintenance = async () => {
+	await evaluateAllInventoryAlerts();
+	await cleanupInventoryAlertRecords();
 };
 
 const queueWorkspaceInventoryAlertDigest = async (options: {
@@ -106,48 +126,6 @@ export const queueDailyInventoryAlertDigests = async () => {
 	await Promise.all(
 		workspaceRows.map((workspace) => queueWorkspaceInventoryAlertDigest({ now, workspace }))
 	);
-};
-
-const claimAlertOutboxRecords = async () => {
-	const staleLockAt = subMilliseconds(new Date(), alertOutboxLockTimeoutMs);
-
-	return db.transaction(async (tx) => {
-		const now = new Date();
-		const outboxRecords = await tx
-			.select()
-			.from(inventoryAlertOutbox)
-			.where(
-				and(
-					isNull(inventoryAlertOutbox.dispatchedAt),
-					isNull(inventoryAlertOutbox.failedAt),
-					or(isNull(inventoryAlertOutbox.lockedAt), lt(inventoryAlertOutbox.lockedAt, staleLockAt)),
-					or(isNull(inventoryAlertOutbox.nextAttemptAt), lte(inventoryAlertOutbox.nextAttemptAt, now))
-				)
-			)
-			.orderBy(asc(inventoryAlertOutbox.createdAt))
-			.limit(alertOutboxBatchSize)
-			.for("update", { skipLocked: true });
-
-		if (outboxRecords.length === 0) return [];
-
-		await Promise.all(
-			outboxRecords.map((outboxRecord) =>
-				tx
-					.update(inventoryAlertOutbox)
-					.set({ lockedAt: new Date() })
-					.where(eq(inventoryAlertOutbox.id, outboxRecord.id))
-			)
-		);
-
-		return outboxRecords;
-	});
-};
-
-const markOutboxRecordDispatched = async (outboxRecordId: string) => {
-	await db
-		.update(inventoryAlertOutbox)
-		.set({ dispatchedAt: new Date(), lockedAt: null })
-		.where(eq(inventoryAlertOutbox.id, outboxRecordId));
 };
 
 const enqueueInventoryAlertDigest = async (outboxRecord: SelectInventoryAlertOutboxType) => {
@@ -219,74 +197,31 @@ const enqueueImmediateInventoryAlert = async (outboxRecord: SelectInventoryAlert
 	});
 };
 
-const recordAlertOutboxFailure = async (outboxRecord: SelectInventoryAlertOutboxType, error: unknown) => {
-	const { hasExhaustedRetries, nextAttemptCount, retryDelayMs } = getAlertOutboxRetry(
-		outboxRecord.attemptCount
-	);
-	const lastError = error instanceof Error ? error.message : "Unknown alert dispatch error";
+const dispatchInventoryAlertOutboxRecord = async (outboxRecord: SelectInventoryAlertOutboxType) => {
+	await (outboxRecord.type === "alert_raised" ?
+		enqueueImmediateInventoryAlert(outboxRecord)
+	:	enqueueInventoryAlertDigest(outboxRecord));
 
 	await db
 		.update(inventoryAlertOutbox)
-		.set({
-			attemptCount: nextAttemptCount,
-			failedAt: hasExhaustedRetries ? new Date() : null,
-			lastError,
-			lockedAt: null,
-			nextAttemptAt: hasExhaustedRetries ? null : addMilliseconds(new Date(), retryDelayMs),
-		})
+		.set({ dispatchedAt: new Date() })
 		.where(eq(inventoryAlertOutbox.id, outboxRecord.id));
 
-	const message = `Failed to dispatch inventory alert outbox record ${outboxRecord.id}`;
+	if (!outboxRecord.alertId) return;
 
-	if (hasExhaustedRetries) {
-		appLogger.critical({
-			error,
-			message,
-			meta: { attemptCount: nextAttemptCount, outboxRecordId: outboxRecord.id },
-		});
-		return;
-	}
-
-	const logInfo = {
-		attemptCount: nextAttemptCount,
-		err: error,
-		outboxRecordId: outboxRecord.id,
-	};
-	appLogger.structured.error(logInfo, message);
-	appLogger.pretty.error(message, logInfo);
-};
-
-const dispatchInventoryAlertOutboxRecord = async (outboxRecord: SelectInventoryAlertOutboxType) => {
-	try {
-		switch (outboxRecord.type) {
-			case "alert_raised": {
-				await enqueueImmediateInventoryAlert(outboxRecord);
-				break;
-			}
-			case "daily_digest": {
-				await enqueueInventoryAlertDigest(outboxRecord);
-				break;
-			}
-			default: {
-				throw new Error("Unsupported inventory alert outbox type");
-			}
-		}
-
-		await markOutboxRecordDispatched(outboxRecord.id);
-
-		if (outboxRecord.alertId) {
-			await db
-				.update(inventoryAlerts)
-				.set({ lastNotifiedAt: new Date() })
-				.where(eq(inventoryAlerts.id, outboxRecord.alertId));
-		}
-	} catch (error) {
-		await recordAlertOutboxFailure(outboxRecord, error);
-	}
+	await db
+		.update(inventoryAlerts)
+		.set({ lastNotifiedAt: new Date() })
+		.where(eq(inventoryAlerts.id, outboxRecord.alertId));
 };
 
 export const dispatchInventoryAlertOutbox = async () => {
-	const outboxRecords = await claimAlertOutboxRecords();
+	const outboxRecords = await db
+		.select()
+		.from(inventoryAlertOutbox)
+		.where(isNull(inventoryAlertOutbox.dispatchedAt))
+		.orderBy(asc(inventoryAlertOutbox.createdAt))
+		.limit(alertOutboxBatchSize);
 
 	await Promise.all(
 		outboxRecords.map((outboxRecord) => dispatchInventoryAlertOutboxRecord(outboxRecord))
