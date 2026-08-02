@@ -223,7 +223,5 @@ export const enqueuePendingInventoryAlertEmails = async () => {
 		.orderBy(asc(inventoryAlertOutbox.createdAt))
 		.limit(alertOutboxBatchSize);
 
-	await Promise.all(
-		outboxRecords.map((outboxRecord) => enqueueInventoryAlertEmail(outboxRecord))
-	);
+	await Promise.all(outboxRecords.map((outboxRecord) => enqueueInventoryAlertEmail(outboxRecord)));
 };

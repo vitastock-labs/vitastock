@@ -1,5 +1,5 @@
-import { drizzle } from "drizzle-orm/node-postgres";
 import { consola } from "consola";
+import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { dbConnectionString, drizzleConfig } from "../drizzle.config";
 import { ENVIRONMENT } from "./config/env";
