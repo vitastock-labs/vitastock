@@ -5,7 +5,7 @@ const databaseUrls = {
 	development: ENVIRONMENT.DATABASE_URL_DEV,
 	production: ENVIRONMENT.DATABASE_URL,
 	test: ENVIRONMENT.DATABASE_URL_TEST,
-} satisfies Record<typeof ENVIRONMENT.NODE_ENV, string>;
+} as const satisfies Record<typeof ENVIRONMENT.NODE_ENV, string>;
 
 export const dbConnectionString = databaseUrls[ENVIRONMENT.NODE_ENV];
 

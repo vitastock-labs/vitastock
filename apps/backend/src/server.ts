@@ -1,5 +1,6 @@
 import "@colors/colors";
 import { serve } from "@hono/node-server";
+import { closeDatabaseConnection, initializeDatabaseConnection } from "@vitastock/db";
 import { registerAuthEventSubscribers } from "./app/auth/services/events";
 import { registerWorkspaceEventSubscribers } from "./app/workspace/services/events";
 import { ENVIRONMENT } from "./config/env";
@@ -13,7 +14,8 @@ registerWorkspaceEventSubscribers();
 registerEmailEnqueueEventSubscribers();
 
 try {
-	await Promise.all([initializeRedisCacheClient(), initializeBackgroundServices()]);
+	await Promise.all([initializeDatabaseConnection(), initializeRedisCacheClient()]);
+	await initializeBackgroundServices();
 
 	appLogger.pretty.success("API and background services initialized successfully!".green.italic);
 } catch (error) {
@@ -22,7 +24,11 @@ try {
 		message: "Failed to initialize API or background services",
 	});
 
-	await Promise.allSettled([closeRedisCacheClient(), stopBackgroundServices()]);
+	await Promise.allSettled([
+		closeDatabaseConnection(),
+		closeRedisCacheClient(),
+		stopBackgroundServices(),
+	]);
 
 	// eslint-disable-next-line node/no-process-exit, unicorn/no-process-exit
 	process.exit(1);
@@ -53,7 +59,11 @@ const shutdown = (signal: string) => {
 	appLogger.pretty.info(`Received ${signal}; stopping API services...`);
 
 	server.close(() => {
-		void Promise.all([closeRedisCacheClient(), stopBackgroundServices()]).finally(() => {
+		void Promise.all([
+			closeDatabaseConnection(),
+			closeRedisCacheClient(),
+			stopBackgroundServices(),
+		]).finally(() => {
 			process.exitCode = 0;
 		});
 	});
@@ -95,7 +105,11 @@ process.on("unhandledRejection", (error) => {
 	appLogger.critical({ error, message });
 
 	server.close(() => {
-		void Promise.all([closeRedisCacheClient(), stopBackgroundServices()]).finally(() => {
+		void Promise.all([
+			closeDatabaseConnection(),
+			closeRedisCacheClient(),
+			stopBackgroundServices(),
+		]).finally(() => {
 			// eslint-disable-next-line node/no-process-exit
 			process.exit(1);
 		});

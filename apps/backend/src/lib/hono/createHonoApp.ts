@@ -15,15 +15,7 @@ const createHonoApp = () => {
 	const app = new Hono<HonoAppBindings>({ strict: false });
 
 	/**
-	 *  == Middleware - App Security
-	 */
-	app.use(rateLimiter(globalRateLimiterOptions));
-	app.use(secureHeaders(secureHeadersOptions));
-	app.use(cors(corsOptions));
-	app.use(csrf({ origin: allowedOrigins, secFetchSite: ["same-origin", "same-site", "none"] }));
-
-	/**
-	 *  == Middleware - Request ID
+	 *  == Middleware - Request context and logger
 	 */
 	app.use(requestId());
 	app.use(async (ctx, next) => {
@@ -40,6 +32,14 @@ const createHonoApp = () => {
 		// })
 		pinoLoggerMiddleware()
 	);
+
+	/**
+	 *  == Middleware - App Security
+	 */
+	app.use(secureHeaders(secureHeadersOptions));
+	app.use(cors(corsOptions));
+	app.use(csrf({ origin: allowedOrigins, secFetchSite: ["same-origin", "same-site", "none"] }));
+	app.use("/api/*", rateLimiter(globalRateLimiterOptions));
 
 	/**
 	 *  == Notfound Route handler

@@ -2,34 +2,33 @@ import { Queue, Worker } from "bullmq";
 import { appLogger } from "@/lib/logger";
 import { redisQueueClient } from "@/services/queues/utils/queueClient";
 import {
-	dispatchInventoryAlertOutbox,
-	queueDailyInventoryAlertDigests,
-	runDailyInventoryAlertMaintenance,
-} from "./alertWorker";
+	createDueInventoryAlertDigests,
+	enqueuePendingInventoryAlertEmails,
+	maintainInventoryAlerts,
+} from "./alertJobs";
 
-const inventoryAlertQueueKey = "inventoryAlertQueue";
-const connection = redisQueueClient;
+const inventoryAlertQueueName = "inventoryAlertQueue";
 
-const inventoryAlertJobs = [
+const inventoryAlertJobDefinitions = [
 	{
 		every: 5 * 60 * 1000,
 		name: "dispatch-alert-outbox",
-		run: dispatchInventoryAlertOutbox,
+		run: enqueuePendingInventoryAlertEmails,
 	},
 	{
 		every: 24 * 60 * 60 * 1000,
 		name: "evaluate-inventory-alerts",
-		run: runDailyInventoryAlertMaintenance,
+		run: maintainInventoryAlerts,
 	},
 	{
 		every: 60 * 60 * 1000,
 		name: "queue-alert-digests",
-		run: queueDailyInventoryAlertDigests,
+		run: createDueInventoryAlertDigests,
 	},
 ] as const;
 
-const inventoryAlertQueue = new Queue<Record<string, never>>(inventoryAlertQueueKey, {
-	connection,
+const inventoryAlertQueue = new Queue<Record<string, never>>(inventoryAlertQueueName, {
+	connection: redisQueueClient,
 	defaultJobOptions: {
 		attempts: 3,
 		backoff: {
@@ -45,34 +44,32 @@ const inventoryAlertQueue = new Queue<Record<string, never>>(inventoryAlertQueue
 	},
 });
 
-let inventoryAlertWorker: Worker<Record<string, never>> | null = null;
-
-const getInventoryAlertWorker = () => {
-	inventoryAlertWorker ??= new Worker<Record<string, never>>(
-		inventoryAlertQueueKey,
+const createInventoryAlertWorker = () => {
+	const worker = new Worker<Record<string, never>>(
+		inventoryAlertQueueName,
 		async (job) => {
-			const scheduledJob = inventoryAlertJobs.find(({ name }) => name === job.name);
+			const jobDefinition = inventoryAlertJobDefinitions.find(({ name }) => name === job.name);
 
-			if (!scheduledJob) {
+			if (!jobDefinition) {
 				throw new Error(`Unsupported inventory alert job: ${job.name}`);
 			}
 
-			await scheduledJob.run();
+			await jobDefinition.run();
 		},
 		{
 			concurrency: 1,
-			connection,
+			connection: redisQueueClient,
 		}
 	);
 
-	inventoryAlertWorker.on("error", (error) => {
+	worker.on("error", (error) => {
 		appLogger.critical({
 			error,
 			message: `Inventory alert worker error: ${error.message}`,
 		});
 	});
 
-	inventoryAlertWorker.on("failed", (job, error) => {
+	worker.on("failed", (job, error) => {
 		const message = `Inventory alert job '${job?.name ?? "unknown"}' failed`;
 		const logInfo = {
 			attemptsMade: job?.attemptsMade,
@@ -84,25 +81,27 @@ const getInventoryAlertWorker = () => {
 		appLogger.pretty.error(message, logInfo);
 	});
 
-	return inventoryAlertWorker;
+	return worker;
 };
+
+let inventoryAlertWorker: Worker<Record<string, never>> | null = null;
 
 export const startInventoryAlertQueueAndWorker = async () => {
 	if (redisQueueClient.status === "wait") {
 		await redisQueueClient.connect();
 	}
 
-	const worker = getInventoryAlertWorker();
+	inventoryAlertWorker ??= createInventoryAlertWorker();
 
-	await Promise.all([inventoryAlertQueue.waitUntilReady(), worker.waitUntilReady()]);
+	await Promise.all([inventoryAlertQueue.waitUntilReady(), inventoryAlertWorker.waitUntilReady()]);
 	await Promise.all(
-		inventoryAlertJobs.map((job) =>
+		inventoryAlertJobDefinitions.map((jobDefinition) =>
 			inventoryAlertQueue.upsertJobScheduler(
-				job.name,
-				{ every: job.every },
+				jobDefinition.name,
+				{ every: jobDefinition.every },
 				{
 					data: {},
-					name: job.name,
+					name: jobDefinition.name,
 				}
 			)
 		)

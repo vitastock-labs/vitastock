@@ -5,12 +5,10 @@ import { appLogger } from "@/lib/logger";
 import { sendEmail } from "../email/send";
 import { redisQueueClient } from "./utils/queueClient";
 
-const emailQueueKey = "emailQueue";
+const emailQueueName = "emailQueue";
 
-const connection = redisQueueClient;
-
-export const emailQueue = new Queue<EmailJobOptions>(emailQueueKey, {
-	connection,
+export const emailQueue = new Queue<EmailJobOptions>(emailQueueName, {
+	connection: redisQueueClient,
 	defaultJobOptions: {
 		attempts: 3,
 		backoff: {
@@ -52,13 +50,12 @@ export const addEmailToQueue = async (options: EmailJobOptions) => {
 	}
 };
 
-// == Lazy initialization - only create when Redis is connected
 let emailWorker: Worker<EmailJobOptions> | null = null;
-let emailQueueEvent: QueueEvents | null = null;
+let emailQueueEvents: QueueEvents | null = null;
 
-const getEmailWorker = () => {
-	emailWorker ??= new Worker<EmailJobOptions>(
-		emailQueueKey,
+const createEmailWorker = () => {
+	const worker = new Worker<EmailJobOptions>(
+		emailQueueName,
 		async (job) => {
 			const result = await sendEmail(job.data);
 
@@ -69,7 +66,7 @@ const getEmailWorker = () => {
 			});
 		},
 		{
-			connection,
+			connection: redisQueueClient,
 			limiter: {
 				duration: 1000,
 				max: 1,
@@ -85,63 +82,65 @@ const getEmailWorker = () => {
 		}
 	);
 
-	emailWorker.on("error", (error) => {
+	worker.on("error", (error) => {
 		appLogger.critical({
 			error,
 			message: `Error processing email job: ${error.message}. Redis Status: ${redisQueueClient.status}`,
 		});
 	});
 
-	emailWorker.on("stalled", (jobId) => {
+	worker.on("stalled", (jobId) => {
 		appLogger.pretty.warn(`Job ''${jobId}'' stalled - will be retried by another worker`);
 	});
 
-	return emailWorker;
+	return worker;
 };
 
-const getEmailQueueEvents = () => {
-	emailQueueEvent ??= new QueueEvents(emailQueueKey, { connection });
+const createEmailQueueEvents = () => {
+	const queueEvents = new QueueEvents(emailQueueName, { connection: redisQueueClient });
 
-	emailQueueEvent.on("failed", ({ failedReason, jobId }) => {
+	queueEvents.on("failed", ({ failedReason, jobId }) => {
 		appLogger.pretty.error(`Job '${jobId}' failed with error ${failedReason}`, { failedReason });
 	});
 
-	emailQueueEvent.on("waiting", ({ jobId }) => {
+	queueEvents.on("waiting", ({ jobId }) => {
 		appLogger.pretty.info(`Job '${jobId}' is waiting`);
 	});
 
-	emailQueueEvent.on("completed", ({ jobId, returnvalue }) => {
+	queueEvents.on("completed", ({ jobId, returnvalue }) => {
 		appLogger.pretty.info(`Job '${jobId}' completed`, { returnvalue });
 	});
 
-	emailQueueEvent.on("retries-exhausted", ({ attemptsMade, jobId }) => {
+	queueEvents.on("retries-exhausted", ({ attemptsMade, jobId }) => {
 		appLogger.pretty.error(`Job '${jobId}' failed after ${attemptsMade} attempts - no more retries`);
 	});
 
-	emailQueueEvent.on("progress", ({ data, jobId }) => {
+	queueEvents.on("progress", ({ data, jobId }) => {
 		appLogger.pretty.debug(`Job '${jobId}' progress:`, { data });
 	});
 
-	return emailQueueEvent;
+	return queueEvents;
 };
 
 export const startEmailQueueAndWorker = async () => {
-	// == Ensure Redis is connected before creating Worker/QueueEvents
 	if (redisQueueClient.status === "wait") {
 		await redisQueueClient.connect();
 	}
 
-	// == Now create Worker and QueueEvents (Redis is ready)
-	const worker = getEmailWorker();
-	const queueEvents = getEmailQueueEvents();
+	emailWorker ??= createEmailWorker();
+	emailQueueEvents ??= createEmailQueueEvents();
 
-	await Promise.all([emailQueue.waitUntilReady(), queueEvents.waitUntilReady(), worker.waitUntilReady()]);
+	await Promise.all([
+		emailQueue.waitUntilReady(),
+		emailQueueEvents.waitUntilReady(),
+		emailWorker.waitUntilReady(),
+	]);
 
 	appLogger.pretty.info("Email queue and worker are ready!");
 };
 
 export const stopEmailQueueAndWorker = async () => {
-	await Promise.all([emailWorker?.close(), emailQueueEvent?.close(), emailQueue.close()]);
+	await Promise.all([emailWorker?.close(), emailQueueEvents?.close(), emailQueue.close()]);
 
 	appLogger.pretty.info("Email queue and worker closed!");
 };

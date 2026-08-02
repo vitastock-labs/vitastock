@@ -67,6 +67,12 @@ export const databaseSeedEnvSchema = databaseEnvSchema.extend({
 	SEED_PASSWORD: backendEnvSchema.shape.SEED_PASSWORD,
 });
 
+export const serviceKeepAliveEnvSchema = backendEnvSchema.pick({
+	BREVO_API_KEY: true,
+	REDIS_CACHE_URL: true,
+	REDIS_QUEUE_URL: true,
+});
+
 const packageJson = findUpSync("pnpm-workspace.yaml", { cwd: import.meta.dirname });
 
 const monorepoRoot = packageJson ? path.dirname(packageJson) : null;
@@ -101,3 +107,5 @@ export const getBackendEnv = () => parseEnvironment(backendEnvSchema);
 export const getDatabaseEnv = () => parseEnvironment(databaseEnvSchema);
 
 export const getDatabaseSeedEnv = () => parseEnvironment(databaseSeedEnvSchema);
+
+export const getServiceKeepAliveEnv = () => parseEnvironment(serviceKeepAliveEnvSchema);

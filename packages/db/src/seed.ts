@@ -1,7 +1,5 @@
-/* eslint-disable unicorn/no-process-exit */
-/* eslint-disable node/no-process-exit */
-
 import { consola } from "consola";
+import { closeDatabaseConnection } from "./db";
 import {
 	seedInventory,
 	seedUsers,
@@ -39,10 +37,11 @@ const runSeeders = async () => {
 		}
 
 		consola.success("Seeding completed!");
-		process.exit(0);
 	} catch (error) {
 		consola.error("Seeding failed:", error);
-		process.exit(1);
+		process.exitCode = 1;
+	} finally {
+		await closeDatabaseConnection();
 	}
 };
 

@@ -42,7 +42,7 @@ const getAlertSummary = (alert: {
 	return `${alert.drugName} has ${alert.quantityAffected ?? 0} units ${alert.type === "expired" ? "that have expired" : "approaching expiry"}.`;
 };
 
-const evaluateAllInventoryAlerts = async () => {
+const syncAllWorkspaceInventoryAlerts = async () => {
 	const workspaceRows = await db
 		.select({
 			id: workspaces.id,
@@ -78,12 +78,12 @@ const cleanupInventoryAlertRecords = async () => {
 	]);
 };
 
-export const runDailyInventoryAlertMaintenance = async () => {
-	await evaluateAllInventoryAlerts();
+export const maintainInventoryAlerts = async () => {
+	await syncAllWorkspaceInventoryAlerts();
 	await cleanupInventoryAlertRecords();
 };
 
-const queueWorkspaceInventoryAlertDigest = async (options: {
+const createWorkspaceDigestOutboxRecords = async (options: {
 	now: Date;
 	workspace: { id: string; timezone: string };
 }) => {
@@ -117,18 +117,18 @@ const queueWorkspaceInventoryAlertDigest = async (options: {
 		.onConflictDoNothing();
 };
 
-export const queueDailyInventoryAlertDigests = async () => {
+export const createDueInventoryAlertDigests = async () => {
 	const now = new Date();
 	const workspaceRows = await db
 		.select({ id: workspaces.id, timezone: workspaces.timezone })
 		.from(workspaces);
 
 	await Promise.all(
-		workspaceRows.map((workspace) => queueWorkspaceInventoryAlertDigest({ now, workspace }))
+		workspaceRows.map((workspace) => createWorkspaceDigestOutboxRecords({ now, workspace }))
 	);
 };
 
-const enqueueInventoryAlertDigest = async (outboxRecord: SelectInventoryAlertOutboxType) => {
+const enqueueDigestEmail = async (outboxRecord: SelectInventoryAlertOutboxType) => {
 	const [workspace] = await db
 		.select({ name: workspaces.name })
 		.from(workspaces)
@@ -165,7 +165,7 @@ const enqueueInventoryAlertDigest = async (outboxRecord: SelectInventoryAlertOut
 	});
 };
 
-const enqueueImmediateInventoryAlert = async (outboxRecord: SelectInventoryAlertOutboxType) => {
+const enqueueImmediateAlertEmail = async (outboxRecord: SelectInventoryAlertOutboxType) => {
 	if (!outboxRecord.alertId) return;
 
 	const [alert] = await db
@@ -197,10 +197,10 @@ const enqueueImmediateInventoryAlert = async (outboxRecord: SelectInventoryAlert
 	});
 };
 
-const dispatchInventoryAlertOutboxRecord = async (outboxRecord: SelectInventoryAlertOutboxType) => {
+const enqueueInventoryAlertEmail = async (outboxRecord: SelectInventoryAlertOutboxType) => {
 	await (outboxRecord.type === "alert_raised" ?
-		enqueueImmediateInventoryAlert(outboxRecord)
-	:	enqueueInventoryAlertDigest(outboxRecord));
+		enqueueImmediateAlertEmail(outboxRecord)
+	:	enqueueDigestEmail(outboxRecord));
 
 	await db
 		.update(inventoryAlertOutbox)
@@ -215,7 +215,7 @@ const dispatchInventoryAlertOutboxRecord = async (outboxRecord: SelectInventoryA
 		.where(eq(inventoryAlerts.id, outboxRecord.alertId));
 };
 
-export const dispatchInventoryAlertOutbox = async () => {
+export const enqueuePendingInventoryAlertEmails = async () => {
 	const outboxRecords = await db
 		.select()
 		.from(inventoryAlertOutbox)
@@ -224,6 +224,6 @@ export const dispatchInventoryAlertOutbox = async () => {
 		.limit(alertOutboxBatchSize);
 
 	await Promise.all(
-		outboxRecords.map((outboxRecord) => dispatchInventoryAlertOutboxRecord(outboxRecord))
+		outboxRecords.map((outboxRecord) => enqueueInventoryAlertEmail(outboxRecord))
 	);
 };
