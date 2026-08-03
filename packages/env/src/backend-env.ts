@@ -13,8 +13,8 @@ export const backendEnvSchema = z.object({
 	ACCESS_JWT_EXPIRES_IN: z.string().transform((value) => evaluateString<number>(value)),
 	ACCESS_SECRET: z.string(),
 	BREVO_API_KEY: z.string(),
-	BULL_BOARD_PASSWORD: z.string().min(16),
-	BULL_BOARD_USERNAME: z.string().trim().min(3),
+	BULL_BOARD_PASSWORD: z.string().min(8),
+	BULL_BOARD_USERNAME: z.string().min(3),
 	DATABASE_URL: z.string(),
 	DATABASE_URL_DEV: z
 		.literal([
