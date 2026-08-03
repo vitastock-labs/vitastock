@@ -1,9 +1,6 @@
 import { registerEmailDeliveryEventSubscribers } from "@/services/queues/events";
 import { startAllQueuesAndWorkers, stopAllQueuesAndWorkers } from "@/services/queues/utils/queues";
-import {
-	startServiceKeepAliveSchedule,
-	stopServiceKeepAliveSchedule,
-} from "./maintenance/schedule";
+import { startServiceKeepAliveSchedule, stopServiceKeepAliveSchedule } from "./maintenance/schedule";
 
 export const initializeBackgroundServices = async () => {
 	registerEmailDeliveryEventSubscribers();
