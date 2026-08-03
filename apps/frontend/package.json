@@ -5,6 +5,7 @@
 	"private": true,
 	"scripts": {
 		"build": "vite build",
+		"build:staging": "vite build --mode=staging",
 		"dev": "vite",
 		"lint:eslint": "eslint . --max-warnings=0",
 		"lint:format": "prettier --write=.",

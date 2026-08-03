@@ -3,6 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
+import { parseAsString, useQueryState } from "nuqs";
 import { useMemo, useState } from "react";
 import { useForm, type UseFormReturn } from "react-hook-form";
 import type { z } from "zod";
@@ -14,8 +15,10 @@ import { Button } from "@/components/ui/button";
 import {
 	DataTable,
 	DataTableColumnHeader,
-	DataTableToolbar,
+	DataTableQueryToolbar,
 	useDataTable,
+	useDataTableQueryState,
+	type DataTableQueryKeys,
 } from "@/components/ui/data-table";
 import { Form } from "@/components/ui/form";
 import { callBackendApiForQuery } from "@/lib/api/callBackendApi";
@@ -25,13 +28,13 @@ import {
 	dashboardOverviewQuery,
 	inventoryAlertsQueryKey,
 	inventoryAlertsUnreadCountQuery,
-	inventoryDrugsQuery,
+	inventoryDrugsListQuery,
 	inventorySummaryQuery,
-	type InventoryDrugsQueryResultType,
+	type InventoryDrugsListQueryResultType,
 } from "@/lib/react-query/queryOptions";
 import { cnJoin } from "@/lib/utils/cn";
 
-type Drug = InventoryDrugsQueryResultType["drugs"][number];
+type Drug = InventoryDrugsListQueryResultType["drugs"][number];
 
 const DrugCreateSchema = backendApiSchemaRoutes["@post/inventory/drugs"].body;
 const DrugUpdateSchema = backendApiSchemaRoutes["@patch/inventory/drugs/:drugId"].body.required();
@@ -40,35 +43,55 @@ type DrugFormValues = z.input<typeof DrugCreateSchema>;
 const drugFormInputClassName =
 	"h-10 rounded-lg border border-shadcn-border bg-white px-4 focus:border-vitastock-primary-main";
 
+const DRUG_TABLE_QUERY_KEYS = {
+	page: "drugPage",
+	perPage: "drugPageSize",
+	search: "drugSearch",
+} as const satisfies DataTableQueryKeys;
+
 export function DrugMasterDialog() {
-	const inventoryDrugsQueryResult = useQuery(inventoryDrugsQuery());
-	const drugs = inventoryDrugsQueryResult.data?.drugs ?? [];
+	const { onPaginationChange, pagination } = useDataTableQueryState({
+		queryKeys: DRUG_TABLE_QUERY_KEYS,
+	});
+	const [search] = useQueryState(DRUG_TABLE_QUERY_KEYS.search, parseAsString.withDefault(""));
+	const inventoryDrugsQueryResult = useQuery(
+		inventoryDrugsListQuery({
+			page: pagination.pageIndex + 1,
+			pageSize: pagination.pageSize,
+			...(search && { search }),
+		})
+	);
+	const result = inventoryDrugsQueryResult.data;
+	const drugs = result?.drugs ?? [];
 
 	const [drugToEdit, setDrugToEdit] = useState<Drug | null>(null);
 
 	const columns = useMemo<Array<ColumnDef<Drug>>>(
 		() => [
 			{
-				accessorKey: "name",
+				accessorFn: (drug) => `${drug.name} ${drug.genericName} ${drug.strength}`,
 				cell: ({ row }) => (
 					<div>
 						<p className="font-bold text-black">{row.original.name}</p>
-						<p className="mt-0.5 text-[12px] text-vitastock-body-color">{row.original.strength}</p>
+						<p className="mt-0.5 text-[12px] text-vitastock-body-color">
+							{row.original.genericName} / {row.original.strength}
+						</p>
 					</div>
 				),
-				filterFn: "includesString",
+				enableSorting: false,
 				header: ({ column }) => <DataTableColumnHeader column={column}>Drug</DataTableColumnHeader>,
-				meta: {
-					placeholder: "Search drugs...",
-					variant: "text",
-				},
+				id: "name",
 			},
 			{
 				accessorKey: "form",
-				header: ({ column }) => <DataTableColumnHeader column={column}>Form</DataTableColumnHeader>,
+				enableSorting: false,
+				header: ({ column }) => (
+					<DataTableColumnHeader column={column}>Dosage Form</DataTableColumnHeader>
+				),
 			},
 			{
 				accessorKey: "unit",
+				enableSorting: false,
 				header: ({ column }) => <DataTableColumnHeader column={column}>Unit</DataTableColumnHeader>,
 			},
 			{
@@ -114,13 +137,11 @@ export function DrugMasterDialog() {
 		columns,
 		data: drugs,
 		getRowId: (drug) => drug.id,
-		initialState: {
-			pagination: {
-				pageIndex: 0,
-				pageSize: 10,
-			},
-			sorting: [{ desc: false, id: "name" }],
-		},
+		manualPagination: true,
+		meta: { queryKeys: DRUG_TABLE_QUERY_KEYS },
+		onPaginationChange,
+		pageCount: result?.pagination.pageCount ?? 0,
+		state: { pagination },
 	});
 
 	return (
@@ -156,8 +177,9 @@ export function DrugMasterDialog() {
 					isLoading={inventoryDrugsQueryResult.isLoading}
 					emptyMessage="No Drug Master records found."
 					errorMessage="Failed to load Drug Master records."
+					totalRows={result?.pagination.total}
 					classNames={{
-						base: "min-h-0 flex-1 overflow-auto",
+						base: "min-h-0 grow overflow-auto",
 						tableCell: "px-6 py-4",
 						tableHead: `h-11 px-6 text-[12px] font-bold tracking-wider text-vitastock-body-color/70
 						uppercase`,
@@ -165,12 +187,13 @@ export function DrugMasterDialog() {
 						tableRow: "border-b border-shadcn-border",
 					}}
 				>
-					<DataTableToolbar
+					<DataTableQueryToolbar
 						table={table}
+						searchPlaceholder="Search drugs..."
 						actions={
 							<DialogAnimated.Root>
 								<DialogAnimated.Trigger asChild={true}>
-									<Button className="h-10 shrink-0 rounded-lg px-4">
+									<Button className="h-10 rounded-lg px-4">
 										<IconBox icon="lucide:plus" className="size-4" />
 										Add Drug
 									</Button>
@@ -199,6 +222,7 @@ export function CreateDrugDialog(props: { onComplete?: (drug: Drug) => void }) {
 	const form = useForm<DrugFormValues>({
 		defaultValues: {
 			form: "",
+			genericName: "",
 			name: "",
 			strength: "",
 			unit: "",
@@ -212,7 +236,9 @@ export function CreateDrugDialog(props: { onComplete?: (drug: Drug) => void }) {
 			meta: { toast: { success: true } },
 			onSuccess: (ctx) => {
 				void Promise.all([
-					queryClient.invalidateQueries(inventoryDrugsQuery()),
+					queryClient.invalidateQueries({
+						queryKey: inventoryDrugsListQuery().queryKey.slice(0, 2),
+					}),
 					queryClient.invalidateQueries(inventorySummaryQuery()),
 					queryClient.invalidateQueries(dashboardOverviewQuery()),
 				]);
@@ -240,6 +266,7 @@ export function EditDrugDialog(props: { drug: Drug; onComplete: () => void }) {
 	const form = useForm<DrugFormValues>({
 		defaultValues: {
 			form: drug.form,
+			genericName: drug.genericName,
 			name: drug.name,
 			strength: drug.strength,
 			unit: drug.unit,
@@ -253,7 +280,9 @@ export function EditDrugDialog(props: { drug: Drug; onComplete: () => void }) {
 			meta: { toast: { success: true } },
 			onSuccess: () => {
 				void Promise.all([
-					queryClient.invalidateQueries(inventoryDrugsQuery()),
+					queryClient.invalidateQueries({
+						queryKey: inventoryDrugsListQuery().queryKey.slice(0, 2),
+					}),
 					queryClient.invalidateQueries(inventorySummaryQuery()),
 					queryClient.invalidateQueries(dashboardOverviewQuery()),
 					queryClient.invalidateQueries({ queryKey: inventoryAlertsQueryKey }),
@@ -314,19 +343,26 @@ function DrugFormDialog(props: {
 				<div className="grid gap-4 p-5 sm:grid-cols-2">
 					<Form.Field control={form.control} name="name">
 						<Form.Label>Drug Name</Form.Label>
-						<Form.Input className={drugFormInputClassName} />
+						<Form.Input placeholder="e.g. Coartem" className={drugFormInputClassName} />
+					</Form.Field>
+					<Form.Field control={form.control} name="genericName">
+						<Form.Label>Generic Name</Form.Label>
+						<Form.Input
+							placeholder="e.g. Artemether/Lumefantrine"
+							className={drugFormInputClassName}
+						/>
 					</Form.Field>
 					<Form.Field control={form.control} name="strength">
 						<Form.Label>Strength</Form.Label>
-						<Form.Input className={drugFormInputClassName} />
+						<Form.Input placeholder="e.g. 20mg/120mg" className={drugFormInputClassName} />
 					</Form.Field>
 					<Form.Field control={form.control} name="form">
-						<Form.Label>Form</Form.Label>
-						<Form.Input className={drugFormInputClassName} />
+						<Form.Label>Dosage Form</Form.Label>
+						<Form.Input placeholder="e.g. Tablet" className={drugFormInputClassName} />
 					</Form.Field>
 					<Form.Field control={form.control} name="unit">
 						<Form.Label>Unit</Form.Label>
-						<Form.Input className={drugFormInputClassName} />
+						<Form.Input placeholder="e.g. Box" className={drugFormInputClassName} />
 					</Form.Field>
 				</div>
 
@@ -370,7 +406,9 @@ function DrugLifecycleButton(props: { drug: Drug }) {
 			{
 				onSuccess: () => {
 					void Promise.all([
-						queryClient.invalidateQueries(inventoryDrugsQuery()),
+						queryClient.invalidateQueries({
+							queryKey: inventoryDrugsListQuery().queryKey.slice(0, 2),
+						}),
 						queryClient.invalidateQueries(inventorySummaryQuery()),
 						queryClient.invalidateQueries(dashboardOverviewQuery()),
 					]);

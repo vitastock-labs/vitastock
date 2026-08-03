@@ -53,9 +53,10 @@ export const createInventoryFixture = async (options: InventoryFixtureOptions = 
 			.insert(drugs)
 			.values({
 				form: "Tablet",
-				name: `Paracetamol ${fixtureId}`,
+				genericName: "Paracetamol",
+				name: `Panadol ${fixtureId}`,
 				strength: "500mg",
-				unit: "Tablet",
+				unit: "Pack",
 				workspaceId: workspace.id,
 			})
 			.returning();

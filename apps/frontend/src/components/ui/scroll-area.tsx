@@ -52,7 +52,7 @@ function ScrollAreaScrollBar(
 		>
 			<ScrollAreaPrimitive.ScrollAreaThumb
 				data-slot="scroll-area-thumb"
-				className={cnMerge("relative flex-1 rounded-full bg-shadcn-border", classNames?.thumb)}
+				className={cnMerge("relative grow rounded-full bg-shadcn-border", classNames?.thumb)}
 			/>
 		</ScrollAreaPrimitive.ScrollAreaScrollbar>
 	);

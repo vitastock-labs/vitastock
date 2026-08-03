@@ -95,5 +95,6 @@ function getIconsArray() {
 		"lucide:minus",
 		"lucide:clipboard-list",
 		"lucide:circle-dollar-sign",
+		"tabler:currency-naira",
 	];
 }

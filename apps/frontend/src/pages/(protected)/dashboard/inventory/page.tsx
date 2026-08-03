@@ -3,6 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef, ColumnFiltersState } from "@tanstack/react-table";
+import { addYears, endOfYear, startOfYear } from "date-fns";
 import { parseAsString, parseAsStringEnum, useQueryState, useQueryStates } from "nuqs";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -29,7 +30,7 @@ import {
 	inventoryActivityQueryKey,
 	inventoryAlertsQueryKey,
 	inventoryAlertsUnreadCountQuery,
-	inventoryDrugsQuery,
+	inventoryAllDrugsQuery,
 	inventorySummaryQuery,
 	sessionQuery,
 	type InventorySummaryQueryResultType,
@@ -162,40 +163,51 @@ function InventoryActions() {
 
 	return (
 		<>
-			<section className="flex items-center justify-between">
-				<div className="flex items-center gap-4">
+			<section className="flex flex-wrap items-center justify-between gap-4">
+				<div className="flex flex-wrap items-center gap-4">
 					<DialogAnimated.Root>
 						<DialogAnimated.Trigger asChild={true}>
-							<Button theme="secondary-outline" className="px-5 text-vitastock-primary-main">
-								<IconBox icon="lucide:file-down" className="size-4.5" />
-								Bulk Import
-							</Button>
-						</DialogAnimated.Trigger>
-
-						<BulkImportDialog />
-					</DialogAnimated.Root>
-
-					<DialogAnimated.Root>
-						<DialogAnimated.Trigger asChild={true}>
-							<Button theme="secondary-outline" className="px-5 text-vitastock-primary-main">
-								<IconBox icon="lucide:zap" className="size-4.5" />
+							<Button className="px-6">
+								<IconBox icon="lucide:minus" className="size-4.5" />
 								Quick Dispense
 							</Button>
 						</DialogAnimated.Trigger>
 
 						<StockMovementDialog defaultLogType="stock_out" />
 					</DialogAnimated.Root>
+
+					<DialogAnimated.Root>
+						<DialogAnimated.Trigger asChild={true}>
+							<Button className="px-6">
+								<IconBox icon="lucide:plus" className="size-4.5" />
+								Add Stock
+							</Button>
+						</DialogAnimated.Trigger>
+
+						<StockMovementDialog defaultLogType="stock_in" />
+					</DialogAnimated.Root>
+
+					<DialogAnimated.Root>
+						<DialogAnimated.Trigger asChild={true}>
+							<Button className="px-6">
+								<IconBox icon="lucide:plus" className="size-4.5" />
+								Add New Drug
+							</Button>
+						</DialogAnimated.Trigger>
+
+						<CreateDrugDialog />
+					</DialogAnimated.Root>
 				</div>
 
 				<DialogAnimated.Root>
 					<DialogAnimated.Trigger asChild={true}>
-						<Button className="px-6">
-							<IconBox icon="lucide:plus" className="size-4.5" />
-							Add Stock
+						<Button theme="secondary-outline" className="px-5 text-vitastock-primary-main">
+							<IconBox icon="lucide:file-down" className="size-4.5" />
+							Bulk Import
 						</Button>
 					</DialogAnimated.Trigger>
 
-					<StockMovementDialog defaultLogType="stock_in" />
+					<BulkImportDialog />
 				</DialogAnimated.Root>
 			</section>
 
@@ -266,11 +278,16 @@ function InventoryTable() {
 				id: "stockState",
 			},
 			{
-				accessorFn: (row) => `${row.drug.name} ${row.drug.strength}`,
+				accessorFn: (row) => `${row.drug.name} ${row.drug.genericName} ${row.drug.strength}`,
 				cell: ({ row }) => (
-					<span className="font-medium text-black">
-						{row.original.drug.name} {row.original.drug.strength}
-					</span>
+					<div>
+						<p className="font-medium text-black">
+							{row.original.drug.name} {row.original.drug.strength}
+						</p>
+						<p className="mt-0.5 text-[12px] text-vitastock-body-color">
+							{row.original.drug.genericName}
+						</p>
+					</div>
 				),
 				header: ({ column }) => (
 					<DataTableColumnHeader column={column}>Drug Name</DataTableColumnHeader>
@@ -378,11 +395,14 @@ function InventoryTable() {
 							<Select.Value />
 						</Select.Trigger>
 						<Select.Content>
-							{INVENTORY_FILTER_OPTIONS.map((option) => (
-								<Select.Item key={option.value} value={option.value}>
-									{option.label}
-								</Select.Item>
-							))}
+							<For
+								each={INVENTORY_FILTER_OPTIONS}
+								renderItem={(option) => (
+									<Select.Item key={option.value} value={option.value}>
+										{option.label}
+									</Select.Item>
+								)}
+							/>
 						</Select.Content>
 					</Select.Root>
 				</header>
@@ -483,6 +503,9 @@ function ProjectedStockOut() {
 								<p className="truncate text-[14px] font-bold text-black">
 									{item.drug.name} {item.drug.strength}
 								</p>
+								<p className="truncate text-[12px] text-vitastock-body-color">
+									{item.drug.genericName}
+								</p>
 								<p className="text-[12px] font-medium text-vitastock-body-color">
 									{item.totalAvailable} {item.drug.unit} left
 								</p>
@@ -517,9 +540,8 @@ function StockMovementDialog(props: {
 	const { defaultLogType, initialBatchId, initialDrugId, initialReason, onComplete } = props;
 	const isDispense = defaultLogType === "stock_out";
 
-	const inventoryDrugsQueryResult = useQuery(inventoryDrugsQuery());
+	const inventoryDrugsQueryResult = useQuery(inventoryAllDrugsQuery());
 	const drugs = inventoryDrugsQueryResult.data?.drugs ?? [];
-	const activeDrugs = drugs.filter((drug) => drug.isActive);
 	const queryClient = useQueryClient();
 	const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
 
@@ -533,7 +555,7 @@ function StockMovementDialog(props: {
 			notes: "",
 			quantity: "",
 			reason: initialReason ?? StockOutReasonSchema.enum.patient,
-			unitCostKobo: "0",
+			unitCostNaira: "0",
 		},
 		resolver: zodResolver(StockLogSchema),
 	});
@@ -598,11 +620,11 @@ function StockMovementDialog(props: {
 
 			{!inventoryDrugsQueryResult.isLoading
 				&& !inventoryDrugsQueryResult.isError
-				&& activeDrugs.length === 0 && (
+				&& drugs.length === 0 && (
 					<NoDrugsFound onDrugCreated={(drug) => form.setValue("drugId", drug.id)} />
 				)}
 
-			{activeDrugs.length > 0 && (
+			{drugs.length > 0 && (
 				<Form.Root form={form} onSubmit={(event) => void onSubmit(event)}>
 					<div className="flex flex-col gap-4 border-y border-shadcn-border/70 p-5">
 						<Form.Field control={form.control} name="drugId">
@@ -617,11 +639,11 @@ function StockMovementDialog(props: {
 										</Select.Trigger>
 										<Select.Content>
 											<For
-												each={activeDrugs}
+												each={drugs}
 												renderItem={(drug) => (
-													<Select.Item key={drug.id} value={drug.id}>
-														{drug.name} {drug.strength}
-													</Select.Item>
+											<Select.Item key={drug.id} value={drug.id}>
+												{drug.name} ({drug.genericName}) {drug.strength}
+											</Select.Item>
 												)}
 											/>
 										</Select.Content>
@@ -649,6 +671,11 @@ function StockMovementDialog(props: {
 												variant="date"
 												dateString={field.value}
 												placeholder="Select expiry date"
+												datePickerProps={{
+													disabled: { before: new Date() },
+													endMonth: endOfYear(addYears(new Date(), 10)),
+													startMonth: startOfYear(new Date()),
+												}}
 												dateFormats={{
 													onChangeDate: "yyyy-MM-dd",
 													visibleDate: "MMM d, yyyy",
@@ -700,13 +727,22 @@ function StockMovementDialog(props: {
 									/>
 								</Form.Field>
 
-								<Form.Field control={form.control} name="unitCostKobo">
-									<Form.Label>Unit Cost (kobo)</Form.Label>
-									<Form.Input
-										type="number"
-										placeholder="0"
+								<Form.Field control={form.control} name="unitCostNaira">
+									<Form.Label>Unit Cost</Form.Label>
+									<Form.InputGroup
 										className="h-10 rounded-lg border border-shadcn-border bg-white px-4"
-									/>
+									>
+										<Form.InputGroupAddon>
+											<IconBox icon="tabler:currency-naira" className="size-4" />
+										</Form.InputGroupAddon>
+										<Form.Input
+											type="number"
+											min={0}
+											step="0.01"
+											placeholder="0.00"
+											className="h-full"
+										/>
+									</Form.InputGroup>
 								</Form.Field>
 							</Show.Fallback>
 						</Show.Root>
@@ -894,7 +930,7 @@ function BulkImportDialog() {
 								</li>
 								<li className="flex items-center gap-2">
 									<span className="size-1.5 rounded-full bg-shadcn-border" />
-									Unit Cost (kobo)
+									Unit Cost (Naira)
 								</li>
 								<li className="flex items-center gap-2">
 									<span className="size-1.5 rounded-full bg-shadcn-border" />

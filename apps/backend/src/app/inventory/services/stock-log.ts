@@ -41,7 +41,8 @@ export const createInventoryStockLog = async (options: {
 	}
 
 	await db.transaction(async (tx) => {
-		const { batchNumber, expiryDate, unitCostKobo = 0 } = body;
+		const { batchNumber, expiryDate, unitCostNaira = 0 } = body;
+		const unitCostKobo = Math.round(unitCostNaira * 100);
 
 		const [createdTransaction] = await tx
 			.insert(stockTransactions)

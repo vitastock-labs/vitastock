@@ -12,9 +12,10 @@ patch {
 
 body:json {
   {
+    "genericName": "Amoxicillin",
     "strength": "500 mg",
     "form": "Capsule",
-    "unit": "Capsule"
+    "unit": "Pack"
   }
 }
 
@@ -45,6 +46,7 @@ docs {
   | Field | Type | Description |
   |-------|------|-------------|
   | `name` | string | Updated drug name. |
+  | `genericName` | string | Updated active pharmaceutical ingredient. |
   | `strength` | string | Updated strength label. |
   | `form` | string | Updated dosage form. |
   | `unit` | string | Updated stock-counting unit. |
@@ -60,10 +62,11 @@ docs {
     "data": {
       "drug": {
         "id": "drug-uuid",
-        "name": "Amoxicillin",
+        "name": "Amoxil",
+        "genericName": "Amoxicillin",
         "strength": "500 mg",
         "form": "Capsule",
-        "unit": "Capsule",
+        "unit": "Pack",
         "isActive": true
       }
     }

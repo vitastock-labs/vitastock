@@ -43,6 +43,7 @@ export const getInventorySummaryRows = async (options: {
 			.select({
 				drug: {
 					form: drugs.form,
+					genericName: drugs.genericName,
 					id: drugs.id,
 					isActive: drugs.isActive,
 					name: drugs.name,

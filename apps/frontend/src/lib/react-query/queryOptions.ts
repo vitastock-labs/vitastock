@@ -54,16 +54,30 @@ export type InventorySummaryQueryResultType = Awaited<
 	ReturnType<NonNullable<ReturnType<typeof inventorySummaryQuery>["select"]>>
 >;
 
-export const inventoryDrugsQuery = () => {
+export const inventoryDrugsListQuery = (
+	query: z.infer<NonNullable<BackendApiRoutes["@get/inventory/drugs/list"]["query"]>> = {}
+) => {
 	return queryOptions({
-		queryFn: () => callBackendApiForQuery("@get/inventory/drugs"),
-		queryKey: ["inventory", "drugs"],
+		queryFn: () => callBackendApiForQuery("@get/inventory/drugs/list", { query }),
+		queryKey: ["inventory", "drugs", "list", query],
 		select: (data) => data.data,
 	});
 };
 
-export type InventoryDrugsQueryResultType = Awaited<
-	ReturnType<NonNullable<ReturnType<typeof inventoryDrugsQuery>["select"]>>
+export type InventoryDrugsListQueryResultType = Awaited<
+	ReturnType<NonNullable<ReturnType<typeof inventoryDrugsListQuery>["select"]>>
+>;
+
+export const inventoryAllDrugsQuery = () => {
+	return queryOptions({
+		queryFn: () => callBackendApiForQuery("@get/inventory/drugs/all"),
+		queryKey: ["inventory", "drugs", "all"],
+		select: (data) => data.data,
+	});
+};
+
+export type InventoryAllDrugsQueryResultType = Awaited<
+	ReturnType<NonNullable<ReturnType<typeof inventoryAllDrugsQuery>["select"]>>
 >;
 
 export const inventoryAlertsQueryKey = ["inventory", "alerts"] as const;

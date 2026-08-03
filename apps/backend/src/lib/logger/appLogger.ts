@@ -44,7 +44,6 @@ const loggerOptions = {
 	base: {
 		service: ENVIRONMENT.PROCESS_TYPE,
 	},
-	enabled: ENVIRONMENT.NODE_ENV !== "test",
 	level: ENVIRONMENT.LOG_LEVEL,
 	redact: {
 		censor: "[REDACTED]",

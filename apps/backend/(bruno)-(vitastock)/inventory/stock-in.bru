@@ -21,7 +21,7 @@ body:json {
     "quantity": "100",
     "expiryDate": "2027-12-31T00:00:00.000Z",
     "batchNumber": "BATCH-001",
-    "unitCostKobo": "25000",
+    "unitCostNaira": "250",
     "notes": "Supplier delivery"
   }
 }
@@ -57,14 +57,14 @@ docs {
   | `quantity` | numeric string | Yes | Must be greater than `0`. |
   | `expiryDate` | ISO 8601 date string | Yes | Expiry date assigned to the stock batch. |
   | `batchNumber` | string or null | No | Supplier/manufacturer batch identifier. |
-  | `unitCostKobo` | numeric string | No | Non-negative cost per unit in kobo. |
+  | `unitCostNaira` | numeric string | No | Non-negative cost per unit in naira, with at most two decimal places. |
   | `notes` | string or null | No | Operational context for the movement. |
 
   ## Batch Matching
 
   - When `batchNumber` is supplied and that number already exists for the same workspace and drug, the existing batch is locked and incremented.
   - An existing batch number must keep its original expiry date; a different expiry is rejected.
-  - A positive supplied `unitCostKobo` replaces the existing batch's unit cost.
+  - A positive supplied `unitCostNaira` is converted to kobo and replaces the existing batch's unit cost.
   - When no matching batch number exists, a new batch is created.
   - When `batchNumber` is omitted, a new batch is created rather than inferred from expiry or cost.
 

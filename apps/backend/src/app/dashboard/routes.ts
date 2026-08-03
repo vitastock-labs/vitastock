@@ -49,6 +49,7 @@ export const dashboardRoutes = new Hono()
 				.select({
 					createdAt: stockLogs.createdAt,
 					drug: {
+						genericName: drugs.genericName,
 						id: drugs.id,
 						name: drugs.name,
 						strength: drugs.strength,

@@ -87,7 +87,7 @@ function DrugManagementSection() {
 			<DialogAnimated.Root>
 				<DialogAnimated.Trigger asChild={true}>
 					<Button
-						className="h-10.5 shrink-0 rounded-lg bg-vitastock-primary-dark px-5
+						className="h-10.5 rounded-lg bg-vitastock-primary-dark px-5
 							hover:bg-vitastock-primary-dark/90"
 					>
 						<IconBox icon="lucide:book-user" className="size-4" />
@@ -258,7 +258,7 @@ function PeopleWorkspaceSection() {
 				<DialogAnimated.Root>
 					<DialogAnimated.Trigger asChild={true}>
 						<Button
-							className="h-10.5 shrink-0 rounded-lg bg-vitastock-primary-dark px-5
+							className="h-10.5 rounded-lg bg-vitastock-primary-dark px-5
 								hover:bg-vitastock-primary-dark/90"
 						>
 							<IconBox icon="lucide:users-round" className="size-4" />
@@ -422,7 +422,7 @@ function ManagePeopleDialog() {
 				</DialogAnimated.Close>
 			</DialogAnimated.Header>
 
-			<section className="flex min-h-0 flex-1 flex-col">
+			<section className="flex min-h-0 grow flex-col">
 				<DataTable
 					table={table}
 					isError={workspaceMembersQueryResult.isError}
@@ -430,9 +430,9 @@ function ManagePeopleDialog() {
 					emptyMessage="No workspace members match these filters."
 					errorMessage="Failed to load members. Please try again later."
 					classNames={{
-						base: "min-h-0 flex-1 overflow-hidden text-[14px] font-medium",
+						base: "min-h-0 grow overflow-hidden text-[14px] font-medium",
 						tableCell: "px-6 py-4",
-						tableContainer: "min-h-0 flex-1 overflow-auto",
+						tableContainer: "min-h-0 grow overflow-auto",
 						tableHead: `h-11 px-6 text-[12px] font-bold tracking-wider text-vitastock-body-color
 						uppercase`,
 						tableHeader: "bg-shadcn-muted",

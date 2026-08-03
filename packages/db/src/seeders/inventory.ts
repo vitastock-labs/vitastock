@@ -20,11 +20,46 @@ type SeededWorkspaces = Awaited<ReturnType<typeof seedWorkspaces>>;
 
 const getDrugSeedData = (workspaceId: string) => {
 	return [
-		{ form: "capsule", name: "Amoxicillin", strength: "500mg", unit: "capsules", workspaceId },
-		{ form: "tablet", name: "Lisinopril", strength: "10mg", unit: "tablets", workspaceId },
-		{ form: "tablet", name: "Metformin", strength: "1000mg", unit: "tablets", workspaceId },
-		{ form: "tablet", name: "Atorvastatin", strength: "20mg", unit: "tablets", workspaceId },
-		{ form: "tablet", name: "Levothyroxine", strength: "50mcg", unit: "tablets", workspaceId },
+		{
+			form: "Capsule",
+			genericName: "Amoxicillin",
+			name: "Amoxil",
+			strength: "500mg",
+			unit: "Pack",
+			workspaceId,
+		},
+		{
+			form: "Tablet",
+			genericName: "Lisinopril",
+			name: "Zestril",
+			strength: "10mg",
+			unit: "Box",
+			workspaceId,
+		},
+		{
+			form: "Tablet",
+			genericName: "Metformin",
+			name: "Glucophage",
+			strength: "1000mg",
+			unit: "Pack",
+			workspaceId,
+		},
+		{
+			form: "Tablet",
+			genericName: "Atorvastatin",
+			name: "Lipitor",
+			strength: "20mg",
+			unit: "Box",
+			workspaceId,
+		},
+		{
+			form: "Tablet",
+			genericName: "Levothyroxine",
+			name: "Synthroid",
+			strength: "50mcg",
+			unit: "Bottle",
+			workspaceId,
+		},
 	] satisfies InsertDrugType[];
 };
 
@@ -49,7 +84,7 @@ const getBatchSeedData = (options: {
 	return [
 		{
 			batchNumber: `AMX-${workspaceId.slice(0, 8)}`,
-			drugId: getDrugId("Amoxicillin"),
+			drugId: getDrugId("Amoxil"),
 			expiryDate: new Date("2027-02-28T00:00:00.000Z"),
 			quantityAvailable: 1_090,
 			quantityReceived: 1_200,
@@ -59,7 +94,7 @@ const getBatchSeedData = (options: {
 		},
 		{
 			batchNumber: `LIS-${workspaceId.slice(0, 8)}`,
-			drugId: getDrugId("Lisinopril"),
+			drugId: getDrugId("Zestril"),
 			expiryDate: new Date("2026-07-20T00:00:00.000Z"),
 			quantityAvailable: 440,
 			quantityReceived: 500,
@@ -69,7 +104,7 @@ const getBatchSeedData = (options: {
 		},
 		{
 			batchNumber: `MET-${workspaceId.slice(0, 8)}`,
-			drugId: getDrugId("Metformin"),
+			drugId: getDrugId("Glucophage"),
 			expiryDate: new Date("2027-01-31T00:00:00.000Z"),
 			quantityAvailable: 8,
 			quantityReceived: 120,
@@ -79,7 +114,7 @@ const getBatchSeedData = (options: {
 		},
 		{
 			batchNumber: `ATO-${workspaceId.slice(0, 8)}`,
-			drugId: getDrugId("Atorvastatin"),
+			drugId: getDrugId("Lipitor"),
 			expiryDate: new Date("2026-05-01T00:00:00.000Z"),
 			quantityAvailable: 35,
 			quantityReceived: 80,
@@ -89,7 +124,7 @@ const getBatchSeedData = (options: {
 		},
 		{
 			batchNumber: `LEV-${workspaceId.slice(0, 8)}`,
-			drugId: getDrugId("Levothyroxine"),
+			drugId: getDrugId("Synthroid"),
 			expiryDate: nearExpiryDate,
 			quantityAvailable: 0,
 			quantityReceived: 60,
@@ -139,12 +174,16 @@ export const seedInventory = async (
 		.values(allDrugSeeds)
 		.onConflictDoUpdate({
 			set: {
-				form: sql`excluded.form`,
 				isActive: sql`excluded.is_active`,
-				strength: sql`excluded.strength`,
-				unit: sql`excluded.unit`,
 			},
-			target: [drugs.workspaceId, drugs.name, drugs.strength, drugs.form],
+			target: [
+				drugs.workspaceId,
+				drugs.name,
+				drugs.genericName,
+				drugs.strength,
+				drugs.form,
+				drugs.unit,
+			],
 		})
 		.returning();
 

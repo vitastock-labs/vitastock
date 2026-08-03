@@ -86,13 +86,15 @@ function ReportsPage() {
 				header: "Timestamp",
 			},
 			{
-				accessorFn: (row) => `${row.drug.name} ${row.drug.strength}`,
+				accessorFn: (row) => `${row.drug.name} ${row.drug.genericName} ${row.drug.strength}`,
 				cell: ({ row }) => (
 					<div>
 						<p className="font-bold text-black">
 							{row.original.drug.name} {row.original.drug.strength}
 						</p>
-						<p className="mt-0.5 text-[12px] text-vitastock-body-color">{row.original.drug.unit}</p>
+						<p className="mt-0.5 text-[12px] text-vitastock-body-color">
+							{row.original.drug.genericName} / {row.original.drug.unit}
+						</p>
 					</div>
 				),
 				enableSorting: false,

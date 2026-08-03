@@ -24,6 +24,7 @@ export const getInventoryActivity = async (options: {
 		...(search ?
 			[
 				or(
+					ilike(drugs.genericName, `%${search}%`),
 					ilike(drugs.name, `%${search}%`),
 					ilike(drugs.strength, `%${search}%`),
 					ilike(users.fullName, `%${search}%`)
@@ -40,6 +41,7 @@ export const getInventoryActivity = async (options: {
 			.select({
 				createdAt: stockLogs.createdAt,
 				drug: {
+					genericName: drugs.genericName,
 					id: drugs.id,
 					name: drugs.name,
 					strength: drugs.strength,

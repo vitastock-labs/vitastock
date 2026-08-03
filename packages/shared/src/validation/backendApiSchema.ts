@@ -94,10 +94,13 @@ type WorkspaceInvitationRecordType = Pick<
 	"createdAt" | "expiresAt" | "id" | "inviteeEmail" | "inviteeName" | "role"
 >;
 
-type DrugDetailsType = Pick<SelectDrugType, "form" | "id" | "isActive" | "name" | "strength" | "unit">;
+type DrugDetailsType = Pick<
+	SelectDrugType,
+	"form" | "genericName" | "id" | "isActive" | "name" | "strength" | "unit"
+>;
 
 type RecentStockActivityType = Pick<SelectStockLogType, "createdAt" | "id" | "logType" | "quantity"> & {
-	drug: Pick<SelectDrugType, "id" | "name" | "strength">;
+	drug: Pick<SelectDrugType, "genericName" | "id" | "name" | "strength">;
 	person: string;
 };
 
@@ -175,7 +178,7 @@ const WorkspaceDetailsSchema = z.object({
 	id: z.uuid(),
 	lowStockThreshold: z.number(),
 	name: z.string().min(1, "Pharmacy name is required"),
-	nearExpiryDays: z.number(),
+	nearExpiryDays: stringWithNumberValidation(z.number()),
 	timezone: z.string(),
 }) satisfies z.ZodType<WorkspaceDetailsType>;
 
@@ -412,20 +415,22 @@ export const workspaceRoutes = () => {
 };
 
 const DrugDetailsSchema = z.object({
-	form: z.string(),
+	form: z.string().min(1, "Form is required"),
+	genericName: z.string().min(1, "Generic name is required"),
 	id: z.uuid(),
 	isActive: z.boolean(),
-	name: z.string(),
-	strength: z.string(),
-	unit: z.string(),
+	name: z.string().min(1, "Drug name is required"),
+	strength: z.string().min(1, "Strength is required"),
+	unit: z.string().min(1, "Unit is required"),
 }) satisfies z.ZodType<DrugDetailsType>;
 
 const inventoryRoutes = () => {
-	const DrugCreateSchema = z.object({
-		form: z.string().min(1, "Form is required"),
-		name: z.string().min(1, "Drug name is required"),
-		strength: z.string().min(1, "Strength is required"),
-		unit: z.string().min(1, "Unit is required"),
+	const DrugCreateSchema = DrugDetailsSchema.pick({
+		form: true,
+		genericName: true,
+		name: true,
+		strength: true,
+		unit: true,
 	});
 
 	const DrugIdParamSchema = z.object({
@@ -466,15 +471,12 @@ const inventoryRoutes = () => {
 		logType: true,
 		notes: true,
 		quantity: true,
-		unitCostKobo: true,
 	}).extend({
 		batchNumber: InsertStockBatchSchema.shape.batchNumber.optional(),
 		expiryDate: stringWithDateValidation(),
 		logType: StockAdditionLogTypeSchema,
 		quantity: stringWithNumberValidation(InsertStockLogSchema.shape.quantity.positive()),
-		unitCostKobo: stringWithNumberValidation(
-			InsertStockLogSchema.shape.unitCostKobo.unwrap().min(0)
-		).optional(),
+		unitCostNaira: stringWithNumberValidation(z.number().min(0).multipleOf(0.01)).optional(),
 	});
 
 	const StockOutBodySchema = InsertStockLogSchema.pick({
@@ -536,6 +538,7 @@ const inventoryRoutes = () => {
 	const InventoryActivityRowSchema = z.object({
 		createdAt: stringWithDateValidation(),
 		drug: DrugDetailsSchema.pick({
+			genericName: true,
 			id: true,
 			name: true,
 			strength: true,
@@ -591,15 +594,31 @@ const inventoryRoutes = () => {
 			data: withBaseSuccessResponse(z.object({ count: z.number() })),
 		},
 
-		"@get/inventory/drugs": {
+		"@get/inventory/drugs/all": {
 			data: withBaseSuccessResponse(
 				z.object({
 					drugs: z.array(DrugDetailsSchema),
 				})
 			),
+		},
+
+		"@get/inventory/drugs/list": {
+			data: withBaseSuccessResponse(
+				z.object({
+					drugs: z.array(DrugDetailsSchema),
+					pagination: z.object({
+						page: z.number(),
+						pageCount: z.number(),
+						pageSize: z.number(),
+						total: z.number(),
+					}),
+				})
+			),
 			query: z
 				.object({
-					search: z.string(),
+					page: stringWithNumberValidation(z.number().int().min(1)),
+					pageSize: stringWithNumberValidation(z.number().int().min(1).max(100)),
+					search: z.string().trim().min(1),
 				})
 				.partial()
 				.optional(),
@@ -667,6 +686,7 @@ const dashboardRoutes = () => {
 	const RecentStockActivitySchema = z.object({
 		createdAt: stringWithDateValidation(),
 		drug: DrugDetailsSchema.pick({
+			genericName: true,
 			id: true,
 			name: true,
 			strength: true,

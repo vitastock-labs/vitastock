@@ -13,19 +13,18 @@ export const backendEnvSchema = z.object({
 	ACCESS_JWT_EXPIRES_IN: z.string().transform((value) => evaluateString<number>(value)),
 	ACCESS_SECRET: z.string(),
 	BREVO_API_KEY: z.string(),
+	BULL_BOARD_PASSWORD: z.string().min(16),
+	BULL_BOARD_USERNAME: z.string().trim().min(3),
 	DATABASE_URL: z.string(),
 	DATABASE_URL_DEV: z
 		.literal([
 			"postgresql://postgres:postgres@localhost:5433/vitastock",
-			"postgresql://postgres:postgres@vitastock-postgres-db:5432/vitastock",
-		])
-		.default("postgresql://postgres:postgres@localhost:5433/vitastock"),
-	DATABASE_URL_TEST: z
-		.literal([
 			"postgresql://postgres:postgres@localhost:5434/vitastock_test",
+			"postgresql://postgres:postgres@vitastock-postgres-db:5432/vitastock",
 			"postgresql://postgres:postgres@vitastock-postgres-test-db:5432/vitastock_test",
 		])
-		.default("postgresql://postgres:postgres@localhost:5434/vitastock_test"),
+		.default("postgresql://postgres:postgres@localhost:5433/vitastock"),
+	DATABASE_URL_STAGING: z.string(),
 	DB_MIGRATING: stringBoolean.default(false),
 	DB_SEEDING: stringBoolean.default(false),
 	EMAIL_APP_PASSWORD: z.string(),
@@ -57,7 +56,7 @@ export const backendEnvSchema = z.object({
 export const databaseEnvSchema = backendEnvSchema.pick({
 	DATABASE_URL: true,
 	DATABASE_URL_DEV: true,
-	DATABASE_URL_TEST: true,
+	DATABASE_URL_STAGING: true,
 	DB_MIGRATING: true,
 	DB_SEEDING: true,
 	NODE_ENV: true,

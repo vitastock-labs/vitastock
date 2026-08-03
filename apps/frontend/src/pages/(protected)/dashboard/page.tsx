@@ -189,11 +189,16 @@ const stockReductionLogTypes = new Set<string>(StockReductionLogTypeSchema.optio
 
 const dashboardActivityColumns: Array<ColumnDef<DashboardActivityRow>> = [
 	{
-		accessorFn: (row) => `${row.drug.name} ${row.drug.strength}`,
+		accessorFn: (row) => `${row.drug.name} ${row.drug.genericName} ${row.drug.strength}`,
 		cell: ({ row }) => (
-			<span className="text-[14px] font-medium text-black">
-				{row.original.drug.name} {row.original.drug.strength}
-			</span>
+			<div>
+				<p className="text-[14px] font-medium text-black">
+					{row.original.drug.name} {row.original.drug.strength}
+				</p>
+				<p className="mt-0.5 text-[12px] text-vitastock-body-color">
+					{row.original.drug.genericName}
+				</p>
+			</div>
 		),
 		header: "Drug",
 		id: "drug",

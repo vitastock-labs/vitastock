@@ -14,6 +14,7 @@ export const drugs = pg.pgTable(
 	{
 		createdAt: pg.timestamp({ withTimezone: true }).notNull().defaultNow(),
 		form: pg.text().notNull(),
+		genericName: pg.text().notNull(),
 		id: pg.uuid().defaultRandom().primaryKey(),
 		isActive: pg.boolean().notNull().default(true),
 		name: pg.text().notNull(),
@@ -30,9 +31,17 @@ export const drugs = pg.pgTable(
 			.references(() => workspaces.id, { onDelete: "cascade" }),
 	},
 	(table) => [
+		// TODO: Add a pg_trgm GIN index for brand/generic/strength/form/unit search when catalogue size warrants it.
 		pg
-			.uniqueIndex("drug_workspace_name_strength_form_index")
-			.on(table.workspaceId, table.name, table.strength, table.form),
+			.uniqueIndex("drug_workspace_identity_index")
+			.on(
+				table.workspaceId,
+				table.name,
+				table.genericName,
+				table.strength,
+				table.form,
+				table.unit
+			),
 	]
 );
 

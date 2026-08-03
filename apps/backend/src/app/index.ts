@@ -1,3 +1,4 @@
+import { basicAuth } from "hono/basic-auth";
 import { ENVIRONMENT } from "@/config/env";
 import { createHonoApp } from "@/lib/hono";
 import { appLogger } from "@/lib/logger";
@@ -30,17 +31,21 @@ app.basePath("/api/v1")
 	.route("", inventoryRoutes)
 	.route("", workspaceRoutes);
 
-// TODO - Protect this route with basic hono login or hosted on a diff platform
-// Bull Board currently relies on CommonJS `require` internally and breaks in Vercel's ESM bundle.
+try {
+	const bullBoardAuthMiddleware = basicAuth({
+		password: ENVIRONMENT.BULL_BOARD_PASSWORD,
+		realm: "VitaStock Queue Administration",
+		username: ENVIRONMENT.BULL_BOARD_USERNAME,
+	});
 
-if (ENVIRONMENT.NODE_ENV === "development") {
-	try {
-		const bullBoardSetup = await createBullBoardSetup();
+	const bullBoardSetup = await createBullBoardSetup();
 
-		app.route(bullBoardSetup.baseQueuesPath, bullBoardSetup.queuesServerAdapter.registerPlugin());
-	} catch (error) {
-		appLogger.pretty.error(new Error(`Failed to load bullboard`, { cause: error }));
-	}
+	app.use(bullBoardSetup.baseQueuesPath, bullBoardAuthMiddleware);
+	app.use(`${bullBoardSetup.baseQueuesPath}/*`, bullBoardAuthMiddleware);
+
+	app.route(bullBoardSetup.baseQueuesPath, bullBoardSetup.queuesServerAdapter.registerPlugin());
+} catch (error) {
+	appLogger.pretty.error(new Error("Failed to load Bull Board", { cause: error }));
 }
 
 export { app };

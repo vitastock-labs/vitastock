@@ -5,8 +5,10 @@ import { createClient } from "redis";
 import { keepServicesAlive } from "../src/services/maintenance/keepAlive";
 
 const environment = getServiceKeepAliveEnv();
+
 const redisCacheClient = createClient({ url: environment.REDIS_CACHE_URL });
 const redisQueueClient = createClient({ url: environment.REDIS_QUEUE_URL });
+
 const redisClients = [redisCacheClient, redisQueueClient];
 
 redisCacheClient.on("error", (error) => consola.error("Redis cache keepalive error", error));

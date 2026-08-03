@@ -285,9 +285,10 @@ export const getPersistedInventoryAlerts = async (options: {
 			acknowledgedAt: inventoryAlerts.acknowledgedAt,
 			batchId: inventoryAlerts.batchId,
 			batchNumber: stockBatches.batchNumber,
-			drug: {
-				form: drugs.form,
-				id: drugs.id,
+				drug: {
+					form: drugs.form,
+					genericName: drugs.genericName,
+					id: drugs.id,
 				isActive: drugs.isActive,
 				name: drugs.name,
 				strength: drugs.strength,

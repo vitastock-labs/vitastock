@@ -25,11 +25,14 @@
 		"start": "cross-env NODE_ENV=production tsx src/server.ts",
 		"start:built": "cross-env NODE_ENV=production node dist/server.js",
 		"start:built:nitro": "cross-env NODE_ENV=production node .output/server/index.mjs",
+		"start:built:staging": "cross-env NODE_ENV=staging node dist/server.js",
+		"start:built:staging:nitro": "cross-env NODE_ENV=staging node .output/server/index.mjs",
 		"start:dev": "cross-env NODE_ENV=development tsx src/server.ts",
 		"start:worker": "cross-env NODE_ENV=production PROCESS_TYPE=worker tsx src/worker.ts",
 		"start:worker:built": "cross-env NODE_ENV=production PROCESS_TYPE=worker node dist/worker.js",
+		"start:worker:built:staging": "cross-env NODE_ENV=staging PROCESS_TYPE=worker node dist/worker.js",
 		"test": "vitest run",
-		"test:integration": "cross-env NODE_ENV=test vitest run --config vitest.integration.config.ts",
+		"test:integration": "cross-env NODE_ENV=development LOG_LEVEL=silent DATABASE_URL_DEV=postgresql://postgres:postgres@localhost:5434/vitastock_test vitest run --config vitest.integration.config.ts",
 		"test:watch": "vitest"
 	},
 	"dependencies": {

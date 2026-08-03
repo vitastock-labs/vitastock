@@ -4,7 +4,7 @@ import { ENVIRONMENT } from "@/config/env";
 const databaseUrls = {
 	development: ENVIRONMENT.DATABASE_URL_DEV,
 	production: ENVIRONMENT.DATABASE_URL,
-	test: ENVIRONMENT.DATABASE_URL_TEST,
+	staging: ENVIRONMENT.DATABASE_URL_STAGING,
 } as const satisfies Record<typeof ENVIRONMENT.NODE_ENV, string>;
 
 export const dbConnectionString = databaseUrls[ENVIRONMENT.NODE_ENV];

@@ -29,7 +29,7 @@ function DataTableToolbar<TData>(
 			)}
 			{...restOfProps}
 		>
-			<div className="flex w-full flex-wrap items-center gap-3">
+			<div className="flex min-w-0 grow flex-wrap items-center gap-3">
 				{filterableColumns.map((column) => (
 					<DataTableToolbarFilter key={column.id} column={column} table={table} />
 				))}
@@ -109,7 +109,7 @@ function DataTableToolbarSearch<TData>(props: {
 				type="search"
 				placeholder={placeholder}
 				value={value}
-				className="h-full min-w-0 flex-1 bg-transparent text-[14px] font-medium outline-none
+				className="h-full min-w-0 grow bg-transparent text-[14px] font-medium outline-none
 					placeholder:text-vitastock-body-color/60"
 				onChange={(event) => {
 					column.setFilterValue(event.target.value || undefined);

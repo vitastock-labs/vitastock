@@ -44,7 +44,7 @@ export const sendEmail = async (options: EmailJobOptions) => {
 	try {
 		const htmlContent = await templateFn(data);
 
-		if (ENVIRONMENT.NODE_ENV === "production") {
+		if (ENVIRONMENT.NODE_ENV !== "development") {
 			const { BrevoClient } = await import("@getbrevo/brevo");
 
 			brevo ??= new BrevoClient({

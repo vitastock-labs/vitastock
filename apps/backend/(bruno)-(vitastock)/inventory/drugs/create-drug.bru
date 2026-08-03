@@ -12,10 +12,11 @@ post {
 
 body:json {
   {
-    "name": "Amoxicillin",
-    "strength": "500 mg",
+    "name": "Amoxil",
+    "genericName": "Amoxicillin",
+    "strength": "500mg",
     "form": "Capsule",
-    "unit": "Capsule"
+    "unit": "Pack"
   }
 }
 
@@ -27,7 +28,7 @@ settings {
 docs {
   # Create Drug
 
-  Adds a drug to the authenticated workspace's drug master. The combination of name, strength, and form is unique within a workspace.
+  Adds a drug to the authenticated workspace's drug master. Brand name, generic name, strength, dosage form, and stock unit are stored separately.
 
   ## Authorization
 
@@ -37,10 +38,11 @@ docs {
 
   | Field | Type | Required | Description |
   |-------|------|----------|-------------|
-  | `name` | string | Yes | Drug/generic name. Must not be empty. |
+  | `name` | string | Yes | Brand or trade name, for example `Amoxil`. |
+  | `genericName` | string | Yes | Active pharmaceutical ingredient, for example `Amoxicillin`. |
   | `strength` | string | Yes | Strength label, for example `500 mg`. |
   | `form` | string | Yes | Dosage form, for example `Capsule` or `Tablet`. |
-  | `unit` | string | Yes | Stock-counting unit, for example `Capsule`, `Tablet`, or `Bottle`. |
+  | `unit` | string | Yes | Stock-counting unit, for example `Box`, `Pack`, or `Bottle`. |
 
   ## Success Response
 
@@ -53,10 +55,11 @@ docs {
     "data": {
       "drug": {
         "id": "drug-uuid",
-        "name": "Amoxicillin",
-        "strength": "500 mg",
+        "name": "Amoxil",
+        "genericName": "Amoxicillin",
+        "strength": "500mg",
         "form": "Capsule",
-        "unit": "Capsule",
+        "unit": "Pack",
         "isActive": true
       }
     }
@@ -67,7 +70,7 @@ docs {
 
   - `workspaceId` is supplied from the authenticated session, never from the request.
   - New drugs are active by default.
-  - The database prevents duplicate `(workspaceId, name, strength, form)` combinations.
+  - The database prevents duplicate `(workspaceId, name, genericName, strength, form, unit)` combinations.
   - The returned `id` is used by stock movements and drug-management endpoints.
 
   ## Errors

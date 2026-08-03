@@ -1,46 +1,83 @@
 import { db } from "@vitastock/db";
 import { drugs } from "@vitastock/db/schema/inventory";
 import type { backendApiSchemaRoutes } from "@vitastock/shared/validation/backendApiSchema";
-import { and, eq, ilike, or } from "drizzle-orm";
-import { z } from "zod";
+import { and, count, eq, ilike, or } from "drizzle-orm";
+import type { z } from "zod";
 import { AppError } from "@/lib/utils";
 
-export const getDrugsForWorkspace = async (options: { search?: string; workspaceId: string }) => {
-	const { search, workspaceId } = options;
+type InventoryDrugsQuery = z.infer<
+	NonNullable<(typeof backendApiSchemaRoutes)["@get/inventory/drugs/list"]["query"]>
+>;
+
+export const getWorkspaceDrugList = async (options: {
+	query: InventoryDrugsQuery | undefined;
+	workspaceId: string;
+}) => {
+	const { query, workspaceId } = options;
+	const page = query?.page ?? 1;
+	const pageSize = query?.pageSize ?? 10;
+	const search = query?.search;
 
 	const whereConditions = [
 		eq(drugs.workspaceId, workspaceId),
 		...(search ?
 			[
 				or(
+					ilike(drugs.genericName, `%${search}%`),
 					ilike(drugs.name, `%${search}%`),
 					ilike(drugs.strength, `%${search}%`),
-					ilike(drugs.form, `%${search}%`)
+					ilike(drugs.form, `%${search}%`),
+					ilike(drugs.unit, `%${search}%`)
 				),
 			]
 		:	[]),
 	];
 
+	const [drugRows, totalResult] = await Promise.all([
+		db
+			.select()
+			.from(drugs)
+			.where(and(...whereConditions))
+			.orderBy(drugs.name)
+			.limit(pageSize)
+			.offset((page - 1) * pageSize),
+		db
+			.select({ total: count() })
+			.from(drugs)
+			.where(and(...whereConditions)),
+	]);
+	const total = totalResult[0]?.total ?? 0;
+
+	return {
+		drugs: drugRows,
+		pagination: {
+			page,
+			pageCount: Math.ceil(total / pageSize),
+			pageSize,
+			total,
+		},
+	};
+};
+
+export const getAllWorkspaceDrugs = async (workspaceId: string) => {
 	return db
 		.select()
 		.from(drugs)
-		.where(and(...whereConditions))
+		.where(and(eq(drugs.workspaceId, workspaceId), eq(drugs.isActive, true)))
 		.orderBy(drugs.name);
 };
 
-export const createDrugForWorkspace = async (options: {
-	form: string;
-	name: string;
-	strength: string;
-	unit: string;
-	workspaceId: string;
-}) => {
-	const { form, name, strength, unit, workspaceId } = options;
+type CreateDrugBody = z.infer<(typeof backendApiSchemaRoutes)["@post/inventory/drugs"]["body"]>;
+type UpdateDrugBody = z.infer<(typeof backendApiSchemaRoutes)["@patch/inventory/drugs/:drugId"]["body"]>;
+
+export const createDrugForWorkspace = async (options: CreateDrugBody & { workspaceId: string }) => {
+	const { form, genericName, name, strength, unit, workspaceId } = options;
 
 	const result = db
 		.insert(drugs)
 		.values({
 			form,
+			genericName,
 			name,
 			strength,
 			unit,
@@ -59,21 +96,14 @@ export const createDrugForWorkspace = async (options: {
 
 	return drug;
 };
-
-export const updateDrug = async (options: {
-	drugId: string;
-	form?: string;
-	name?: string;
-	strength?: string;
-	unit?: string;
-	workspaceId: string;
-}) => {
-	const { drugId, form, name, strength, unit, workspaceId } = options;
+export const updateDrug = async (options: UpdateDrugBody & { drugId: string; workspaceId: string }) => {
+	const { drugId, form, genericName, name, strength, unit, workspaceId } = options;
 
 	const [drug] = await db
 		.update(drugs)
 		.set({
 			...(form !== undefined && { form }),
+			...(genericName !== undefined && { genericName }),
 			...(name !== undefined && { name }),
 			...(strength !== undefined && { strength }),
 			...(unit !== undefined && { unit }),
@@ -90,7 +120,6 @@ export const updateDrug = async (options: {
 
 	return drug;
 };
-
 export const deactivateDrug = async (options: { drugId: string; workspaceId: string }) => {
 	const { drugId, workspaceId } = options;
 
@@ -133,30 +162,6 @@ export const handleDrugAction = async (options: {
 			message: "Drug not found",
 		});
 	}
-
-	return drug;
-};
-
-export const findDrugByCompositeKey = async (options: {
-	form: string;
-	name: string;
-	strength: string;
-	workspaceId: string;
-}) => {
-	const { form, name, strength, workspaceId } = options;
-
-	const [drug] = await db
-		.select()
-		.from(drugs)
-		.where(
-			and(
-				eq(drugs.workspaceId, workspaceId),
-				eq(drugs.name, name),
-				eq(drugs.strength, strength),
-				eq(drugs.form, form)
-			)
-		)
-		.limit(1);
 
 	return drug;
 };
