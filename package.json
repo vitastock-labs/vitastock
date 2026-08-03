@@ -9,6 +9,7 @@
 		"build:backend": "turbo run --filter=@vitastock/backend build",
 		"build:backend:nitro": "turbo run --filter=@vitastock/backend build:nitro",
 		"build:frontend": "turbo run --filter=@vitastock/frontend build",
+		"build:frontend:staging": "turbo run --filter=@vitastock/frontend build:staging",
 		"build:transactional": "turbo run --filter=@vitastock/transactional build",
 		"dev:backend": "turbo run --filter=@vitastock/backend dev",
 		"dev:backend:nitro": "turbo run --filter=@vitastock/backend dev:nitro",
