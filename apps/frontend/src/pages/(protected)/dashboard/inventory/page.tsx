@@ -641,9 +641,9 @@ function StockMovementDialog(props: {
 											<For
 												each={drugs}
 												renderItem={(drug) => (
-											<Select.Item key={drug.id} value={drug.id}>
-												{drug.name} ({drug.genericName}) {drug.strength}
-											</Select.Item>
+													<Select.Item key={drug.id} value={drug.id}>
+														{drug.name} ({drug.genericName}) {drug.strength}
+													</Select.Item>
 												)}
 											/>
 										</Select.Content>

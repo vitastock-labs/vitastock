@@ -280,10 +280,10 @@ function AlertsPage() {
 													>
 														{filterLabels[alert.type]}
 													</Badge>
-												<span>
-													{alert.drug.name} ({alert.drug.genericName}) {alert.drug.strength}{" "}
-													{alert.drug.form}
-												</span>
+													<span>
+														{alert.drug.name} ({alert.drug.genericName}){" "}
+														{alert.drug.strength} {alert.drug.form}
+													</span>
 													{alert.batchNumber && <span>Batch {alert.batchNumber}</span>}
 												</div>
 											</div>

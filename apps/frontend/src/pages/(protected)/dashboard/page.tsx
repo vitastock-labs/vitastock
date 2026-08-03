@@ -195,9 +195,7 @@ const dashboardActivityColumns: Array<ColumnDef<DashboardActivityRow>> = [
 				<p className="text-[14px] font-medium text-black">
 					{row.original.drug.name} {row.original.drug.strength}
 				</p>
-				<p className="mt-0.5 text-[12px] text-vitastock-body-color">
-					{row.original.drug.genericName}
-				</p>
+				<p className="mt-0.5 text-[12px] text-vitastock-body-color">{row.original.drug.genericName}</p>
 			</div>
 		),
 		header: "Drug",
