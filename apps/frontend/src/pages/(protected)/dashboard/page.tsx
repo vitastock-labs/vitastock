@@ -7,7 +7,7 @@ import { For } from "@/components/common/for";
 import { IconBox } from "@/components/common/IconBox";
 import { NavLinkEphemeral } from "@/components/common/NavLink";
 import { Switch } from "@/components/common/switch";
-import { Badge } from "@/components/ui";
+import { Badge, Card } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import { DataTable, useDataTable } from "@/components/ui/data-table";
 import {
@@ -84,21 +84,21 @@ function DashboardStats() {
 	const stats = dashboardOverviewQueryResult.data?.stats;
 	const statItems = [
 		{
-			color: "text-[#d97706]",
+			color: "text-amber-600",
 			desc: "Items below threshold",
 			icon: "lucide:archive",
 			title: "Low Stock",
 			value: String(stats?.lowStockCount ?? 0),
 		},
 		{
-			color: "text-[#dc2626]",
+			color: "text-red-600",
 			desc: "Near expiry window",
 			icon: "lucide:calendar-x",
 			title: "Expiring Soon",
 			value: String(stats?.expiringSoonCount ?? 0),
 		},
 		{
-			color: "text-[#dc2626]",
+			color: "text-red-600",
 			desc: "Require disposal",
 			icon: "lucide:triangle-alert",
 			title: "Expired",
@@ -118,22 +118,30 @@ function DashboardStats() {
 			<For
 				each={statItems}
 				renderItem={(stat) => (
-					<li
+					<Card.Root
 						key={stat.title}
 						className="flex flex-col gap-5 rounded-2xl bg-white p-6 shadow-sm ring-1
 							ring-shadcn-border/40"
 					>
-						<div className="flex items-center justify-between">
-							<h3 className="text-[14px] font-medium">{stat.title}</h3>
+						<Card.Header className="flex flex-row items-center justify-between">
+							<Card.Title className="text-[14px] font-medium">{stat.title}</Card.Title>
 							<IconBox icon={stat.icon} className={cnJoin("size-5", stat.color)} />
-						</div>
-						<div>
-							<p className="text-[34px] leading-none font-extrabold tracking-tight text-black">
+						</Card.Header>
+
+						<Card.Content className="flex min-w-0 grow flex-col justify-between gap-2">
+							<p
+								className={cnJoin(
+									"max-w-full text-[34px] leading-none font-extrabold tracking-tight text-black",
+									stat.title === "Stock Value" && "text-[28px] wrap-break-word"
+								)}
+							>
 								{dashboardOverviewQueryResult.isLoading ? "..." : stat.value}
 							</p>
-							<p className="mt-2 text-[13px] text-vitastock-body-color/70">{stat.desc}</p>
-						</div>
-					</li>
+							<Card.Description className="text-[13px] text-vitastock-body-color/70">
+								{stat.desc}
+							</Card.Description>
+						</Card.Content>
+					</Card.Root>
 				)}
 			/>
 		</section>

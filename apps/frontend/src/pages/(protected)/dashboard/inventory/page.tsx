@@ -104,7 +104,7 @@ function InventoryStats() {
 	return (
 		<section className="flex flex-col gap-6 lg:flex-row">
 			<div
-				className="flex w-full items-center justify-between rounded-2xl bg-[#fafafa] p-6 shadow-sm
+				className="flex w-full items-center justify-between rounded-2xl bg-neutral-50 p-6 shadow-sm
 					ring-1 ring-shadcn-border/60"
 			>
 				<div className="flex flex-col gap-2">
@@ -125,20 +125,20 @@ function InventoryStats() {
 			</div>
 
 			<div
-				className="flex w-full items-center justify-between rounded-2xl bg-[#fee2e2] p-6 shadow-sm
-					ring-1 ring-[#fca5a5]"
+				className="flex w-full items-center justify-between rounded-2xl bg-red-100 p-6 shadow-sm
+					ring-1 ring-red-300"
 			>
 				<div className="flex flex-col gap-2">
-					<h3 className="text-[13px] font-bold tracking-widest text-[#b91c1c] uppercase">
+					<h3 className="text-[13px] font-bold tracking-widest text-red-700 uppercase">
 						Critical Supply Alerts
 					</h3>
-					<p className="text-[34px] leading-none font-extrabold tracking-tight text-[#b91c1c]">
+					<p className="text-[34px] leading-none font-extrabold tracking-tight text-red-700">
 						{summary?.stats.criticalCount ?? 0}
 					</p>
-					<p className="text-[13px] font-medium text-[#b91c1c]/90">Requires immediate review</p>
+					<p className="text-[13px] font-medium text-red-700/90">Requires immediate review</p>
 				</div>
 
-				<span className="grid size-14 place-items-center rounded-xl bg-[#b91c1c] text-white">
+				<span className="grid size-14 place-items-center rounded-xl bg-red-700 text-white">
 					<IconBox icon="lucide:triangle-alert" className="size-6" />
 				</span>
 			</div>
@@ -416,8 +416,8 @@ function InventoryTable() {
 					getRowClassName={(row) =>
 						cnJoin(
 							"hover:bg-shadcn-muted/20",
-							row.original.hasExpiredStock && "bg-[#fee2e2]/30 hover:bg-[#fee2e2]/50",
-							row.original.status === "low_stock" && "bg-[#ffedd5]/30 hover:bg-[#ffedd5]/50"
+							row.original.hasExpiredStock && "bg-red-100/30 hover:bg-red-100/50",
+							row.original.status === "low_stock" && "bg-orange-100/30 hover:bg-orange-100/50"
 						)
 					}
 					classNames={{
@@ -455,8 +455,8 @@ function StatusBadge(props: {
 				<Badge
 					className={cnJoin(
 						"border-none px-2 py-0.5 text-[11px] font-bold capitalize",
-						status === "expired" && "bg-[#fee2e2] text-[#b91c1c]",
-						status === "low_stock" && "bg-[#ffedd5] text-[#c2410c]",
+						status === "expired" && "bg-red-100 text-red-700",
+						status === "low_stock" && "bg-orange-100 text-orange-700",
 						status === "out_of_stock" && "bg-shadcn-muted text-vitastock-body-color"
 					)}
 				>
@@ -465,7 +465,7 @@ function StatusBadge(props: {
 			)}
 
 			{hasExpiredStock && status !== "expired" && (
-				<Badge className="border-none bg-[#fee2e2] px-2 py-0.5 text-[11px] font-bold text-[#b91c1c]">
+				<Badge className="border-none bg-red-100 px-2 py-0.5 text-[11px] font-bold text-red-700">
 					Expired batch
 				</Badge>
 			)}

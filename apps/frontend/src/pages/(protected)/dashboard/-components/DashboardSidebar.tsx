@@ -98,7 +98,7 @@ function DashboardSidebar() {
 					</Sidebar.Group>
 				</Sidebar.Content>
 
-				<Sidebar.Footer className="border-t border-shadcn-border/60 px-3 py-4">
+				<Sidebar.Footer className="border-t border-shadcn-border/60 px-3 py-8">
 					<DashboardSidebarMenu items={dashboardUtilityItems} />
 				</Sidebar.Footer>
 

@@ -38,11 +38,6 @@ import { formatDate } from "@/lib/utils/formatters";
 import { DrugMasterDialog } from "../-components/DrugMasterDialog";
 import { Main } from "../-components/Main";
 
-const WORKSPACE_ROLE_FILTER_OPTIONS = WorkspaceRoleSchema.options.map((role) => ({
-	label: `${role.charAt(0).toUpperCase()}${role.slice(1)}`,
-	value: role,
-}));
-
 function SettingsPage() {
 	return (
 		<Main className="max-w-225 gap-8 self-center">
@@ -101,12 +96,13 @@ function DrugManagementSection() {
 	);
 }
 
+const AlertSettingsSchema = backendApiSchemaRoutes["@patch/workspace/alert-settings"].body;
+
 function AlertSettingsSection() {
 	const sessionQueryResult = useQuery(sessionQuery());
 	const queryClient = useQueryClient();
 	const currentUser = sessionQueryResult.data?.user;
 	const canUpdateAlertSettings = currentUser?.role === "owner" || currentUser?.role === "admin";
-	const AlertSettingsSchema = backendApiSchemaRoutes["@patch/workspace/alert-settings"].body;
 
 	const form = useForm({
 		resolver: zodResolver(AlertSettingsSchema),
@@ -295,6 +291,10 @@ const getJoinedDate = (member: Member) => {
 	return isInvitationMember(member) ? "-" : formatDate(member.createdAt);
 };
 
+const WORKSPACE_ROLE_FILTER_OPTIONS = WorkspaceRoleSchema.options.map((role) => ({
+	label: `${role.charAt(0).toUpperCase()}${role.slice(1)}`,
+	value: role,
+}));
 function ManagePeopleDialog() {
 	const workspaceMembersQueryResult = useQuery(workspaceMembersQuery());
 	const tableMembers = workspaceMembersQueryResult.data?.members ?? [];
@@ -446,8 +446,8 @@ function ManagePeopleDialog() {
 								<DialogAnimated.Root>
 									<DialogAnimated.Trigger asChild={true}>
 										<Button
-											className="h-10 rounded-lg bg-[#0047b3] px-4 text-[14px] font-bold
-												hover:bg-[#0047b3]/90"
+											className="h-10 rounded-lg bg-vitastock-primary-main px-4 text-[14px]
+												font-bold hover:bg-vitastock-primary-main/90"
 										>
 											<IconBox icon="lucide:plus" className="size-4.5" />
 											Invite Member

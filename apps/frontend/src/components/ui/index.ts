@@ -2,6 +2,7 @@ export * as Accordion from "./accordion";
 export * as Avatar from "./avatar";
 export { Badge } from "./badge";
 export { Button } from "./button";
+export { Card } from "./card";
 export * from "./calender";
 export * as Carousel from "./carousel";
 export * as Combobox from "./combobox";

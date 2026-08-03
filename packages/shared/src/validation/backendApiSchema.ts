@@ -125,7 +125,7 @@ const stringWithDateValidation = () => {
 };
 
 const stringWithNumberValidation = <TNumberSchema extends z.ZodNumber>(numberSchema: TNumberSchema) => {
-	return z.preprocess((value: string) => Number(value), numberSchema);
+	return z.preprocess((value: number | string) => Number(value), numberSchema);
 };
 
 const TokenObjectSchema = z.object({
@@ -332,8 +332,8 @@ export const workspaceRoutes = () => {
 		.object({
 			alertEmail: z.email("Please enter a valid alert email").optional(),
 			emailAlertsEnabled: z.boolean(),
-			lowStockThreshold: z.number().int().min(0),
-			nearExpiryDays: z.number().int().positive(),
+			lowStockThreshold: stringWithNumberValidation(z.number().int().min(0)),
+			nearExpiryDays: stringWithNumberValidation(z.number().int().positive()),
 		})
 		.superRefine((data, ctx) => {
 			if (data.emailAlertsEnabled && !data.alertEmail) {

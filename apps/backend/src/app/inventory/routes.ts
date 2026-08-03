@@ -132,6 +132,7 @@ export const inventoryRoutes = new Hono()
 		validateWithZodMiddleware("query", backendApiSchemaRoutes["@get/inventory/alerts"].query),
 		async (ctx) => {
 			const currentUser = ctx.get("currentUser");
+
 			const alerts = await getPersistedInventoryAlerts({
 				status: ctx.req.valid("query")?.status,
 				workspaceId: currentUser.workspaceId,
@@ -147,6 +148,7 @@ export const inventoryRoutes = new Hono()
 
 	.get("/alerts/unread-count", async (ctx) => {
 		const currentUser = ctx.get("currentUser");
+
 		const count = await getUnreadInventoryAlertCount(currentUser.workspaceId);
 
 		return AppJsonResponse(ctx, {
@@ -161,6 +163,7 @@ export const inventoryRoutes = new Hono()
 		validateWithZodMiddleware("query", backendApiSchemaRoutes["@get/inventory/activity"].query),
 		async (ctx) => {
 			const currentUser = ctx.get("currentUser");
+
 			const activity = await getInventoryActivity({
 				query: ctx.req.valid("query"),
 				workspaceId: currentUser.workspaceId,
