@@ -34,14 +34,7 @@ export const drugs = pg.pgTable(
 		// TODO: Add a pg_trgm GIN index for brand/generic/strength/form/unit search when catalogue size warrants it.
 		pg
 			.uniqueIndex("drug_workspace_identity_index")
-			.on(
-				table.workspaceId,
-				table.name,
-				table.genericName,
-				table.strength,
-				table.form,
-				table.unit
-			),
+			.on(table.workspaceId, table.name, table.genericName, table.strength, table.form, table.unit),
 	]
 );
 
