@@ -125,8 +125,8 @@ function InventoryStats() {
 			</div>
 
 			<div
-				className="flex w-full items-center justify-between rounded-2xl bg-red-100 p-6 shadow-sm
-					ring-1 ring-red-300"
+				className="flex w-full items-center justify-between rounded-2xl bg-red-100 p-6 shadow-sm ring-1
+					ring-red-300"
 			>
 				<div className="flex flex-col gap-2">
 					<h3 className="text-[13px] font-bold tracking-widest text-red-700 uppercase">
