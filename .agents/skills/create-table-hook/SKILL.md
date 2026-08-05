@@ -1,22 +1,22 @@
 ---
 name: create-table-hook
 description: >
-  Build reusable React table infrastructure with createTableHook, useAppTable, createAppColumnHelper, shared features/defaults, component registries, AppTable/AppCell/AppHeader wrappers, and typed context hooks. Load for recurring application table conventions, scoped contexts, HMR cycles, or table prop drilling.
+   Build reusable React table infrastructure with createTableHook, useAppTable, createAppColumnHelper, shared features/defaults, component registries, AppTable/AppCell/AppHeader wrappers, and typed context hooks. Load for recurring application table conventions, scoped contexts, HMR cycles, or table prop drilling.
 metadata:
-  type: framework
-  library: '@tanstack/react-table'
-  library_version: '9.0.0'
-  framework: react
+   type: framework
+   library: "@tanstack/react-table"
+   library_version: "9.0.0"
+   framework: react
 requires:
-  - '@tanstack/table-core#core'
-  - getting-started
-  - table-state
+   - "@tanstack/table-core#core"
+   - getting-started
+   - table-state
 sources:
-  - 'TanStack/table:docs/framework/react/guide/composable-tables.md'
-  - 'TanStack/table:docs/framework/react/guide/table-context.md'
-  - 'TanStack/table:examples/react/composable-tables'
-  - 'TanStack/table:packages/react-table/src/createTableHook.tsx'
-  - 'TanStack/table:packages/react-table/src/createTableHookContexts.tsx'
+   - "TanStack/table:docs/framework/react/guide/composable-tables.md"
+   - "TanStack/table:docs/framework/react/guide/table-context.md"
+   - "TanStack/table:examples/react/composable-tables"
+   - "TanStack/table:packages/react-table/src/createTableHook.tsx"
+   - "TanStack/table:packages/react-table/src/createTableHookContexts.tsx"
 ---
 
 This skill builds on `@tanstack/table-core#core`, `getting-started`, and `table-state`. Use a factory when multiple tables share real conventions; use standalone `useTable` for a one-off.
@@ -24,17 +24,12 @@ This skill builds on `@tanstack/table-core#core`, `getting-started`, and `table-
 ## Setup
 
 ```tsx
-import {
-  createTableHook,
-  rowSelectionFeature,
-  tableFeatures,
-} from '@tanstack/react-table'
+import { createTableHook, rowSelectionFeature, tableFeatures } from "@tanstack/react-table";
 
-export const { createAppColumnHelper, useAppTable, useTableContext } =
-  createTableHook({
-    features: tableFeatures({ rowSelectionFeature }),
-    getRowId: (row: { id: string }) => row.id,
-  })
+export const { createAppColumnHelper, useAppTable, useTableContext } = createTableHook({
+	features: tableFeatures({ rowSelectionFeature }),
+	getRowId: (row: { id: string }) => row.id,
+});
 ```
 
 Keep this factory in an infrastructure module. It binds feature types and defaults once while each `useAppTable` call still supplies its own data, columns, state, and initial state.
@@ -44,17 +39,17 @@ Keep this factory in an infrastructure module. It binds feature types and defaul
 ### Infer columns through the bound helper
 
 ```tsx
-type Person = { id: string; name: string }
-const helper = createAppColumnHelper<Person>()
-const columns = helper.columns([helper.accessor('name', { header: 'Name' })])
+type Person = { id: string; name: string };
+const helper = createAppColumnHelper<Person>();
+const columns = helper.columns([helper.accessor("name", { header: "Name" })]);
 
 function People({ data }: { data: Person[] }) {
-  const table = useAppTable({ data, columns })
-  return (
-    <table.AppTable>
-      <div>{table.getRowModel().rows.length}</div>
-    </table.AppTable>
-  )
+	const table = useAppTable({ data, columns });
+	return (
+		<table.AppTable>
+			<div>{table.getRowModel().rows.length}</div>
+		</table.AppTable>
+	);
 }
 ```
 
@@ -62,7 +57,7 @@ function People({ data }: { data: Person[] }) {
 
 ```tsx
 <table.AppTable selector={(state) => state.rowSelection}>
-  {(rowSelection) => <output>{Object.keys(rowSelection).length}</output>}
+	{(rowSelection) => <output>{Object.keys(rowSelection).length}</output>}
 </table.AppTable>
 ```
 
@@ -70,8 +65,8 @@ function People({ data }: { data: Person[] }) {
 
 ```tsx
 function RowCount() {
-  const table = useTableContext()
-  return <output>{table.getRowModel().rows.length}</output>
+	const table = useTableContext();
+	return <output>{table.getRowModel().rows.length}</output>;
 }
 ```
 
@@ -83,22 +78,21 @@ The default module-scoped contexts are HMR-stable, and normal provider scoping a
 
 ```tsx
 import {
-  createTableHook,
-  createTableHookContexts,
-  rowSelectionFeature,
-  tableFeatures,
-} from '@tanstack/react-table'
+	createTableHook,
+	createTableHookContexts,
+	rowSelectionFeature,
+	tableFeatures,
+} from "@tanstack/react-table";
 
-const features = tableFeatures({ rowSelectionFeature })
-const { tableContext, cellContext, headerContext } =
-  createTableHookContexts<typeof features>()
+const features = tableFeatures({ rowSelectionFeature });
+const { tableContext, cellContext, headerContext } = createTableHookContexts<typeof features>();
 
 export const app = createTableHook({
-  features,
-  tableContext,
-  cellContext,
-  headerContext,
-})
+	features,
+	tableContext,
+	cellContext,
+	headerContext,
+});
 ```
 
 Prefer context hooks returned by `createTableHook`; they include the registered component maps in their types. Hooks returned directly by `createTableHookContexts` know only `TFeatures` and are useful from modules that cannot import the completed factory.
@@ -110,13 +104,13 @@ Prefer context hooks returned by `createTableHook`; they include the registered 
 Wrong:
 
 ```tsx
-const { useAppTable } = createTableHook({ features: tableFeatures({}) })
+const { useAppTable } = createTableHook({ features: tableFeatures({}) });
 ```
 
 Correct:
 
 ```tsx
-const table = useTable({ features: tableFeatures({}), columns, data })
+const table = useTable({ features: tableFeatures({}), columns, data });
 ```
 
 A factory adds an app-wide abstraction; standalone construction is clearer without shared conventions.
@@ -129,27 +123,27 @@ Wrong:
 
 ```tsx
 function People() {
-  const app = createTableHook({ features })
-  const table = app.useAppTable({ data, columns })
-  return (
-    <table.AppTable>
-      <div />
-    </table.AppTable>
-  )
+	const app = createTableHook({ features });
+	const table = app.useAppTable({ data, columns });
+	return (
+		<table.AppTable>
+			<div />
+		</table.AppTable>
+	);
 }
 ```
 
 Correct:
 
 ```tsx
-const app = createTableHook({ features })
+const app = createTableHook({ features });
 function People() {
-  const table = app.useAppTable({ data, columns })
-  return (
-    <table.AppTable>
-      <div />
-    </table.AppTable>
-  )
+	const table = app.useAppTable({ data, columns });
+	return (
+		<table.AppTable>
+			<div />
+		</table.AppTable>
+	);
 }
 ```
 
@@ -163,14 +157,14 @@ Wrong:
 
 ```tsx
 // table.ts imports RowCount; RowCount.tsx imports useTableContext from table.ts
-export const app = createTableHook({ features, tableComponents: { RowCount } })
+export const app = createTableHook({ features, tableComponents: { RowCount } });
 ```
 
 Correct:
 
 ```tsx
 // components.tsx receives the exported hook through a cycle-free module boundary
-export const app = createTableHook({ features })
+export const app = createTableHook({ features });
 ```
 
 Keep the factory dependency graph acyclic or inject components from a separate composition root; circular registries can break Vite HMR.

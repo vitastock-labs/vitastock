@@ -1,21 +1,21 @@
 ---
 name: migrate-v8-to-v9
 description: >
-  Perform a complete @tanstack/react-table v8-to-v9 migration: hook and feature architecture, row-model slots, React state and subscriptions, rendering, composable tables, type helpers, and every shared API rename and semantic change. Use for migration plans, implementation, or audits. Treat useLegacyTable only as a deprecated temporary bridge.
+   Perform a complete @tanstack/react-table v8-to-v9 migration: hook and feature architecture, row-model slots, React state and subscriptions, rendering, composable tables, type helpers, and every shared API rename and semantic change. Use for migration plans, implementation, or audits. Treat useLegacyTable only as a deprecated temporary bridge.
 metadata:
-  type: lifecycle
-  library: '@tanstack/react-table'
-  library_version: '9.0.0'
-  framework: react
+   type: lifecycle
+   library: "@tanstack/react-table"
+   library_version: "9.0.0"
+   framework: react
 requires:
-  - '@tanstack/table-core#migrate-v8-to-v9'
-  - getting-started
-  - table-state
+   - "@tanstack/table-core#migrate-v8-to-v9"
+   - getting-started
+   - table-state
 sources:
-  - 'TanStack/table:docs/framework/react/guide/migrating.md'
-  - 'TanStack/table:packages/react-table/src/index.ts'
-  - 'TanStack/table:packages/react-table/src/legacy.ts'
-  - 'TanStack/table:examples/react/basic-use-table'
+   - "TanStack/table:docs/framework/react/guide/migrating.md"
+   - "TanStack/table:packages/react-table/src/index.ts"
+   - "TanStack/table:packages/react-table/src/legacy.ts"
+   - "TanStack/table:examples/react/basic-use-table"
 ---
 
 Read `@tanstack/table-core#migrate-v8-to-v9`, `getting-started`, and `table-state`. Use this skill as the exhaustive migration checklist, not as general API documentation. Inspect the installed `src` files before writing APIs for a different v9 version.
@@ -26,26 +26,26 @@ Framework prerequisite: React 18 or newer (`react >=18`).
 
 ```tsx
 import {
-  columnFilteringFeature,
-  createFilteredRowModel,
-  createSortedRowModel,
-  filterFn_includesString,
-  rowSortingFeature,
-  sortFn_alphanumeric,
-  tableFeatures,
-  useTable,
-} from '@tanstack/react-table'
+	columnFilteringFeature,
+	createFilteredRowModel,
+	createSortedRowModel,
+	filterFn_includesString,
+	rowSortingFeature,
+	sortFn_alphanumeric,
+	tableFeatures,
+	useTable,
+} from "@tanstack/react-table";
 
 const features = tableFeatures({
-  columnFilteringFeature,
-  rowSortingFeature,
-  filteredRowModel: createFilteredRowModel(),
-  sortedRowModel: createSortedRowModel(),
-  filterFns: { includesString: filterFn_includesString },
-  sortFns: { alphanumeric: sortFn_alphanumeric },
-})
+	columnFilteringFeature,
+	rowSortingFeature,
+	filteredRowModel: createFilteredRowModel(),
+	sortedRowModel: createSortedRowModel(),
+	filterFns: { includesString: filterFn_includesString },
+	sortFns: { alphanumeric: sortFn_alphanumeric },
+});
 
-const table = useTable({ features, columns, data })
+const table = useTable({ features, columns, data });
 ```
 
 Prefer explicit features as the end state. `stockFeatures` is a useful kitchen-sink migration shortcut, but bundles every stock feature. Do not target `useLegacyTable`: it is deprecated, React-only, exported from `@tanstack/react-table/legacy`, and intended only to keep an existing migration moving temporarily.
@@ -88,14 +88,14 @@ Declare each prerequisite feature before its row-model slot in the same `tableFe
 Controlled `state` plus per-slice callbacks remains valid:
 
 ```tsx
-const [sorting, setSorting] = useState<SortingState>([])
+const [sorting, setSorting] = useState<SortingState>([]);
 const table = useTable({
-  features,
-  columns,
-  data,
-  state: { sorting },
-  onSortingChange: setSorting,
-})
+	features,
+	columns,
+	data,
+	state: { sorting },
+	onSortingChange: setSorting,
+});
 ```
 
 For fine-grained rendering, pass a selector as the second `useTable` argument or select closer to the consumer:
@@ -188,7 +188,7 @@ All other underscore-prefixed internals are removed. `getIsSomeRowsSelected()` a
 7. Audit destructured object methods and shallow clones of rows/cells/columns/headers.
 8. Migrate rendering and optionally introduce `tableOptions`, `table.Subscribe`, or `createTableHook` where they solve an actual composition/render boundary.
 9. Type-check, then exercise sorting, filtering, grouping, pagination, expansion, pinning, resizing, selection, and controlled/server-side flows that the table uses.
-10. Remove `stockFeatures` after the feature audit if bundle specificity matters; remove `useLegacyTable` rather than treating it as the destination.
+10.   Remove `stockFeatures` after the feature audit if bundle specificity matters; remove `useLegacyTable` rather than treating it as the destination.
 
 ## Final migration checklist
 

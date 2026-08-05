@@ -1,20 +1,20 @@
 ---
 name: table-state
 description: >
-  Read, select, subscribe to, and control React Table v9 state with useTable selectors, table.state, table.Subscribe, table.atoms, table.store, and external TanStack Store atoms. Load for controlled state, render performance, or React Compiler builder-method subscription problems.
+   Read, select, subscribe to, and control React Table v9 state with useTable selectors, table.state, table.Subscribe, table.atoms, table.store, and external TanStack Store atoms. Load for controlled state, render performance, or React Compiler builder-method subscription problems.
 metadata:
-  type: framework
-  library: '@tanstack/react-table'
-  library_version: '9.0.0'
-  framework: react
+   type: framework
+   library: "@tanstack/react-table"
+   library_version: "9.0.0"
+   framework: react
 requires:
-  - '@tanstack/table-core#core'
-  - getting-started
+   - "@tanstack/table-core#core"
+   - getting-started
 sources:
-  - 'TanStack/table:docs/framework/react/guide/table-state.md'
-  - 'TanStack/table:examples/react/basic-subscribe'
-  - 'TanStack/table:packages/react-table/src/Subscribe.ts'
-  - 'TanStack/table:packages/react-table/src/useTable.ts'
+   - "TanStack/table:docs/framework/react/guide/table-state.md"
+   - "TanStack/table:examples/react/basic-subscribe"
+   - "TanStack/table:packages/react-table/src/Subscribe.ts"
+   - "TanStack/table:packages/react-table/src/useTable.ts"
 ---
 
 This skill builds on `@tanstack/table-core#core` and `getting-started`. Read them first for table construction and feature-owned state.
@@ -35,25 +35,15 @@ Keep `features`, `data`, and `columns` stable. State subscriptions do not compen
 ## Setup
 
 ```tsx
-import {
-  rowSelectionFeature,
-  tableFeatures,
-  useTable,
-} from '@tanstack/react-table'
+import { rowSelectionFeature, tableFeatures, useTable } from "@tanstack/react-table";
 
-const features = tableFeatures({ rowSelectionFeature })
+const features = tableFeatures({ rowSelectionFeature });
 
-export function SelectionCount({
-  data,
-  columns,
-}: {
-  data: Array<{ id: string }>
-  columns: any[]
-}) {
-  const table = useTable({ features, data, columns }, (state) => ({
-    rowSelection: state.rowSelection,
-  }))
-  return <output>{Object.keys(table.state.rowSelection).length}</output>
+export function SelectionCount({ data, columns }: { data: Array<{ id: string }>; columns: any[] }) {
+	const table = useTable({ features, data, columns }, (state) => ({
+		rowSelection: state.rowSelection,
+	}));
+	return <output>{Object.keys(table.state.rowSelection).length}</output>;
 }
 ```
 
@@ -64,16 +54,12 @@ The optional selector controls which state changes rerender the component and wh
 ### Subscribe at the expensive boundary
 
 ```tsx
-function SelectedRows({
-  table,
-}: {
-  table: ReturnType<typeof useTable<typeof features, { id: string }>>
-}) {
-  return (
-    <table.Subscribe selector={(state) => state.rowSelection}>
-      {(rowSelection) => <output>{Object.keys(rowSelection).length}</output>}
-    </table.Subscribe>
-  )
+function SelectedRows({ table }: { table: ReturnType<typeof useTable<typeof features, { id: string }>> }) {
+	return (
+		<table.Subscribe selector={(state) => state.rowSelection}>
+			{(rowSelection) => <output>{Object.keys(rowSelection).length}</output>}
+		</table.Subscribe>
+	);
 }
 ```
 
@@ -82,15 +68,15 @@ At a top-level component holding the adapter's table instance, `table.Subscribe`
 ### Control a slice with an external atom
 
 ```tsx
-import { useCreateAtom } from '@tanstack/react-store'
+import { useCreateAtom } from "@tanstack/react-store";
 
-const selection = useCreateAtom<Record<string, boolean>>({})
+const selection = useCreateAtom<Record<string, boolean>>({});
 const table = useTable({
-  features,
-  columns,
-  data,
-  atoms: { rowSelection: selection },
-})
+	features,
+	columns,
+	data,
+	atoms: { rowSelection: selection },
+});
 ```
 
 An external atom is both ownership and subscription source; it avoids value-or-updater glue.
@@ -98,14 +84,14 @@ An external atom is both ownership and subscription source; it avoids value-or-u
 ### Control a slice with React state
 
 ```tsx
-const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({})
+const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
 const table = useTable({
-  features,
-  columns,
-  data,
-  state: { rowSelection },
-  onRowSelectionChange: setRowSelection,
-})
+	features,
+	columns,
+	data,
+	state: { rowSelection },
+	onRowSelectionChange: setRowSelection,
+});
 ```
 
 ## Choose State Ownership
@@ -126,9 +112,9 @@ Prefer feature methods over direct atom writes because feature methods preserve 
 Feature reset methods reset to `table.initialState` by default:
 
 ```tsx
-table.resetSorting()
-table.resetPagination()
-table.resetPagination(true) // feature blank/default state
+table.resetSorting();
+table.resetPagination();
+table.resetPagination(true); // feature blank/default state
 ```
 
 Slice reset methods flow through that feature's updater and can update an external owner. Core `table.reset()` resets internal base atoms, so it is not the primary reset mechanism for externally owned atoms.
@@ -136,10 +122,10 @@ Slice reset methods flow through that feature's updater and can update an extern
 Use feature-specific types for owned slices and infer the full state from the feature set:
 
 ```tsx
-import type { PaginationState, TableState } from '@tanstack/react-table'
+import type { PaginationState, TableState } from "@tanstack/react-table";
 
-type AppTableState = TableState<typeof features>
-const initialPagination: PaginationState = { pageIndex: 0, pageSize: 20 }
+type AppTableState = TableState<typeof features>;
+const initialPagination: PaginationState = { pageIndex: 0, pageSize: 20 };
 ```
 
 ## Common Mistakes
@@ -149,13 +135,13 @@ const initialPagination: PaginationState = { pageIndex: 0, pageSize: 20 }
 Wrong:
 
 ```tsx
-const count = Object.keys(table.atoms.rowSelection.get()).length
+const count = Object.keys(table.atoms.rowSelection.get()).length;
 ```
 
 Correct:
 
 ```tsx
-const count = Object.keys(table.state.rowSelection).length
+const count = Object.keys(table.state.rowSelection).length;
 ```
 
 `atoms.*.get()` and `table.store.state` return current values but do not subscribe a React render.
@@ -168,23 +154,23 @@ Wrong:
 
 ```tsx
 const table = useTable({
-  features,
-  columns,
-  data,
-  onRowSelectionChange: setRowSelection,
-})
+	features,
+	columns,
+	data,
+	onRowSelectionChange: setRowSelection,
+});
 ```
 
 Correct:
 
 ```tsx
 const table = useTable({
-  features,
-  columns,
-  data,
-  state: { rowSelection },
-  onRowSelectionChange: setRowSelection,
-})
+	features,
+	columns,
+	data,
+	state: { rowSelection },
+	onRowSelectionChange: setRowSelection,
+});
 ```
 
 Once a callback takes ownership, the corresponding controlled value must be written back.
@@ -197,33 +183,22 @@ Wrong:
 
 ```tsx
 const SelectionCell = memo(({ row }) => (
-  <input
-    type="checkbox"
-    checked={row.getIsSelected()}
-    onChange={row.getToggleSelectedHandler()}
-  />
-))
+	<input type="checkbox" checked={row.getIsSelected()} onChange={row.getToggleSelectedHandler()} />
+));
 ```
 
 Correct:
 
 ```tsx
-import { Subscribe } from '@tanstack/react-table'
+import { Subscribe } from "@tanstack/react-table";
 
 const SelectionCell = memo(({ row }) => (
-  <Subscribe
-    source={row.table.atoms.rowSelection}
-    selector={(selection) => selection[row.id]}
-  >
-    {(selected) => (
-      <input
-        type="checkbox"
-        checked={!!selected}
-        onChange={row.getToggleSelectedHandler()}
-      />
-    )}
-  </Subscribe>
-))
+	<Subscribe source={row.table.atoms.rowSelection} selector={(selection) => selection[row.id]}>
+		{(selected) => (
+			<input type="checkbox" checked={!!selected} onChange={row.getToggleSelectedHandler()} />
+		)}
+	</Subscribe>
+));
 ```
 
 `useTable` already returns a fresh table reference on state changes. The remaining hazard is a nested component receiving a stable row, cell, column, or header and hiding a state read behind its methods. Inside cell and header render contexts, `table` is typed as core `Table`, so import standalone `Subscribe`; use `source={table.store}` with a selector for multiple slices, or a specific atom for the narrowest boundary.
@@ -235,9 +210,7 @@ Source: `docs/framework/react/guide/table-state.md`
 Wrong:
 
 ```tsx
-<table.Subscribe source={table.atoms.rowSelection}>
-  {() => <Cell cell={cell} />}
-</table.Subscribe>
+<table.Subscribe source={table.atoms.rowSelection}>{() => <Cell cell={cell} />}</table.Subscribe>
 ```
 
 Correct:

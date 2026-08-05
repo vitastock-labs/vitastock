@@ -1,19 +1,19 @@
 ---
 name: getting-started
 description: >
-  Create and render a TanStack React Table v9 table with useTable, tableFeatures, stable data and columns, row/header models, and table.FlexRender. Load for a first React table, headless rendering, or when v8 useReactTable examples are producing the wrong setup.
+   Create and render a TanStack React Table v9 table with useTable, tableFeatures, stable data and columns, row/header models, and table.FlexRender. Load for a first React table, headless rendering, or when v8 useReactTable examples are producing the wrong setup.
 metadata:
-  type: framework
-  library: '@tanstack/react-table'
-  library_version: '9.0.0'
-  framework: react
+   type: framework
+   library: "@tanstack/react-table"
+   library_version: "9.0.0"
+   framework: react
 requires:
-  - '@tanstack/table-core#core'
-  - '@tanstack/table-core#table-features'
+   - "@tanstack/table-core#core"
+   - "@tanstack/table-core#table-features"
 sources:
-  - 'TanStack/table:docs/framework/react/guide/migrating.md'
-  - 'TanStack/table:examples/react/basic-use-table'
-  - 'TanStack/table:packages/react-table/src/index.ts'
+   - "TanStack/table:docs/framework/react/guide/migrating.md"
+   - "TanStack/table:examples/react/basic-use-table"
+   - "TanStack/table:packages/react-table/src/index.ts"
 ---
 
 This skill builds on `@tanstack/table-core#core` and `@tanstack/table-core#table-features`. Read them first for the headless model and explicit feature registration.
@@ -21,53 +21,47 @@ This skill builds on `@tanstack/table-core#core` and `@tanstack/table-core#table
 ## Setup
 
 ```tsx
-import { useMemo, useState } from 'react'
-import {
-  createColumnHelper,
-  tableFeatures,
-  useTable,
-} from '@tanstack/react-table'
+import { createColumnHelper, tableFeatures, useTable } from "@tanstack/react-table";
+import { useMemo, useState } from "react";
 
-type Person = { name: string; age: number }
-const features = tableFeatures({})
-const helper = createColumnHelper<typeof features, Person>()
+type Person = { name: string; age: number };
+const features = tableFeatures({});
+const helper = createColumnHelper<typeof features, Person>();
 const columns = helper.columns([
-  helper.accessor('name', { header: 'Name' }),
-  helper.accessor('age', { header: 'Age' }),
-])
+	helper.accessor("name", { header: "Name" }),
+	helper.accessor("age", { header: "Age" }),
+]);
 
 export function PeopleTable() {
-  const [data] = useState<Person[]>([{ name: 'Ada', age: 36 }])
-  const table = useTable({ features, columns, data })
+	const [data] = useState<Person[]>([{ name: "Ada", age: 36 }]);
+	const table = useTable({ features, columns, data });
 
-  return (
-    <table>
-      <thead>
-        {table.getHeaderGroups().map((group) => (
-          <tr key={group.id}>
-            {group.headers.map((header) => (
-              <th key={header.id}>
-                {header.isPlaceholder ? null : (
-                  <table.FlexRender header={header} />
-                )}
-              </th>
-            ))}
-          </tr>
-        ))}
-      </thead>
-      <tbody>
-        {table.getRowModel().rows.map((row) => (
-          <tr key={row.id}>
-            {row.getAllCells().map((cell) => (
-              <td key={cell.id}>
-                <table.FlexRender cell={cell} />
-              </td>
-            ))}
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  )
+	return (
+		<table>
+			<thead>
+				{table.getHeaderGroups().map((group) => (
+					<tr key={group.id}>
+						{group.headers.map((header) => (
+							<th key={header.id}>
+								{header.isPlaceholder ? null : <table.FlexRender header={header} />}
+							</th>
+						))}
+					</tr>
+				))}
+			</thead>
+			<tbody>
+				{table.getRowModel().rows.map((row) => (
+					<tr key={row.id}>
+						{row.getAllCells().map((cell) => (
+							<td key={cell.id}>
+								<table.FlexRender cell={cell} />
+							</td>
+						))}
+					</tr>
+				))}
+			</tbody>
+		</table>
+	);
 }
 ```
 
@@ -78,16 +72,12 @@ Table produces models and state; React owns the semantic markup, styles, event a
 ### Add only the feature the table uses
 
 ```tsx
-import {
-  createSortedRowModel,
-  rowSortingFeature,
-  tableFeatures,
-} from '@tanstack/react-table'
+import { createSortedRowModel, rowSortingFeature, tableFeatures } from "@tanstack/react-table";
 
 const sortableFeatures = tableFeatures({
-  rowSortingFeature,
-  sortedRowModel: createSortedRowModel(),
-})
+	rowSortingFeature,
+	sortedRowModel: createSortedRowModel(),
+});
 ```
 
 Row-model slots belong inside `tableFeatures`, after their prerequisite feature.
@@ -95,8 +85,8 @@ Row-model slots belong inside `tableFeatures`, after their prerequisite feature.
 ### Keep static inputs outside render
 
 ```tsx
-const features = tableFeatures({})
-const data: Person[] = [{ name: 'Ada', age: 36 }]
+const features = tableFeatures({});
+const data: Person[] = [{ name: "Ada", age: 36 }];
 ```
 
 Use state, memoization, or query results for changing data; avoid a new fallback array every render.
@@ -109,16 +99,16 @@ Wrong:
 
 ```tsx
 const table = useReactTable({
-  data,
-  columns,
-  getCoreRowModel: getCoreRowModel(),
-})
+	data,
+	columns,
+	getCoreRowModel: getCoreRowModel(),
+});
 ```
 
 Correct:
 
 ```tsx
-const table = useTable({ data, columns, features })
+const table = useTable({ data, columns, features });
 ```
 
 V9 uses `useTable`; optional row models are registered as feature slots rather than table options.
@@ -130,16 +120,16 @@ Source: `docs/framework/react/guide/migrating.md`
 Wrong:
 
 ```tsx
-const features = tableFeatures({})
+const features = tableFeatures({});
 ```
 
 Correct:
 
 ```tsx
 const features = tableFeatures({
-  rowSortingFeature,
-  sortedRowModel: createSortedRowModel(),
-})
+	rowSortingFeature,
+	sortedRowModel: createSortedRowModel(),
+});
 ```
 
 Sorting state and methods do not exist until the sorting feature is registered.
@@ -151,15 +141,15 @@ Source: `packages/table-core/src/TableFeatures.ts`
 Wrong:
 
 ```tsx
-const table = useTable({ features, columns, data: response.data ?? [] })
+const table = useTable({ features, columns, data: response.data ?? [] });
 ```
 
 Correct:
 
 ```tsx
 // module scope
-const EMPTY_DATA: Person[] = []
-const table = useTable({ features, columns, data: response.data ?? EMPTY_DATA })
+const EMPTY_DATA: Person[] = [];
+const table = useTable({ features, columns, data: response.data ?? EMPTY_DATA });
 ```
 
 A fresh fallback invalidates data-dependent models on every render.
