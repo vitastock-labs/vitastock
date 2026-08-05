@@ -18,13 +18,7 @@ export default zayne(
 		node: {
 			security: true,
 		},
-		react: {
-			nextjs: {
-				overrides: {
-					"nextjs/no-html-link-for-pages": ["error", "apps/frontend"],
-				},
-			},
-		},
+		react: true,
 		tailwindcssBetter: {
 			settings: { entryPoint: "apps/frontend/tailwind.css" },
 		},
