@@ -1,9 +1,10 @@
 "use client";
 
-import { flexRender, type Row, type Table as TanstackTable } from "@tanstack/react-table";
+import type { RowData } from "@tanstack/react-table";
 import * as Table from "@/components/ui/table";
 import { cnMerge } from "@/lib/utils/cn";
 import { DataTablePagination } from "./data-table-pagination";
+import type { DataTableInstance, DataTableRow } from "./data-table-types";
 
 type DataTableClassNames = {
 	base?: string;
@@ -17,16 +18,16 @@ type DataTableClassNames = {
 	tableRow?: string;
 };
 
-export function DataTable<TData>(
+export function DataTable<TData extends RowData>(
 	props: React.ComponentProps<"div"> & {
 		classNames?: DataTableClassNames;
 		emptyMessage?: string;
 		errorMessage?: string;
-		getRowClassName?: (row: Row<TData>) => string | undefined;
+		getRowClassName?: (row: DataTableRow<TData>) => string | undefined;
 		isError?: boolean;
 		isLoading?: boolean;
 		showPagination?: boolean;
-		table: TanstackTable<TData>;
+		table: DataTableInstance<TData>;
 		totalRows?: number;
 	}
 ) {
@@ -89,7 +90,7 @@ export function DataTable<TData>(
 			>
 				{row.getVisibleCells().map((cell) => (
 					<Table.Cell key={cell.id} className={classNames?.tableCell}>
-						{flexRender(cell.column.columnDef.cell, cell.getContext())}
+						<table.FlexRender cell={cell} />
 					</Table.Cell>
 				))}
 			</Table.Row>
@@ -101,8 +102,10 @@ export function DataTable<TData>(
 			{children}
 
 			<Table.Root
-				className={classNames?.tableRoot}
-				classNames={{ container: classNames?.tableContainer }}
+				classNames={{
+					container: classNames?.tableContainer,
+					table: classNames?.tableRoot,
+				}}
 			>
 				<Table.Header className={classNames?.tableHeader}>
 					{table.getHeaderGroups().map((headerGroup) => (
@@ -116,9 +119,7 @@ export function DataTable<TData>(
 									colSpan={header.colSpan}
 									className={classNames?.tableHead}
 								>
-									{header.isPlaceholder ? null : (
-										flexRender(header.column.columnDef.header, header.getContext())
-									)}
+									{header.isPlaceholder ? null : <table.FlexRender header={header} />}
 								</Table.Head>
 							))}
 						</Table.Row>

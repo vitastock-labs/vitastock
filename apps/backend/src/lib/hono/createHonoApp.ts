@@ -22,16 +22,7 @@ const createHonoApp = () => {
 		ctx.set("requestStartedAt", performance.now());
 		await next();
 	});
-
-	/**
-	 *  == Middleware - Logger
-	 */
-	app.use(
-		// structuredLogger({
-		// 	createLogger: (c) => pinoLogger.child({ requestId: c.var.requestId }),
-		// })
-		pinoLoggerMiddleware()
-	);
+	app.use(pinoLoggerMiddleware());
 
 	/**
 	 *  == Middleware - App Security

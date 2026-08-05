@@ -14,7 +14,6 @@ import { StockMovementLogTypeSchema, StockOutReasonSchema } from "@/lib/api/call
 import { acknowledgeInventoryAlertMutation } from "@/lib/react-query/mutationOptions";
 import {
 	inventoryAlertsQuery,
-	inventoryAlertsQueryKey,
 	inventoryAlertsUnreadCountQuery,
 	type InventoryAlertsQueryResultType,
 } from "@/lib/react-query/queryOptions";
@@ -106,7 +105,9 @@ function AlertsPage() {
 			{
 				onSuccess: () => {
 					void Promise.all([
-						queryClient.invalidateQueries({ queryKey: inventoryAlertsQueryKey }),
+						queryClient.invalidateQueries({
+							queryKey: inventoryAlertsQuery().queryKey.slice(0, -1),
+						}),
 						queryClient.invalidateQueries(inventoryAlertsUnreadCountQuery()),
 					]);
 				},

@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ColumnDef, ColumnFiltersState } from "@tanstack/react-table";
+import type { ColumnFiltersState } from "@tanstack/react-table";
 import { addYears, endOfYear, startOfYear } from "date-fns";
 import { parseAsString, parseAsStringEnum, useQueryState, useQueryStates } from "nuqs";
 import { useMemo, useState } from "react";
@@ -16,7 +16,12 @@ import { Show } from "@/components/common/show";
 import { Switch } from "@/components/common/switch";
 import { Badge, Select } from "@/components/ui";
 import { Button } from "@/components/ui/button";
-import { DataTable, DataTableColumnHeader, useDataTable } from "@/components/ui/data-table";
+import {
+	createDataTableColumnHelper,
+	DataTable,
+	DataTableColumnHeader,
+	useDataTable,
+} from "@/components/ui/data-table";
 import { DateTimePicker } from "@/components/ui/datetime-picker";
 import { Form } from "@/components/ui/form";
 import { callBackendApiForQuery } from "@/lib/api/callBackendApi";
@@ -27,10 +32,10 @@ import {
 } from "@/lib/api/callBackendApi/apiSchema";
 import {
 	dashboardOverviewQuery,
-	inventoryActivityQueryKey,
-	inventoryAlertsQueryKey,
+	inventoryActivityQuery,
+	inventoryAlertsQuery,
 	inventoryAlertsUnreadCountQuery,
-	inventoryAllDrugsQuery,
+	inventoryDrugsQuery,
 	inventorySummaryQuery,
 	sessionQuery,
 	type InventorySummaryQueryResultType,
@@ -238,6 +243,8 @@ const INVENTORY_FILTER_OPTIONS = [
 type InventoryFilter = (typeof INVENTORY_FILTER_OPTIONS)[number]["value"];
 type InventoryRow = InventorySummaryQueryResultType["rows"][number];
 
+const inventoryColumnHelper = createDataTableColumnHelper<InventoryRow>();
+
 const EMPTY_INVENTORY_ROWS: InventoryRow[] = [];
 
 const inventoryColumnFilters = {
@@ -258,99 +265,99 @@ function InventoryTable() {
 	);
 	const [drugToEdit, setDrugToEdit] = useState<InventoryRow["drug"] | null>(null);
 
-	const columns = useMemo<Array<ColumnDef<InventoryRow>>>(
-		() => [
-			{
-				accessorFn: (row) => row.status,
-				enableGlobalFilter: false,
-				enableSorting: false,
-				filterFn: (row, _columnId, filterValue: InventoryFilter) => {
-					if (filterValue === "attention") {
-						return row.original.hasExpiredStock || row.original.status !== "normal";
-					}
+	const columns = useMemo(
+		() =>
+			inventoryColumnHelper.columns([
+				inventoryColumnHelper.accessor((row) => row.status, {
+					enableSorting: false,
+					filterFn: (row, _columnId, filterValue: InventoryFilter) => {
+						if (filterValue === "attention") {
+							return row.original.hasExpiredStock || row.original.status !== "normal";
+						}
 
-					if (filterValue === "in_stock") {
-						return row.original.totalAvailable > 0;
-					}
+						if (filterValue === "in_stock") {
+							return row.original.totalAvailable > 0;
+						}
 
-					return true;
-				},
-				id: "stockState",
-			},
-			{
-				accessorFn: (row) => `${row.drug.name} ${row.drug.genericName} ${row.drug.strength}`,
-				cell: ({ row }) => (
-					<div>
-						<p className="font-medium text-black">
-							{row.original.drug.name} {row.original.drug.strength}
-						</p>
-						<p className="mt-0.5 text-[12px] text-vitastock-body-color">
-							{row.original.drug.genericName}
-						</p>
-					</div>
+						return true;
+					},
+					id: "stockState",
+				}),
+				inventoryColumnHelper.accessor(
+					(row) => `${row.drug.name} ${row.drug.genericName} ${row.drug.strength}`,
+					{
+						cell: ({ row }) => (
+							<div>
+								<p className="font-medium text-black">
+									{row.original.drug.name} {row.original.drug.strength}
+								</p>
+								<p className="mt-0.5 text-[12px] text-vitastock-body-color">
+									{row.original.drug.genericName}
+								</p>
+							</div>
+						),
+						header: ({ column }) => (
+							<DataTableColumnHeader column={column}>Drug Name</DataTableColumnHeader>
+						),
+						id: "drugName",
+					}
 				),
-				header: ({ column }) => (
-					<DataTableColumnHeader column={column}>Drug Name</DataTableColumnHeader>
-				),
-				id: "drugName",
-			},
-			{
-				accessorFn: (row) => row.nearestBatch?.batchNumber ?? "",
-				cell: ({ row }) => (
-					<span className="text-vitastock-body-color">
-						{row.original.nearestBatch?.batchNumber ?? "-"}
-					</span>
-				),
-				header: ({ column }) => (
-					<DataTableColumnHeader column={column}>Batch No.</DataTableColumnHeader>
-				),
-				id: "batchNumber",
-			},
-			{
-				accessorFn: (row) => row.nearestExpiryDate?.getTime() ?? 0,
-				cell: ({ row }) => (
-					<div className="flex items-center gap-2.5">
+				inventoryColumnHelper.accessor((row) => row.nearestBatch?.batchNumber ?? "", {
+					cell: ({ row }) => (
 						<span className="text-vitastock-body-color">
-							{row.original.nearestExpiryDate ? formatDate(row.original.nearestExpiryDate) : "-"}
+							{row.original.nearestBatch?.batchNumber ?? "-"}
 						</span>
-						<StatusBadge
-							hasExpiredStock={row.original.hasExpiredStock}
-							status={row.original.status}
-						/>
-					</div>
-				),
-				header: ({ column }) => <DataTableColumnHeader column={column}>Expiry</DataTableColumnHeader>,
-				id: "nearestExpiryDate",
-			},
-			{
-				accessorKey: "totalAvailable",
-				cell: ({ row }) => (
-					<span className="font-bold text-black">
-						{row.original.totalAvailable.toLocaleString()} {row.original.drug.unit}
-					</span>
-				),
-				header: ({ column }) => (
-					<DataTableColumnHeader column={column}>Available Stock</DataTableColumnHeader>
-				),
-			},
-			{
-				cell: ({ row }) => (
-					<div className="flex justify-end">
-						<Button
-							unstyled={true}
-							className="text-vitastock-primary-main"
-							onClick={() => setDrugToEdit(row.original.drug)}
-						>
-							<IconBox icon="lucide:pencil" className="size-4" />
-							<span className="sr-only">Edit {row.original.drug.name}</span>
-						</Button>
-					</div>
-				),
-				enableSorting: false,
-				header: () => <span className="block text-right">Action</span>,
-				id: "actions",
-			},
-		],
+					),
+					header: ({ column }) => (
+						<DataTableColumnHeader column={column}>Batch No.</DataTableColumnHeader>
+					),
+					id: "batchNumber",
+				}),
+				inventoryColumnHelper.accessor((row) => row.nearestExpiryDate?.getTime() ?? 0, {
+					cell: ({ row }) => (
+						<div className="flex items-center gap-2.5">
+							<span className="text-vitastock-body-color">
+								{row.original.nearestExpiryDate ? formatDate(row.original.nearestExpiryDate) : "-"}
+							</span>
+							<StatusBadge
+								hasExpiredStock={row.original.hasExpiredStock}
+								status={row.original.status}
+							/>
+						</div>
+					),
+					header: ({ column }) => (
+						<DataTableColumnHeader column={column}>Expiry</DataTableColumnHeader>
+					),
+					id: "nearestExpiryDate",
+				}),
+				inventoryColumnHelper.accessor("totalAvailable", {
+					cell: ({ row }) => (
+						<span className="font-bold text-black">
+							{row.original.totalAvailable.toLocaleString()} {row.original.drug.unit}
+						</span>
+					),
+					header: ({ column }) => (
+						<DataTableColumnHeader column={column}>Available Stock</DataTableColumnHeader>
+					),
+				}),
+				inventoryColumnHelper.display({
+					cell: ({ row }) => (
+						<div className="flex justify-end">
+							<Button
+								unstyled={true}
+								className="text-vitastock-primary-main"
+								onClick={() => setDrugToEdit(row.original.drug)}
+							>
+								<IconBox icon="lucide:pencil" className="size-4" />
+								<span className="sr-only">Edit {row.original.drug.name}</span>
+							</Button>
+						</div>
+					),
+					enableSorting: false,
+					header: () => <span className="block text-right">Action</span>,
+					id: "actions",
+				}),
+			]),
 		[]
 	);
 
@@ -540,7 +547,7 @@ function StockMovementDialog(props: {
 	const { defaultLogType, initialBatchId, initialDrugId, initialReason, onComplete } = props;
 	const isDispense = defaultLogType === "stock_out";
 
-	const inventoryDrugsQueryResult = useQuery(inventoryAllDrugsQuery());
+	const inventoryDrugsQueryResult = useQuery(inventoryDrugsQuery());
 	const drugs = inventoryDrugsQueryResult.data?.drugs ?? [];
 	const queryClient = useQueryClient();
 	const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
@@ -568,9 +575,11 @@ function StockMovementDialog(props: {
 			onSuccess: () => {
 				void queryClient.invalidateQueries(inventorySummaryQuery());
 				void queryClient.invalidateQueries(dashboardOverviewQuery());
-				void queryClient.invalidateQueries({ queryKey: inventoryAlertsQueryKey });
+				void queryClient.invalidateQueries({ queryKey: inventoryAlertsQuery().queryKey.slice(0, -1) });
 				void queryClient.invalidateQueries(inventoryAlertsUnreadCountQuery());
-				void queryClient.invalidateQueries({ queryKey: inventoryActivityQueryKey });
+				void queryClient.invalidateQueries({
+					queryKey: inventoryActivityQuery().queryKey.slice(0, -1),
+				});
 				form.reset();
 				setIdempotencyKey(crypto.randomUUID());
 				onComplete?.();
@@ -606,170 +615,174 @@ function StockMovementDialog(props: {
 				</DialogAnimated.Close>
 			</header>
 
-			{inventoryDrugsQueryResult.isLoading && (
-				<div className="px-6 py-8 text-center text-[14px] text-vitastock-body-color">
-					Loading drugs...
-				</div>
-			)}
+			<Switch.Root>
+				<Switch.Match when={inventoryDrugsQueryResult.isLoading}>
+					<p className="px-6 py-8 text-center text-[14px] text-vitastock-body-color">
+						Loading drugs...
+					</p>
+				</Switch.Match>
 
-			{inventoryDrugsQueryResult.isError && (
-				<div className="px-6 py-8 text-center text-[14px] text-shadcn-destructive">
-					Failed to load drugs.
-				</div>
-			)}
+				<Switch.Match when={inventoryDrugsQueryResult.isError}>
+					<p className="px-6 py-8 text-center text-[14px] text-shadcn-destructive">
+						Failed to load drugs.
+					</p>
+				</Switch.Match>
 
-			{!inventoryDrugsQueryResult.isLoading
-				&& !inventoryDrugsQueryResult.isError
-				&& drugs.length === 0 && (
+				<Switch.Match when={drugs.length === 0}>
 					<NoDrugsFound onDrugCreated={(drug) => form.setValue("drugId", drug.id)} />
-				)}
+				</Switch.Match>
 
-			{drugs.length > 0 && (
-				<Form.Root form={form} onSubmit={(event) => void onSubmit(event)}>
-					<div className="flex flex-col gap-4 border-y border-shadcn-border/70 p-5">
-						<Form.Field control={form.control} name="drugId">
-							<Form.Label>Drug Name</Form.Label>
-							<Form.FieldBoundController
-								render={({ field }) => (
-									<Select.Root value={field.value} onValueChange={field.onChange}>
-										<Select.Trigger
-											className="h-10 rounded-lg border border-shadcn-border bg-white px-4"
-										>
-											<Select.Value placeholder="Select drug" />
-										</Select.Trigger>
-										<Select.Content>
-											<For
-												each={drugs}
-												renderItem={(drug) => (
-													<Select.Item key={drug.id} value={drug.id}>
-														{drug.name} ({drug.genericName}) {drug.strength}
-													</Select.Item>
-												)}
-											/>
-										</Select.Content>
-									</Select.Root>
-								)}
-							/>
-						</Form.Field>
-
-						<div className={cnJoin("grid gap-4", !isDispense && "grid-cols-2")}>
-							<Form.Field control={form.control} name="quantity">
-								<Form.Label>Quantity</Form.Label>
-								<Form.Input
-									type="number"
-									placeholder={isDispense ? "e.g. 10" : "e.g. 100"}
-									className="h-10 rounded-lg border border-shadcn-border bg-white px-4"
+				<Switch.Default>
+					<Form.Root form={form} onSubmit={(event) => void onSubmit(event)}>
+						<div className="flex flex-col gap-4 border-y border-shadcn-border/70 p-5">
+							<Form.Field control={form.control} name="drugId">
+								<Form.Label>Drug Name</Form.Label>
+								<Form.FieldBoundController
+									render={({ field }) => (
+										<Select.Root value={field.value} onValueChange={field.onChange}>
+											<Select.Trigger
+												className="h-10 rounded-lg border border-shadcn-border bg-white px-4"
+											>
+												<Select.Value placeholder="Select drug" />
+											</Select.Trigger>
+											<Select.Content>
+												<For
+													each={drugs}
+													renderItem={(drug) => (
+														<Select.Item key={drug.id} value={drug.id}>
+															{drug.name} ({drug.genericName}) {drug.strength}
+														</Select.Item>
+													)}
+												/>
+											</Select.Content>
+										</Select.Root>
+									)}
 								/>
 							</Form.Field>
 
-							{!isDispense && (
-								<Form.Field control={form.control} name="expiryDate">
-									<Form.Label>Expiry Date</Form.Label>
-									<Form.FieldBoundController
-										render={({ field }) => (
-											<DateTimePicker
-												variant="date"
-												dateString={field.value}
-												placeholder="Select expiry date"
-												datePickerProps={{
-													disabled: { before: new Date() },
-													endMonth: endOfYear(addYears(new Date(), 10)),
-													startMonth: startOfYear(new Date()),
-												}}
-												dateFormats={{
-													onChangeDate: "yyyy-MM-dd",
-													visibleDate: "MMM d, yyyy",
-												}}
-												className="h-10 rounded-lg border border-shadcn-border bg-white px-4"
-												onDateStringChange={field.onChange}
-											/>
-										)}
+							<div className={cnJoin("grid gap-4", !isDispense && "grid-cols-2")}>
+								<Form.Field control={form.control} name="quantity">
+									<Form.Label>Quantity</Form.Label>
+									<Form.Input
+										type="number"
+										placeholder={isDispense ? "e.g. 10" : "e.g. 100"}
+										className="h-10 rounded-lg border border-shadcn-border bg-white px-4"
 									/>
 								</Form.Field>
-							)}
-						</div>
 
-						<Show.Root when={isDispense}>
-							<Show.Content>
-								<Form.Field control={form.control} name="reason">
-									<Form.Label>Reason</Form.Label>
-									<Form.FieldBoundController
-										render={({ field }) => (
-											<Select.Root value={field.value} onValueChange={field.onChange}>
-												<Select.Trigger
+								{!isDispense && (
+									<Form.Field control={form.control} name="expiryDate">
+										<Form.Label>Expiry Date</Form.Label>
+										<Form.FieldBoundController
+											render={({ field }) => (
+												<DateTimePicker
+													variant="date"
+													dateString={field.value}
+													placeholder="Select expiry date"
+													datePickerProps={{
+														disabled: { before: new Date() },
+														endMonth: endOfYear(addYears(new Date(), 10)),
+														startMonth: startOfYear(new Date()),
+													}}
+													dateFormats={{
+														onChangeDate: "yyyy-MM-dd",
+														visibleDate: "MMM d, yyyy",
+													}}
 													className="h-10 rounded-lg border border-shadcn-border bg-white
 														px-4"
-												>
-													<Select.Value placeholder="Select reason" />
-												</Select.Trigger>
-												<Select.Content>
-													<For
-														each={StockOutReasonSchema.options}
-														renderItem={(reason) => (
-															<Select.Item key={reason} value={reason}>
-																{stockOutReasonLabels[reason]}
-															</Select.Item>
-														)}
-													/>
-												</Select.Content>
-											</Select.Root>
-										)}
-									/>
-								</Form.Field>
-							</Show.Content>
-
-							<Show.Fallback>
-								<Form.Field control={form.control} name="batchNumber">
-									<Form.Label>Batch Number</Form.Label>
-									<Form.Input
-										placeholder="Optional batch number"
-										className="h-10 rounded-lg border border-shadcn-border bg-white px-4"
-									/>
-								</Form.Field>
-
-								<Form.Field control={form.control} name="unitCostNaira">
-									<Form.Label>Unit Cost</Form.Label>
-									<Form.InputGroup
-										className="h-10 rounded-lg border border-shadcn-border bg-white px-4"
-									>
-										<Form.InputGroupAddon>
-											<IconBox icon="tabler:currency-naira" className="size-4" />
-										</Form.InputGroupAddon>
-										<Form.Input
-											type="number"
-											min={0}
-											step="0.01"
-											placeholder="0.00"
-											className="h-full"
+													onDateStringChange={field.onChange}
+												/>
+											)}
 										/>
-									</Form.InputGroup>
-								</Form.Field>
-							</Show.Fallback>
-						</Show.Root>
-					</div>
+									</Form.Field>
+								)}
+							</div>
 
-					<DialogAnimated.Footer className="flex-row justify-end gap-3 bg-shadcn-muted/30 p-4">
-						<DialogAnimated.Close asChild={true}>
-							<Button theme="primary-ghost" className="h-10 px-4">
-								Cancel
-							</Button>
-						</DialogAnimated.Close>
+							<Show.Root when={isDispense}>
+								<Show.Content>
+									<Form.Field control={form.control} name="reason">
+										<Form.Label>Reason</Form.Label>
+										<Form.FieldBoundController
+											render={({ field }) => (
+												<Select.Root value={field.value} onValueChange={field.onChange}>
+													<Select.Trigger
+														className="h-10 rounded-lg border border-shadcn-border bg-white
+															px-4"
+													>
+														<Select.Value placeholder="Select reason" />
+													</Select.Trigger>
+													<Select.Content>
+														<For
+															each={StockOutReasonSchema.options}
+															renderItem={(reason) => (
+																<Select.Item key={reason} value={reason}>
+																	{stockOutReasonLabels[reason]}
+																</Select.Item>
+															)}
+														/>
+													</Select.Content>
+												</Select.Root>
+											)}
+										/>
+									</Form.Field>
+								</Show.Content>
 
-						<Form.Submit asChild={true}>
-							{(formState) => (
-								<Button
-									isDisabled={formState.isSubmitting}
-									isLoading={formState.isSubmitting}
-									className="h-10 px-4"
-								>
-									<IconBox icon={isDispense ? "lucide:zap" : "lucide:plus"} className="size-4" />
-									{isDispense ? "Dispense" : "Add Stock"}
+								<Show.Fallback>
+									<Form.Field control={form.control} name="batchNumber">
+										<Form.Label>Batch Number</Form.Label>
+										<Form.Input
+											placeholder="Optional batch number"
+											className="h-10 rounded-lg border border-shadcn-border bg-white px-4"
+										/>
+									</Form.Field>
+
+									<Form.Field control={form.control} name="unitCostNaira">
+										<Form.Label>Unit Cost</Form.Label>
+										<Form.InputGroup
+											className="h-10 rounded-lg border border-shadcn-border bg-white px-4"
+										>
+											<Form.InputGroupAddon>
+												<IconBox icon="tabler:currency-naira" className="size-4" />
+											</Form.InputGroupAddon>
+											<Form.Input
+												type="number"
+												min={0}
+												step="0.01"
+												placeholder="0.00"
+												className="h-full"
+											/>
+										</Form.InputGroup>
+									</Form.Field>
+								</Show.Fallback>
+							</Show.Root>
+						</div>
+
+						<DialogAnimated.Footer className="flex-row justify-end gap-3 bg-shadcn-muted/30 p-4">
+							<DialogAnimated.Close asChild={true}>
+								<Button theme="primary-ghost" className="h-10 px-4">
+									Cancel
 								</Button>
-							)}
-						</Form.Submit>
-					</DialogAnimated.Footer>
-				</Form.Root>
-			)}
+							</DialogAnimated.Close>
+
+							<Form.Submit asChild={true}>
+								{(formState) => (
+									<Button
+										isDisabled={formState.isSubmitting}
+										isLoading={formState.isSubmitting}
+										className="h-10 px-4"
+									>
+										<IconBox
+											icon={isDispense ? "lucide:minus" : "lucide:plus"}
+											className="size-4"
+										/>
+										{isDispense ? "Dispense" : "Add Stock"}
+									</Button>
+								)}
+							</Form.Submit>
+						</DialogAnimated.Footer>
+					</Form.Root>
+				</Switch.Default>
+			</Switch.Root>
 		</DialogAnimated.Content>
 	);
 }

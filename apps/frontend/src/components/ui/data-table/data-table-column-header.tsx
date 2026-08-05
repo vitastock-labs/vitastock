@@ -1,13 +1,14 @@
 "use client";
 
-import type { Column } from "@tanstack/react-table";
+import type { CellData, RowData } from "@tanstack/react-table";
 import { IconBox } from "@/components/common/IconBox";
 import { Button } from "@/components/ui/button";
 import { cnMerge } from "@/lib/utils/cn";
+import type { DataTableColumn } from "./data-table-types";
 
-export function DataTableColumnHeader<TData>(
+export function DataTableColumnHeader<TData extends RowData, TValue extends CellData>(
 	props: React.ComponentProps<typeof Button> & {
-		column: Column<TData>;
+		column: DataTableColumn<TData, TValue>;
 	}
 ) {
 	const { children, className, column, ...restOfProps } = props;

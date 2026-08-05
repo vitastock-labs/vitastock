@@ -12,7 +12,6 @@ import {
 import { getInventoryActivity } from "./services/data-access/activity";
 import {
 	createDrugForWorkspace,
-	getAllWorkspaceDrugs,
 	getWorkspaceDrugList,
 	handleDrugAction,
 	updateDrug,
@@ -25,33 +24,24 @@ export const inventoryRoutes = new Hono()
 	.use(authMiddleware)
 
 	.get(
-		"/drugs/list",
-		validateWithZodMiddleware("query", backendApiSchemaRoutes["@get/inventory/drugs/list"].query),
+		"/drugs",
+		validateWithZodMiddleware("query", backendApiSchemaRoutes["@get/inventory/drugs"].query),
 		async (ctx) => {
 			const currentUser = ctx.get("currentUser");
+			const query = ctx.req.valid("query");
+
 			const result = await getWorkspaceDrugList({
-				query: ctx.req.valid("query"),
+				query,
 				workspaceId: currentUser.workspaceId,
 			});
 
 			return AppJsonResponse(ctx, {
 				data: result,
 				message: "Drugs fetched successfully",
-				schema: backendApiSchemaRoutes["@get/inventory/drugs/list"].data,
+				schema: backendApiSchemaRoutes["@get/inventory/drugs"].data,
 			});
 		}
 	)
-
-	.get("/drugs/all", async (ctx) => {
-		const currentUser = ctx.get("currentUser");
-		const drugs = await getAllWorkspaceDrugs(currentUser.workspaceId);
-
-		return AppJsonResponse(ctx, {
-			data: { drugs },
-			message: "All drugs fetched successfully",
-			schema: backendApiSchemaRoutes["@get/inventory/drugs/all"].data,
-		});
-	})
 
 	.post(
 		"/drugs",

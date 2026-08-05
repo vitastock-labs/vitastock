@@ -8,7 +8,6 @@ export const allowedOrigins = [
 ];
 
 const corsOptions = {
-	allowHeaders: ["Content-Type", "Idempotency-Key"],
 	credentials: true,
 	origin: allowedOrigins,
 } satisfies Parameters<typeof cors>[0];

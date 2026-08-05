@@ -1,21 +1,22 @@
 "use client";
 
-import type { Table as TanstackTable } from "@tanstack/react-table";
+import type { RowData } from "@tanstack/react-table";
 import { IconBox } from "@/components/common/IconBox";
 import { Select } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import { cnMerge } from "@/lib/utils/cn";
+import type { DataTableInstance } from "./data-table-types";
 
 const pageSizeOptions = [10, 20, 50] as const;
 
-export function DataTablePagination<TData>(
+export function DataTablePagination<TData extends RowData>(
 	props: React.ComponentProps<"div"> & {
-		table: TanstackTable<TData>;
+		table: DataTableInstance<TData>;
 		totalRows?: number;
 	}
 ) {
 	const { className, table, totalRows, ...restOfProps } = props;
-	const pagination = table.getState().pagination;
+	const pagination = table.state.pagination;
 	const rowCount = totalRows ?? table.getFilteredRowModel().rows.length;
 	const firstVisibleRow = rowCount === 0 ? 0 : pagination.pageIndex * pagination.pageSize + 1;
 	const lastVisibleRow = Math.min((pagination.pageIndex + 1) * pagination.pageSize, rowCount);

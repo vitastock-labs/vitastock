@@ -1,7 +1,6 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import type { ColumnDef } from "@tanstack/react-table";
 import { createSearchParams } from "@zayne-labs/toolkit-core";
 import { For } from "@/components/common/for";
 import { IconBox } from "@/components/common/IconBox";
@@ -9,7 +8,7 @@ import { NavLinkEphemeral } from "@/components/common/NavLink";
 import { Switch } from "@/components/common/switch";
 import { Badge, Card } from "@/components/ui";
 import { Button } from "@/components/ui/button";
-import { DataTable, useDataTable } from "@/components/ui/data-table";
+import { createDataTableColumnHelper, DataTable, useDataTable } from "@/components/ui/data-table";
 import {
 	StockMovementLogTypeSchema,
 	StockReductionLogTypeSchema,
@@ -193,24 +192,31 @@ function DashboardQuickActions() {
 
 type DashboardActivityRow = DashboardOverviewQueryResultType["recentActivity"][number];
 
+const EMPTY_DASHBOARD_ACTIVITY: DashboardActivityRow[] = [];
+
+const dashboardActivityColumnHelper = createDataTableColumnHelper<DashboardActivityRow>();
+
 const stockReductionLogTypes = new Set<string>(StockReductionLogTypeSchema.options);
 
-const dashboardActivityColumns: Array<ColumnDef<DashboardActivityRow>> = [
-	{
-		accessorFn: (row) => `${row.drug.name} ${row.drug.genericName} ${row.drug.strength}`,
-		cell: ({ row }) => (
-			<div>
-				<p className="text-[14px] font-medium text-black">
-					{row.original.drug.name} {row.original.drug.strength}
-				</p>
-				<p className="mt-0.5 text-[12px] text-vitastock-body-color">{row.original.drug.genericName}</p>
-			</div>
-		),
-		header: "Drug",
-		id: "drug",
-	},
-	{
-		accessorKey: "logType",
+const dashboardActivityColumns = dashboardActivityColumnHelper.columns([
+	dashboardActivityColumnHelper.accessor(
+		(row) => `${row.drug.name} ${row.drug.genericName} ${row.drug.strength}`,
+		{
+			cell: ({ row }) => (
+				<div>
+					<p className="text-[14px] font-medium text-black">
+						{row.original.drug.name} {row.original.drug.strength}
+					</p>
+					<p className="mt-0.5 text-[12px] text-vitastock-body-color">
+						{row.original.drug.genericName}
+					</p>
+				</div>
+			),
+			header: "Drug",
+			id: "drug",
+		}
+	),
+	dashboardActivityColumnHelper.accessor("logType", {
 		cell: ({ row }) => (
 			<Badge
 				className={cnJoin(
@@ -226,31 +232,28 @@ const dashboardActivityColumns: Array<ColumnDef<DashboardActivityRow>> = [
 			</Badge>
 		),
 		header: "Action",
-	},
-	{
-		accessorKey: "quantity",
-		cell: ({ row }) => <span className="text-[14px] text-black">{row.original.quantity}</span>,
+	}),
+	dashboardActivityColumnHelper.accessor("quantity", {
+		cell: ({ getValue }) => <span className="text-[14px] text-black">{getValue()}</span>,
 		header: "Quantity",
-	},
-	{
-		accessorKey: "person",
-		cell: ({ row }) => <span className="text-[14px]">{row.original.person}</span>,
+	}),
+	dashboardActivityColumnHelper.accessor("person", {
+		cell: ({ getValue }) => <span className="text-[14px]">{getValue()}</span>,
 		header: "Person",
-	},
-	{
-		accessorKey: "createdAt",
-		cell: ({ row }) => (
+	}),
+	dashboardActivityColumnHelper.accessor("createdAt", {
+		cell: ({ getValue }) => (
 			<span className="block text-right text-[14px] text-vitastock-body-color/70">
-				{formatDate(row.original.createdAt)}
+				{formatDate(getValue())}
 			</span>
 		),
 		header: () => <span className="block text-right">Time</span>,
-	},
-];
+	}),
+]);
 
 function DashboardActivity() {
 	const dashboardOverviewQueryResult = useQuery(dashboardOverviewQuery());
-	const recentActivity = dashboardOverviewQueryResult.data?.recentActivity ?? [];
+	const recentActivity = dashboardOverviewQueryResult.data?.recentActivity ?? EMPTY_DASHBOARD_ACTIVITY;
 
 	const table = useDataTable({
 		columns: dashboardActivityColumns,

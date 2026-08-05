@@ -1,6 +1,6 @@
 "use client";
 
-import type { Column, Table as TanstackTable } from "@tanstack/react-table";
+import type { RowData } from "@tanstack/react-table";
 import { useDebouncedFn } from "@zayne-labs/toolkit-react";
 import { parseAsString, useQueryState } from "nuqs";
 import { IconBox } from "@/components/common/IconBox";
@@ -8,16 +8,17 @@ import { Select } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
 import { cnMerge } from "@/lib/utils/cn";
+import type { DataTableColumn, DataTableInstance } from "./data-table-types";
 
-function DataTableToolbar<TData>(
+function DataTableToolbar<TData extends RowData>(
 	props: React.ComponentProps<"div"> & {
 		actions?: React.ReactNode;
-		table: TanstackTable<TData>;
+		table: DataTableInstance<TData>;
 	}
 ) {
 	const { actions, children, className, table, ...restOfProps } = props;
 	const filterableColumns = table.getAllColumns().filter((column) => column.getCanFilter());
-	const isFiltered = table.getState().columnFilters.length > 0;
+	const isFiltered = table.state.columnFilters.length > 0;
 
 	return (
 		<div
@@ -57,7 +58,10 @@ function DataTableToolbar<TData>(
 	);
 }
 
-function DataTableToolbarFilter<TData>(props: { column: Column<TData>; table: TanstackTable<TData> }) {
+function DataTableToolbarFilter<TData extends RowData>(props: {
+	column: DataTableColumn<TData>;
+	table: DataTableInstance<TData>;
+}) {
 	const { column, table } = props;
 	const columnMeta = column.columnDef.meta;
 
@@ -85,11 +89,11 @@ function DataTableToolbarFilter<TData>(props: { column: Column<TData>; table: Ta
 	return null;
 }
 
-function DataTableToolbarSearch<TData>(props: {
+function DataTableToolbarSearch<TData extends RowData>(props: {
 	className?: string;
-	column: Column<TData>;
+	column: DataTableColumn<TData>;
 	placeholder?: string;
-	table: TanstackTable<TData>;
+	table: DataTableInstance<TData>;
 }) {
 	const { className, column, placeholder = "Search...", table } = props;
 	const value = (column.getFilterValue() as string | undefined) ?? "";
@@ -120,12 +124,12 @@ function DataTableToolbarSearch<TData>(props: {
 	);
 }
 
-function DataTableToolbarSelectFilter<TData>(props: {
+function DataTableToolbarSelectFilter<TData extends RowData>(props: {
 	allLabel?: string;
 	className?: string;
-	column: Column<TData>;
+	column: DataTableColumn<TData>;
 	options: ReadonlyArray<{ label: string; value: string }>;
-	table: TanstackTable<TData>;
+	table: DataTableInstance<TData>;
 }) {
 	const { allLabel = "All", className, column, options, table } = props;
 	const value = (column.getFilterValue() as string | undefined) ?? "all";
@@ -161,13 +165,13 @@ function DataTableToolbarSelectFilter<TData>(props: {
 	);
 }
 
-function DataTableQueryToolbar<TData>(
+function DataTableQueryToolbar<TData extends RowData>(
 	props: React.ComponentProps<"div"> & {
 		actions?: React.ReactNode;
 		searchPlaceholder?: string;
 		selectLabel?: string;
 		selectOptions?: ReadonlyArray<{ label: string; value: string }>;
-		table: TanstackTable<TData>;
+		table: DataTableInstance<TData>;
 	}
 ) {
 	const {
@@ -202,7 +206,7 @@ function DataTableQueryToolbar<TData>(
 			)}
 			{...restOfProps}
 		>
-			<div className="flex flex-wrap items-center gap-3">
+			<div className="flex items-center gap-3">
 				<Form.InputGroup
 					className="h-10 w-full max-w-80 gap-2 rounded-lg border-none bg-shadcn-muted/40 px-3
 						text-[14px] ring-1 ring-transparent focus-within:bg-white

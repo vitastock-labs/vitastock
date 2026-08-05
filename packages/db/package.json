@@ -26,7 +26,7 @@
 		"@faker-js/faker": "^10.5.0",
 		"@node-rs/argon2": "^2.0.2",
 		"@vitastock/env": "workspace:*",
-		"@zayne-labs/toolkit-type-helpers": "^0.12.56",
+		"@zayne-labs/toolkit-type-helpers": "^0.12.57",
 		"@zayne-labs/tsconfig": "0.13.14",
 		"consola": "3.4.2",
 		"cross-env": "^10.1.0",
@@ -34,12 +34,12 @@
 		"drizzle-orm": "0.45.2",
 		"drizzle-zod": "^0.8.3",
 		"pg": "8.22.0",
-		"tsx": "4.23.1",
+		"tsx": "4.23.5",
 		"zod": "4.4.1"
 	},
 	"devDependencies": {
 		"@total-typescript/ts-reset": "0.6.1",
-		"@types/pg": "8.20.0",
+		"@types/pg": "8.20.3",
 		"tsdown": "0.22.14",
 		"typescript": "6.0.3"
 	}

@@ -2,7 +2,6 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ColumnDef } from "@tanstack/react-table";
 import { parseAsString, useQueryState } from "nuqs";
 import { useMemo, useState } from "react";
 import { useForm, type UseFormReturn } from "react-hook-form";
@@ -13,6 +12,7 @@ import { IconBox } from "@/components/common/IconBox";
 import { Badge } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import {
+	createDataTableColumnHelper,
 	DataTable,
 	DataTableColumnHeader,
 	DataTableQueryToolbar,
@@ -26,15 +26,18 @@ import { backendApiSchemaRoutes } from "@/lib/api/callBackendApi/apiSchema";
 import { handleInventoryDrugActionMutation } from "@/lib/react-query/mutationOptions";
 import {
 	dashboardOverviewQuery,
-	inventoryAlertsQueryKey,
+	inventoryAlertsQuery,
 	inventoryAlertsUnreadCountQuery,
-	inventoryDrugsListQuery,
+	inventoryDrugsQuery,
 	inventorySummaryQuery,
-	type InventoryDrugsListQueryResultType,
+	type InventoryDrugsQueryResultType,
 } from "@/lib/react-query/queryOptions";
 import { cnJoin } from "@/lib/utils/cn";
 
-type Drug = InventoryDrugsListQueryResultType["drugs"][number];
+type Drug = InventoryDrugsQueryResultType["drugs"][number];
+
+const EMPTY_DRUGS: Drug[] = [];
+const drugColumnHelper = createDataTableColumnHelper<Drug>();
 
 const DrugCreateSchema = backendApiSchemaRoutes["@post/inventory/drugs"].body;
 const DrugUpdateSchema = backendApiSchemaRoutes["@patch/inventory/drugs/:drugId"].body.required();
@@ -55,81 +58,78 @@ export function DrugMasterDialog() {
 	});
 	const [search] = useQueryState(DRUG_TABLE_QUERY_KEYS.search, parseAsString.withDefault(""));
 	const inventoryDrugsQueryResult = useQuery(
-		inventoryDrugsListQuery({
+		inventoryDrugsQuery({
 			page: pagination.pageIndex + 1,
 			pageSize: pagination.pageSize,
 			...(search && { search }),
 		})
 	);
 	const result = inventoryDrugsQueryResult.data;
-	const drugs = result?.drugs ?? [];
+	const drugs = result?.drugs ?? EMPTY_DRUGS;
 
 	const [drugToEdit, setDrugToEdit] = useState<Drug | null>(null);
 
-	const columns = useMemo<Array<ColumnDef<Drug>>>(
-		() => [
-			{
-				accessorFn: (drug) => `${drug.name} ${drug.genericName} ${drug.strength}`,
-				cell: ({ row }) => (
-					<div>
-						<p className="font-bold text-black">{row.original.name}</p>
-						<p className="mt-0.5 text-[12px] text-vitastock-body-color">
-							{row.original.genericName} / {row.original.strength}
-						</p>
-					</div>
-				),
-				enableSorting: false,
-				header: ({ column }) => <DataTableColumnHeader column={column}>Drug</DataTableColumnHeader>,
-				id: "name",
-			},
-			{
-				accessorKey: "form",
-				enableSorting: false,
-				header: ({ column }) => (
-					<DataTableColumnHeader column={column}>Dosage Form</DataTableColumnHeader>
-				),
-			},
-			{
-				accessorKey: "unit",
-				enableSorting: false,
-				header: ({ column }) => <DataTableColumnHeader column={column}>Unit</DataTableColumnHeader>,
-			},
-			{
-				accessorKey: "isActive",
-				cell: ({ row }) => (
-					<Badge
-						className={cnJoin(
-							"border-none px-2 py-0.5 text-[11px] font-bold",
-							row.original.isActive && "bg-emerald-50 text-emerald-700",
-							!row.original.isActive && "bg-shadcn-muted text-vitastock-body-color"
-						)}
-					>
-						{row.original.isActive ? "Active" : "Inactive"}
-					</Badge>
-				),
-				enableSorting: false,
-				header: "Status",
-			},
-			{
-				cell: ({ row }) => (
-					<div className="flex justify-end gap-1">
-						<Button
-							unstyled={true}
-							className="grid size-8 place-items-center rounded-lg text-vitastock-primary-main
-								hover:bg-vitastock-primary-main/10"
-							onClick={() => setDrugToEdit(row.original)}
+	const columns = useMemo(
+		() =>
+			drugColumnHelper.columns([
+				drugColumnHelper.accessor((drug) => `${drug.name} ${drug.genericName} ${drug.strength}`, {
+					cell: ({ row }) => (
+						<div>
+							<p className="font-bold text-black">{row.original.name}</p>
+							<p className="mt-0.5 text-[12px] text-vitastock-body-color">
+								{row.original.genericName} / {row.original.strength}
+							</p>
+						</div>
+					),
+					enableSorting: false,
+					header: ({ column }) => <DataTableColumnHeader column={column}>Drug</DataTableColumnHeader>,
+					id: "name",
+				}),
+				drugColumnHelper.accessor("form", {
+					enableSorting: false,
+					header: ({ column }) => (
+						<DataTableColumnHeader column={column}>Dosage Form</DataTableColumnHeader>
+					),
+				}),
+				drugColumnHelper.accessor("unit", {
+					enableSorting: false,
+					header: ({ column }) => <DataTableColumnHeader column={column}>Unit</DataTableColumnHeader>,
+				}),
+				drugColumnHelper.accessor("isActive", {
+					cell: ({ getValue }) => (
+						<Badge
+							className={cnJoin(
+								"border-none px-2 py-0.5 text-[11px] font-bold",
+								getValue() && "bg-emerald-50 text-emerald-700",
+								!getValue() && "bg-shadcn-muted text-vitastock-body-color"
+							)}
 						>
-							<IconBox icon="lucide:pencil" className="size-4" />
-							<span className="sr-only">Edit {row.original.name}</span>
-						</Button>
-						<DrugLifecycleButton drug={row.original} />
-					</div>
-				),
-				enableSorting: false,
-				header: () => <span className="block text-right">Actions</span>,
-				id: "actions",
-			},
-		],
+							{getValue() ? "Active" : "Inactive"}
+						</Badge>
+					),
+					enableSorting: false,
+					header: "Status",
+				}),
+				drugColumnHelper.display({
+					cell: ({ row }) => (
+						<div className="flex justify-end gap-1">
+							<Button
+								unstyled={true}
+								className="grid size-8 place-items-center rounded-lg text-vitastock-primary-main
+									hover:bg-vitastock-primary-main/10"
+								onClick={() => setDrugToEdit(row.original)}
+							>
+								<IconBox icon="lucide:pencil" className="size-4" />
+								<span className="sr-only">Edit {row.original.name}</span>
+							</Button>
+							<DrugLifecycleButton drug={row.original} />
+						</div>
+					),
+					enableSorting: false,
+					header: () => <span className="block text-right">Actions</span>,
+					id: "actions",
+				}),
+			]),
 		[]
 	);
 
@@ -140,7 +140,7 @@ export function DrugMasterDialog() {
 		manualPagination: true,
 		meta: { queryKeys: DRUG_TABLE_QUERY_KEYS },
 		onPaginationChange,
-		pageCount: result?.pagination.pageCount ?? 0,
+		rowCount: result?.pagination?.total ?? 0,
 		state: { pagination },
 	});
 
@@ -177,7 +177,7 @@ export function DrugMasterDialog() {
 					isLoading={inventoryDrugsQueryResult.isLoading}
 					emptyMessage="No Drug Master records found."
 					errorMessage="Failed to load Drug Master records."
-					totalRows={result?.pagination.total}
+					totalRows={result?.pagination?.total}
 					classNames={{
 						base: "min-h-0 grow overflow-auto",
 						tableCell: "px-6 py-4",
@@ -219,7 +219,7 @@ export function CreateDrugDialog(props: { onComplete?: (drug: Drug) => void }) {
 	const { onComplete } = props;
 	const dialogContext = useDialogContext();
 	const queryClient = useQueryClient();
-	const form = useForm<DrugFormValues>({
+	const form = useForm({
 		defaultValues: {
 			form: "",
 			genericName: "",
@@ -237,7 +237,7 @@ export function CreateDrugDialog(props: { onComplete?: (drug: Drug) => void }) {
 			onSuccess: (ctx) => {
 				void Promise.all([
 					queryClient.invalidateQueries({
-						queryKey: inventoryDrugsListQuery().queryKey.slice(0, 2),
+						queryKey: inventoryDrugsQuery().queryKey.slice(0, -1),
 					}),
 					queryClient.invalidateQueries(inventorySummaryQuery()),
 					queryClient.invalidateQueries(dashboardOverviewQuery()),
@@ -263,7 +263,7 @@ export function CreateDrugDialog(props: { onComplete?: (drug: Drug) => void }) {
 export function EditDrugDialog(props: { drug: Drug; onComplete: () => void }) {
 	const { drug, onComplete } = props;
 	const queryClient = useQueryClient();
-	const form = useForm<DrugFormValues>({
+	const form = useForm({
 		defaultValues: {
 			form: drug.form,
 			genericName: drug.genericName,
@@ -281,11 +281,11 @@ export function EditDrugDialog(props: { drug: Drug; onComplete: () => void }) {
 			onSuccess: () => {
 				void Promise.all([
 					queryClient.invalidateQueries({
-						queryKey: inventoryDrugsListQuery().queryKey.slice(0, 2),
+						queryKey: inventoryDrugsQuery().queryKey.slice(0, -1),
 					}),
 					queryClient.invalidateQueries(inventorySummaryQuery()),
 					queryClient.invalidateQueries(dashboardOverviewQuery()),
-					queryClient.invalidateQueries({ queryKey: inventoryAlertsQueryKey }),
+					queryClient.invalidateQueries({ queryKey: inventoryAlertsQuery().queryKey.slice(0, -1) }),
 					queryClient.invalidateQueries(inventoryAlertsUnreadCountQuery()),
 				]);
 				onComplete();
@@ -407,7 +407,7 @@ function DrugLifecycleButton(props: { drug: Drug }) {
 				onSuccess: () => {
 					void Promise.all([
 						queryClient.invalidateQueries({
-							queryKey: inventoryDrugsListQuery().queryKey.slice(0, 2),
+							queryKey: inventoryDrugsQuery().queryKey.slice(0, -1),
 						}),
 						queryClient.invalidateQueries(inventorySummaryQuery()),
 						queryClient.invalidateQueries(dashboardOverviewQuery()),

@@ -594,24 +594,18 @@ const inventoryRoutes = () => {
 			data: withBaseSuccessResponse(z.object({ count: z.number() })),
 		},
 
-		"@get/inventory/drugs/all": {
+		"@get/inventory/drugs": {
 			data: withBaseSuccessResponse(
 				z.object({
 					drugs: z.array(DrugDetailsSchema),
-				})
-			),
-		},
-
-		"@get/inventory/drugs/list": {
-			data: withBaseSuccessResponse(
-				z.object({
-					drugs: z.array(DrugDetailsSchema),
-					pagination: z.object({
-						page: z.number(),
-						pageCount: z.number(),
-						pageSize: z.number(),
-						total: z.number(),
-					}),
+					pagination: z
+						.object({
+							page: z.number(),
+							pageCount: z.number(),
+							pageSize: z.number(),
+							total: z.number(),
+						})
+						.optional(),
 				})
 			),
 			query: z

@@ -67,7 +67,6 @@ function getIconsArray() {
 		"lucide:users",
 		"lucide:users-round",
 		"lucide:wallet",
-		"lucide:zap",
 		"lucide:zap-off",
 		"lucide:plus",
 		"lucide:circle",

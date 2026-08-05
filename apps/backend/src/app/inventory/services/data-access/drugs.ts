@@ -1,12 +1,12 @@
 import { db } from "@vitastock/db";
 import { drugs } from "@vitastock/db/schema/inventory";
 import type { backendApiSchemaRoutes } from "@vitastock/shared/validation/backendApiSchema";
-import { and, count, eq, ilike, or } from "drizzle-orm";
+import { and, count, eq, ilike, or, type SQL } from "drizzle-orm";
 import type { z } from "zod";
 import { AppError } from "@/lib/utils";
 
 type InventoryDrugsQuery = z.infer<
-	NonNullable<(typeof backendApiSchemaRoutes)["@get/inventory/drugs/list"]["query"]>
+	NonNullable<(typeof backendApiSchemaRoutes)["@get/inventory/drugs"]["query"]>
 >;
 
 export const getWorkspaceDrugList = async (options: {
@@ -14,26 +14,38 @@ export const getWorkspaceDrugList = async (options: {
 	workspaceId: string;
 }) => {
 	const { query, workspaceId } = options;
-	const page = query?.page ?? 1;
-	const pageSize = query?.pageSize ?? 10;
-	const search = query?.search;
 
-	const whereConditions = [
-		eq(drugs.workspaceId, workspaceId),
-		...(search ?
-			[
-				or(
-					ilike(drugs.genericName, `%${search}%`),
-					ilike(drugs.name, `%${search}%`),
-					ilike(drugs.strength, `%${search}%`),
-					ilike(drugs.form, `%${search}%`),
-					ilike(drugs.unit, `%${search}%`)
-				),
-			]
-		:	[]),
-	];
+	if (!query || Object.keys(query).length === 0) {
+		const drugsResult = await db
+			.select()
+			.from(drugs)
+			.where(and(eq(drugs.workspaceId, workspaceId), eq(drugs.isActive, true)))
+			.orderBy(drugs.name);
 
-	const [drugRows, totalResult] = await Promise.all([
+		return {
+			drugs: drugsResult,
+		};
+	}
+
+	const page = query.page ?? 1;
+	const pageSize = query.pageSize ?? 10;
+	const search = query.search;
+
+	const whereConditions: Array<SQL | undefined> = [eq(drugs.workspaceId, workspaceId)];
+
+	if (search) {
+		whereConditions.push(
+			or(
+				ilike(drugs.genericName, `%${search}%`),
+				ilike(drugs.name, `%${search}%`),
+				ilike(drugs.strength, `%${search}%`),
+				ilike(drugs.form, `%${search}%`),
+				ilike(drugs.unit, `%${search}%`)
+			)
+		);
+	}
+
+	const [drugsResult, totalResult] = await Promise.all([
 		db
 			.select()
 			.from(drugs)
@@ -49,7 +61,7 @@ export const getWorkspaceDrugList = async (options: {
 	const total = totalResult[0]?.total ?? 0;
 
 	return {
-		drugs: drugRows,
+		drugs: drugsResult,
 		pagination: {
 			page,
 			pageCount: Math.ceil(total / pageSize),
@@ -57,14 +69,6 @@ export const getWorkspaceDrugList = async (options: {
 			total,
 		},
 	};
-};
-
-export const getAllWorkspaceDrugs = async (workspaceId: string) => {
-	return db
-		.select()
-		.from(drugs)
-		.where(and(eq(drugs.workspaceId, workspaceId), eq(drugs.isActive, true)))
-		.orderBy(drugs.name);
 };
 
 type CreateDrugBody = z.infer<(typeof backendApiSchemaRoutes)["@post/inventory/drugs"]["body"]>;

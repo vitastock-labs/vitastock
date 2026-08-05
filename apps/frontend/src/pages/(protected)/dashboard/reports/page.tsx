@@ -1,17 +1,16 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import type { ColumnDef } from "@tanstack/react-table";
 import { createSearchParams } from "@zayne-labs/toolkit-core";
 import { ForWithWrapper } from "@zayne-labs/ui-react/common/for";
 import { parseAsString, parseAsStringLiteral, useQueryState } from "nuqs";
-import { useMemo } from "react";
 import { IconBox } from "@/components/common/IconBox";
 import { NavLinkEphemeral } from "@/components/common/NavLink";
 import { Switch } from "@/components/common/switch";
 import { Badge } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import {
+	createDataTableColumnHelper,
 	DataTable,
 	DataTableQueryToolbar,
 	useDataTable,
@@ -34,6 +33,9 @@ import { Main } from "../-components/Main";
 
 type ActivityRow = InventoryActivityQueryResultType["rows"][number];
 
+const EMPTY_ACTIVITY_ROWS: ActivityRow[] = [];
+const activityColumnHelper = createDataTableColumnHelper<ActivityRow>();
+
 const ACTIVITY_TABLE_QUERY_KEYS = {
 	page: "page",
 	perPage: "pageSize",
@@ -46,6 +48,78 @@ const STOCK_LOG_TYPE_FILTER_OPTIONS = StockLogTypeSchema.options.map((logType) =
 	value: logType,
 }));
 const stockAdditionLogTypes = new Set<string>(StockAdditionLogTypeSchema.options);
+
+const activityColumns = activityColumnHelper.columns([
+	activityColumnHelper.accessor("createdAt", {
+		cell: ({ getValue }) => (
+			<span className="whitespace-nowrap text-vitastock-body-color">{formatDateTime(getValue())}</span>
+		),
+		enableSorting: false,
+		header: "Timestamp",
+	}),
+	activityColumnHelper.accessor(
+		(row) => `${row.drug.name} ${row.drug.genericName} ${row.drug.strength}`,
+		{
+			cell: ({ row }) => (
+				<div>
+					<p className="font-bold text-black">
+						{row.original.drug.name} {row.original.drug.strength}
+					</p>
+					<p className="mt-0.5 text-[12px] text-vitastock-body-color">
+						{row.original.drug.genericName} / {row.original.drug.unit}
+					</p>
+				</div>
+			),
+			enableSorting: false,
+			header: "Drug",
+			id: "drug",
+		}
+	),
+	activityColumnHelper.accessor("logType", {
+		cell: ({ getValue }) => {
+			const logType = getValue();
+
+			return (
+				<Badge
+					className={cnJoin(
+						"border-none px-2.5 py-1 text-[11px] font-bold capitalize",
+						stockAdditionLogTypes.has(logType)
+							&& "bg-vitastock-primary-subtle text-vitastock-primary-dark",
+						logType === "stock_out" && "bg-shadcn-muted text-vitastock-body-color",
+						!stockAdditionLogTypes.has(logType)
+							&& logType !== "stock_out"
+							&& "bg-shadcn-destructive/10 text-shadcn-destructive"
+					)}
+				>
+					{formatEnumLabel(logType)}
+				</Badge>
+			);
+		},
+		enableSorting: false,
+		header: "Movement",
+	}),
+	activityColumnHelper.accessor("quantity", {
+		cell: ({ getValue, row }) => (
+			<span className="font-bold text-black">
+				{getValue().toLocaleString()} {row.original.drug.unit}
+			</span>
+		),
+		enableSorting: false,
+		header: "Quantity",
+	}),
+	activityColumnHelper.accessor("person", {
+		cell: ({ getValue }) => <span className="text-vitastock-body-color">{getValue()}</span>,
+		enableSorting: false,
+		header: "Performed By",
+	}),
+	activityColumnHelper.accessor("notes", {
+		cell: ({ getValue }) => (
+			<span className="block max-w-64 truncate text-vitastock-body-color">{getValue() ?? "-"}</span>
+		),
+		enableSorting: false,
+		header: "Notes",
+	}),
+]);
 
 function ReportsPage() {
 	const { onPaginationChange, pagination } = useDataTableQueryState({
@@ -73,92 +147,14 @@ function ReportsPage() {
 	const hasNoActivity =
 		inventoryActivityQueryResult.isSuccess && activity?.pagination.total === 0 && !search && !logType;
 
-	const columns = useMemo<Array<ColumnDef<ActivityRow>>>(
-		() => [
-			{
-				accessorKey: "createdAt",
-				cell: ({ row }) => (
-					<span className="whitespace-nowrap text-vitastock-body-color">
-						{formatDateTime(row.original.createdAt)}
-					</span>
-				),
-				enableSorting: false,
-				header: "Timestamp",
-			},
-			{
-				accessorFn: (row) => `${row.drug.name} ${row.drug.genericName} ${row.drug.strength}`,
-				cell: ({ row }) => (
-					<div>
-						<p className="font-bold text-black">
-							{row.original.drug.name} {row.original.drug.strength}
-						</p>
-						<p className="mt-0.5 text-[12px] text-vitastock-body-color">
-							{row.original.drug.genericName} / {row.original.drug.unit}
-						</p>
-					</div>
-				),
-				enableSorting: false,
-				header: "Drug",
-				id: "drug",
-			},
-			{
-				accessorKey: "logType",
-				cell: ({ row }) => (
-					<Badge
-						className={cnJoin(
-							"border-none px-2.5 py-1 text-[11px] font-bold capitalize",
-							stockAdditionLogTypes.has(row.original.logType)
-								&& "bg-vitastock-primary-subtle text-vitastock-primary-dark",
-							row.original.logType === "stock_out" && "bg-shadcn-muted text-vitastock-body-color",
-							!stockAdditionLogTypes.has(row.original.logType)
-								&& row.original.logType !== "stock_out"
-								&& "bg-shadcn-destructive/10 text-shadcn-destructive"
-						)}
-					>
-						{formatEnumLabel(row.original.logType)}
-					</Badge>
-				),
-				enableSorting: false,
-				header: "Movement",
-			},
-			{
-				accessorKey: "quantity",
-				cell: ({ row }) => (
-					<span className="font-bold text-black">
-						{row.original.quantity.toLocaleString()} {row.original.drug.unit}
-					</span>
-				),
-				enableSorting: false,
-				header: "Quantity",
-			},
-			{
-				accessorKey: "person",
-				cell: ({ row }) => <span className="text-vitastock-body-color">{row.original.person}</span>,
-				enableSorting: false,
-				header: "Performed By",
-			},
-			{
-				accessorKey: "notes",
-				cell: ({ row }) => (
-					<span className="block max-w-64 truncate text-vitastock-body-color">
-						{row.original.notes ?? "-"}
-					</span>
-				),
-				enableSorting: false,
-				header: "Notes",
-			},
-		],
-		[]
-	);
-
 	const table = useDataTable({
-		columns,
-		data: activity?.rows ?? [],
+		columns: activityColumns,
+		data: activity?.rows ?? EMPTY_ACTIVITY_ROWS,
 		getRowId: (row) => row.id,
 		manualPagination: true,
 		meta: { queryKeys: ACTIVITY_TABLE_QUERY_KEYS },
 		onPaginationChange,
-		pageCount: activity?.pagination.pageCount ?? 0,
+		rowCount: activity?.pagination.total ?? 0,
 		state: { pagination },
 	});
 

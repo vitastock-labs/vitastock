@@ -1,4 +1,4 @@
-import { queryOptions } from "@tanstack/react-query";
+import { keepPreviousData, queryOptions } from "@tanstack/react-query";
 import type { z } from "zod";
 import { callBackendApiForQuery } from "@/lib/api/callBackendApi";
 import type { BackendApiRoutes } from "@/lib/api/callBackendApi/apiSchema";
@@ -54,33 +54,20 @@ export type InventorySummaryQueryResultType = Awaited<
 	ReturnType<NonNullable<ReturnType<typeof inventorySummaryQuery>["select"]>>
 >;
 
-export const inventoryDrugsListQuery = (
-	query: z.infer<NonNullable<BackendApiRoutes["@get/inventory/drugs/list"]["query"]>> = {}
+export const inventoryDrugsQuery = (
+	query?: z.infer<NonNullable<BackendApiRoutes["@get/inventory/drugs"]["query"]>>
 ) => {
 	return queryOptions({
-		queryFn: () => callBackendApiForQuery("@get/inventory/drugs/list", { query }),
-		queryKey: ["inventory", "drugs", "list", query],
+		placeholderData: query ? keepPreviousData : undefined,
+		queryFn: () => callBackendApiForQuery("@get/inventory/drugs", query ? { query } : undefined),
+		queryKey: ["inventory", "drugs", query],
 		select: (data) => data.data,
 	});
 };
 
-export type InventoryDrugsListQueryResultType = Awaited<
-	ReturnType<NonNullable<ReturnType<typeof inventoryDrugsListQuery>["select"]>>
+export type InventoryDrugsQueryResultType = Awaited<
+	ReturnType<NonNullable<ReturnType<typeof inventoryDrugsQuery>["select"]>>
 >;
-
-export const inventoryAllDrugsQuery = () => {
-	return queryOptions({
-		queryFn: () => callBackendApiForQuery("@get/inventory/drugs/all"),
-		queryKey: ["inventory", "drugs", "all"],
-		select: (data) => data.data,
-	});
-};
-
-export type InventoryAllDrugsQueryResultType = Awaited<
-	ReturnType<NonNullable<ReturnType<typeof inventoryAllDrugsQuery>["select"]>>
->;
-
-export const inventoryAlertsQueryKey = ["inventory", "alerts"] as const;
 
 export const inventoryAlertsQuery = (
 	query: z.infer<NonNullable<BackendApiRoutes["@get/inventory/alerts"]["query"]>> = {}
@@ -90,7 +77,7 @@ export const inventoryAlertsQuery = (
 			callBackendApiForQuery("@get/inventory/alerts", {
 				query,
 			}),
-		queryKey: [...inventoryAlertsQueryKey, query],
+		queryKey: ["inventory", "alerts", query],
 		select: (data) => data.data,
 	});
 };
@@ -112,17 +99,16 @@ export type InventoryAlertsUnreadCountQueryResultType = Awaited<
 	ReturnType<NonNullable<ReturnType<typeof inventoryAlertsUnreadCountQuery>["select"]>>
 >;
 
-export const inventoryActivityQueryKey = ["inventory", "activity"] as const;
-
 export const inventoryActivityQuery = (
 	query: z.infer<NonNullable<BackendApiRoutes["@get/inventory/activity"]["query"]>> = {}
 ) => {
 	return queryOptions({
+		placeholderData: keepPreviousData,
 		queryFn: () =>
 			callBackendApiForQuery("@get/inventory/activity", {
 				query,
 			}),
-		queryKey: [...inventoryActivityQueryKey, query],
+		queryKey: ["inventory", "activity", query],
 		select: (data) => data.data,
 	});
 };

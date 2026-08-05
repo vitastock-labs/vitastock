@@ -1,6 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ColumnDef } from "@tanstack/react-table";
 import { backendApiSchemaRoutes } from "@vitastock/shared/validation/backendApiSchema";
 import type { InferProps } from "@zayne-labs/toolkit-react/utils";
 import { useMemo, useState } from "react";
@@ -10,6 +9,7 @@ import { DialogAnimated } from "@/components/animated/ui";
 import { IconBox, type MoniconIconBoxProps } from "@/components/common/IconBox";
 import { Avatar, Button, DropdownMenu, Select } from "@/components/ui";
 import {
+	createDataTableColumnHelper,
 	DataTable,
 	DataTableColumnHeader,
 	DataTableToolbar,
@@ -27,7 +27,7 @@ import {
 } from "@/lib/react-query/mutationOptions";
 import {
 	dashboardOverviewQuery,
-	inventoryAlertsQueryKey,
+	inventoryAlertsQuery,
 	sessionQuery,
 	workspaceMembersQuery,
 	type WorkspaceMembersQueryResultType,
@@ -121,7 +121,7 @@ function AlertSettingsSection() {
 			onSuccess: () => {
 				void queryClient.invalidateQueries(sessionQuery());
 				void queryClient.invalidateQueries(dashboardOverviewQuery());
-				void queryClient.invalidateQueries({ queryKey: inventoryAlertsQueryKey });
+				void queryClient.invalidateQueries({ queryKey: inventoryAlertsQuery().queryKey.slice(0, -1) });
 			},
 		});
 	});
@@ -271,6 +271,9 @@ function PeopleWorkspaceSection() {
 
 type Member = WorkspaceMembersQueryResultType["members"][number];
 
+const EMPTY_WORKSPACE_MEMBERS: Member[] = [];
+const memberColumnHelper = createDataTableColumnHelper<Member>();
+
 const isInvitationMember = (member: Member) => {
 	return member.status === "pending" || member.status === "expired";
 };
@@ -295,88 +298,85 @@ const WORKSPACE_ROLE_FILTER_OPTIONS = WorkspaceRoleSchema.options.map((role) => 
 	label: `${role.charAt(0).toUpperCase()}${role.slice(1)}`,
 	value: role,
 }));
+
 function ManagePeopleDialog() {
 	const workspaceMembersQueryResult = useQuery(workspaceMembersQuery());
-	const tableMembers = workspaceMembersQueryResult.data?.members ?? [];
+	const tableMembers = workspaceMembersQueryResult.data?.members ?? EMPTY_WORKSPACE_MEMBERS;
 	const sessionQueryResult = useQuery(sessionQuery());
 	const currentUser = sessionQueryResult.data?.user;
 	const canInviteMembers = currentUser?.role === "owner" || currentUser?.role === "admin";
-	const columns = useMemo<Array<ColumnDef<Member>>>(
-		() => [
-			{
-				accessorFn: getMemberName,
-				cell: ({ row }) => (
-					<div className="flex items-center gap-3">
-						<MemberAvatar member={row.original} />
-						<p className="text-black">
-							{getMemberName(row.original)}
-							{row.original.isCurrentUser && (
-								<span className="ml-1.5 text-vitastock-body-color/70">(you)</span>
-							)}
-						</p>
-					</div>
-				),
-				filterFn: (row, _columnId, filterValue: string) => {
-					const normalizedFilterValue = filterValue.trim().toLowerCase();
+	const columns = useMemo(
+		() =>
+			memberColumnHelper.columns([
+				memberColumnHelper.accessor(getMemberName, {
+					cell: ({ row }) => (
+						<div className="flex items-center gap-3">
+							<MemberAvatar member={row.original} />
+							<p className="text-black">
+								{getMemberName(row.original)}
+								{row.original.isCurrentUser && (
+									<span className="ml-1.5 text-vitastock-body-color/70">(you)</span>
+								)}
+							</p>
+						</div>
+					),
+					filterFn: (row, _columnId, filterValue: string) => {
+						const normalizedFilterValue = filterValue.trim().toLowerCase();
 
-					return (
-						getMemberName(row.original).toLowerCase().includes(normalizedFilterValue)
-						|| getMemberEmail(row.original).toLowerCase().includes(normalizedFilterValue)
-					);
-				},
-				header: ({ column }) => <DataTableColumnHeader column={column}>Name</DataTableColumnHeader>,
-				id: "name",
-				meta: {
-					placeholder: "Search members...",
-					variant: "text",
-				},
-			},
-			{
-				accessorFn: getMemberEmail,
-				cell: ({ row }) => (
-					<span className="text-vitastock-body-color">{getMemberEmail(row.original)}</span>
-				),
-				header: ({ column }) => <DataTableColumnHeader column={column}>Email</DataTableColumnHeader>,
-				id: "email",
-			},
-			{
-				accessorKey: "role",
-				cell: ({ row }) => <RoleBadge role={row.original.role} />,
-				filterFn: "equalsString",
-				header: ({ column }) => <DataTableColumnHeader column={column}>Role</DataTableColumnHeader>,
-				meta: {
-					label: "All Roles",
-					options: WORKSPACE_ROLE_FILTER_OPTIONS,
-					variant: "select",
-				},
-			},
-			{
-				accessorFn: getJoinedDate,
-				cell: ({ row }) => (
-					<span className="text-vitastock-body-color">{getJoinedDate(row.original)}</span>
-				),
-				header: ({ column }) => (
-					<DataTableColumnHeader column={column}>Joined Date</DataTableColumnHeader>
-				),
-				id: "joinedDate",
-			},
-			{
-				accessorKey: "status",
-				cell: ({ row }) => <StatusLabel status={row.original.status} />,
-				enableSorting: false,
-				header: "Status",
-			},
-			{
-				cell: ({ row }) => (
-					<div className="flex justify-end">
-						<MemberActionsDropdown currentUserRole={currentUser?.role} member={row.original} />
-					</div>
-				),
-				enableSorting: false,
-				header: () => <span className="block text-right">Actions</span>,
-				id: "actions",
-			},
-		],
+						return (
+							getMemberName(row.original).toLowerCase().includes(normalizedFilterValue)
+							|| getMemberEmail(row.original).toLowerCase().includes(normalizedFilterValue)
+						);
+					},
+					header: ({ column }) => <DataTableColumnHeader column={column}>Name</DataTableColumnHeader>,
+					id: "name",
+					meta: {
+						placeholder: "Search members...",
+						variant: "text",
+					},
+				}),
+				memberColumnHelper.accessor(getMemberEmail, {
+					cell: ({ row }) => (
+						<span className="text-vitastock-body-color">{getMemberEmail(row.original)}</span>
+					),
+					header: ({ column }) => (
+						<DataTableColumnHeader column={column}>Email</DataTableColumnHeader>
+					),
+					id: "email",
+				}),
+				memberColumnHelper.accessor("role", {
+					cell: ({ getValue }) => <RoleBadge role={getValue()} />,
+					filterFn: "equalsString",
+					header: ({ column }) => <DataTableColumnHeader column={column}>Role</DataTableColumnHeader>,
+					meta: {
+						label: "All Roles",
+						options: WORKSPACE_ROLE_FILTER_OPTIONS,
+						variant: "select",
+					},
+				}),
+				memberColumnHelper.accessor(getJoinedDate, {
+					cell: ({ getValue }) => <span className="text-vitastock-body-color">{getValue()}</span>,
+					header: ({ column }) => (
+						<DataTableColumnHeader column={column}>Joined Date</DataTableColumnHeader>
+					),
+					id: "joinedDate",
+				}),
+				memberColumnHelper.accessor("status", {
+					cell: ({ getValue }) => <StatusLabel status={getValue()} />,
+					enableSorting: false,
+					header: "Status",
+				}),
+				memberColumnHelper.display({
+					cell: ({ row }) => (
+						<div className="flex justify-end">
+							<MemberActionsDropdown currentUserRole={currentUser?.role} member={row.original} />
+						</div>
+					),
+					enableSorting: false,
+					header: () => <span className="block text-right">Actions</span>,
+					id: "actions",
+				}),
+			]),
 		[currentUser?.role]
 	);
 	const table = useDataTable({
