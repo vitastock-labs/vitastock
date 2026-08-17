@@ -43,7 +43,7 @@ function DataTableToolbar<TData extends RowData>(
 
 				{showFilters && isFiltered && (
 					<Button
-							theme="secondary-outline"
+						theme="secondary-outline"
 						size="medium"
 						type="button"
 						className="h-10 rounded-lg border border-shadcn-border px-3.5 text-[13px]"

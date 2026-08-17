@@ -1,8 +1,5 @@
 export { DataTableColumnHeader } from "./data-table-column-header";
-export {
-	DataTablePagination,
-	type DataTablePaginationVariant,
-} from "./data-table-pagination";
+export { DataTablePagination, type DataTablePaginationVariant } from "./data-table-pagination";
 export { DataTable, type DataTableClassNames } from "./data-table";
 export {
 	dataTableFeatures,

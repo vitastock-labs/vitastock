@@ -217,7 +217,9 @@ test("parses a csv file into a valid, ready-to-import row", async () => {
 });
 
 test("Bulk import template - parses the shipped xlsx Data sheet with the expected headers", async () => {
-	const template = await readFile(path.resolve(process.cwd(), "public/templates/bulk-import-template.xlsx"));
+	const template = await readFile(
+		path.resolve(process.cwd(), "public/templates/bulk-import-template.xlsx")
+	);
 	const file = new File([new Uint8Array(template)], "bulk-import-template.xlsx");
 	const rows = await parseXlsxFile(file);
 

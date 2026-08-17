@@ -3,10 +3,7 @@
 import type { RowData } from "@tanstack/react-table";
 import * as Table from "@/components/ui/table";
 import { cnMerge } from "@/lib/utils/cn";
-import {
-	DataTablePagination,
-	type DataTablePaginationVariant,
-} from "./data-table-pagination";
+import { DataTablePagination, type DataTablePaginationVariant } from "./data-table-pagination";
 import type { DataTableInstance, DataTableRow } from "./data-table-types";
 
 type DataTableClassNames<TData extends RowData = RowData> = {
@@ -25,9 +22,7 @@ type DataTableClassNames<TData extends RowData = RowData> = {
 	tableHead?: string;
 	tableHeader?: string;
 	tableRoot?: string;
-	tableRow?:
-		| string
-		| ((props: { index: number; row: DataTableRow<TData> }) => string | undefined);
+	tableRow?: string | ((props: { index: number; row: DataTableRow<TData> }) => string | undefined);
 };
 
 export function DataTable<TData extends RowData>(

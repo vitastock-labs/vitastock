@@ -203,7 +203,10 @@ const stringWithDateValidation = () => {
 };
 
 const stringWithNumberValidation = <TNumberSchema extends z.ZodNumber>(numberSchema: TNumberSchema) => {
-	return z.preprocess((value: number | string) => (value === "" ? undefined : Number(value)), numberSchema);
+	return z.preprocess(
+		(value: number | string) => (value === "" ? undefined : Number(value)),
+		numberSchema
+	);
 };
 
 const TokenObjectSchema = z.object({
