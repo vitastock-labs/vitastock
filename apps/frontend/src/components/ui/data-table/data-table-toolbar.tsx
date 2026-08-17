@@ -11,13 +11,18 @@ import { cnMerge } from "@/lib/utils/cn";
 import type { DataTableColumn, DataTableInstance } from "./data-table-types";
 
 function DataTableToolbar<TData extends RowData>(
-	props: React.ComponentProps<"div"> & {
+	props: Omit<React.ComponentProps<"div">, "className"> & {
 		actions?: React.ReactNode;
+		classNames?: {
+			base?: string;
+			content?: string;
+		};
+		showFilters?: boolean;
 		table: DataTableInstance<TData>;
 	}
 ) {
-	const { actions, children, className, table, ...restOfProps } = props;
-	const filterableColumns = table.getAllColumns().filter((column) => column.getCanFilter());
+	const { actions, children, classNames, showFilters = true, table, ...restOfProps } = props;
+	const filterableColumns = table.getAllLeafColumns().filter((column) => column.getCanFilter());
 	const isFiltered = table.state.columnFilters.length > 0;
 
 	return (
@@ -26,21 +31,22 @@ function DataTableToolbar<TData extends RowData>(
 			aria-orientation="horizontal"
 			className={cnMerge(
 				"flex shrink-0 items-center justify-between gap-3 border-b border-shadcn-border/70 px-6 py-4",
-				className
+				classNames?.base
 			)}
 			{...restOfProps}
 		>
-			<div className="flex min-w-0 grow flex-wrap items-center gap-3">
-				{filterableColumns.map((column) => (
-					<DataTableToolbarFilter key={column.id} column={column} table={table} />
-				))}
+			<div className={cnMerge("flex min-w-0 grow flex-wrap items-center gap-3", classNames?.content)}>
+				{showFilters
+					&& filterableColumns.map((column) => (
+						<DataTableToolbarFilter key={column.id} column={column} table={table} />
+					))}
 
-				{isFiltered && (
+				{showFilters && isFiltered && (
 					<Button
-						theme="secondary-outline"
+							theme="secondary-outline"
 						size="medium"
 						type="button"
-						className="h-10 rounded-lg border-shadcn-border px-3.5 text-[13px]"
+						className="h-10 rounded-lg border border-shadcn-border px-3.5 text-[13px]"
 						onClick={() => {
 							table.resetColumnFilters();
 							table.setPageIndex(0);
@@ -101,20 +107,20 @@ function DataTableToolbarSearch<TData extends RowData>(props: {
 	return (
 		<Form.InputGroup
 			className={cnMerge(
-				`h-10 w-full max-w-[256px] items-center gap-2.5 rounded-lg border border-shadcn-border
-				bg-shadcn-muted/50 px-3.5 text-vitastock-body-color`,
+				`h-10 w-full max-w-[256px] items-center gap-2.5 rounded-lg border border-shadcn-input px-3.5
+				text-shadcn-muted-foreground`,
 				className
 			)}
 		>
 			<Form.InputGroupAddon>
-				<IconBox icon="lucide:search" className="size-4 text-vitastock-body-color/70" />
+				<IconBox icon="lucide:search" className="size-4 text-shadcn-muted-foreground/70" />
 			</Form.InputGroupAddon>
 			<Form.InputPrimitive
 				type="search"
 				placeholder={placeholder}
 				value={value}
 				className="h-full min-w-0 grow bg-transparent text-[14px] font-medium outline-none
-					placeholder:text-vitastock-body-color/60"
+					placeholder:text-shadcn-muted-foreground/60"
 				onChange={(event) => {
 					column.setFilterValue(event.target.value || undefined);
 					table.setPageIndex(0);
@@ -144,16 +150,13 @@ function DataTableToolbarSelectFilter<TData extends RowData>(props: {
 		>
 			<Select.Trigger
 				className={cnMerge(
-					`h-10 w-[140px] rounded-lg border-shadcn-border bg-shadcn-muted/50 px-3.5 text-[14px]
-					font-medium text-black`,
+					"h-10 w-[140px] rounded-lg border-shadcn-border px-3.5 text-[14px] font-medium",
 					className
 				)}
 			>
 				<Select.Value placeholder={allLabel} />
 			</Select.Trigger>
-			<Select.Content
-				className="rounded-xl border border-shadcn-border/80 bg-white p-1.5 shadow-xl shadow-black/10"
-			>
+			<Select.Content className="rounded-xl border border-shadcn-border/80 bg-white p-1.5 shadow-xl">
 				<Select.Item value="all">{allLabel}</Select.Item>
 				{options.map((option) => (
 					<Select.Item key={option.value} value={option.value}>
@@ -253,7 +256,7 @@ function DataTableQueryToolbar<TData extends RowData>(
 						theme="secondary-outline"
 						size="medium"
 						type="button"
-						className="h-10 rounded-lg border-shadcn-border px-3.5 text-[13px]"
+						className="h-10 rounded-lg border border-shadcn-border px-3.5 text-[13px]"
 						onClick={() => {
 							void setSearch(null);
 							void setSelectedValue(null);

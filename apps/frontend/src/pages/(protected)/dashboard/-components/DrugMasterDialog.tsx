@@ -13,7 +13,6 @@ import { Badge } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import {
 	createDataTableColumnHelper,
-	DataTable,
 	DataTableColumnHeader,
 	DataTableQueryToolbar,
 	useDataTable,
@@ -33,6 +32,7 @@ import {
 	type InventoryDrugsQueryResultType,
 } from "@/lib/react-query/queryOptions";
 import { cnJoin } from "@/lib/utils/cn";
+import { DashboardDataTable } from "./DashboardDataTableShared";
 
 type Drug = InventoryDrugsQueryResultType["drugs"][number];
 
@@ -171,7 +171,7 @@ export function DrugMasterDialog() {
 					</DialogAnimated.Close>
 				</header>
 
-				<DataTable
+				<DashboardDataTable
 					table={table}
 					isError={inventoryDrugsQueryResult.isError}
 					isLoading={inventoryDrugsQueryResult.isLoading}
@@ -180,11 +180,6 @@ export function DrugMasterDialog() {
 					totalRows={result?.pagination?.total}
 					classNames={{
 						base: "min-h-0 grow overflow-auto",
-						tableCell: "px-6 py-4",
-						tableHead: `h-11 px-6 text-[12px] font-bold tracking-wider text-vitastock-body-color/70
-						uppercase`,
-						tableHeader: "bg-shadcn-muted",
-						tableRow: "border-b border-shadcn-border",
 					}}
 				>
 					<DataTableQueryToolbar
@@ -202,7 +197,7 @@ export function DrugMasterDialog() {
 							</DialogAnimated.Root>
 						}
 					/>
-				</DataTable>
+				</DashboardDataTable>
 			</DialogAnimated.Content>
 
 			<DialogAnimated.Root

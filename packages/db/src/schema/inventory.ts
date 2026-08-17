@@ -34,7 +34,14 @@ export const drugs = pg.pgTable(
 		// TODO: Add a pg_trgm GIN index for brand/generic/strength/form/unit search when catalogue size warrants it.
 		pg
 			.uniqueIndex("drug_workspace_identity_index")
-			.on(table.workspaceId, table.name, table.genericName, table.strength, table.form, table.unit),
+			.on(
+				table.workspaceId,
+				sql`lower(btrim(${table.name}))`,
+				sql`lower(btrim(${table.genericName}))`,
+				sql`lower(btrim(${table.strength}))`,
+				sql`lower(btrim(${table.form}))`,
+				sql`lower(btrim(${table.unit}))`
+			),
 	]
 );
 
@@ -51,7 +58,7 @@ export const stockBatches = pg.pgTable(
 		id: pg.uuid().defaultRandom().primaryKey(),
 		quantityAvailable: pg.integer().notNull(),
 		quantityReceived: pg.integer().notNull(),
-		unitCostKobo: pg.integer().notNull().default(0),
+		unitCostKobo: pg.integer().notNull(),
 		updatedAt: pg
 			.timestamp({ withTimezone: true })
 			.notNull()
@@ -96,6 +103,7 @@ export const STOCK_OUT_REASONS = defineEnum([STOCK_LOG_TYPES[0], STOCK_LOG_TYPES
 export const INVENTORY_ALERT_TYPES = defineEnum(["expired", "expiring_soon", "low_stock"]);
 export const INVENTORY_ALERT_STATUSES = defineEnum(["active", "resolved"]);
 export const INVENTORY_ALERT_OUTBOX_TYPES = defineEnum(["alert_raised", "daily_digest"]);
+export const STOCK_TRANSACTION_OPERATIONS = defineEnum(["bulk_import", "stock_log"]);
 
 export const stockTransactions = pg.pgTable(
 	"stock_transactions",
@@ -103,10 +111,12 @@ export const stockTransactions = pg.pgTable(
 		createdAt: pg.timestamp({ withTimezone: true }).notNull().defaultNow(),
 		id: pg.uuid().defaultRandom().primaryKey(),
 		idempotencyKey: pg.uuid().notNull(),
+		operation: pg.text({ enum: STOCK_TRANSACTION_OPERATIONS }).notNull(),
 		performedByUserId: pg
 			.uuid()
 			.notNull()
 			.references(() => users.id, { onDelete: "restrict" }),
+		requestHash: pg.text().notNull(),
 		workspaceId: pg
 			.uuid()
 			.notNull()
@@ -142,7 +152,7 @@ export const stockLogs = pg.pgTable(
 			.uuid()
 			.notNull()
 			.references(() => stockTransactions.id, { onDelete: "restrict" }),
-		unitCostKobo: pg.integer().notNull().default(0),
+		unitCostKobo: pg.integer().notNull(),
 		workspaceId: pg
 			.uuid()
 			.notNull()

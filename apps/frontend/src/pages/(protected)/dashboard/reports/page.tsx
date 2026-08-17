@@ -11,7 +11,6 @@ import { Badge } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import {
 	createDataTableColumnHelper,
-	DataTable,
 	DataTableQueryToolbar,
 	useDataTable,
 	useDataTableQueryState,
@@ -29,6 +28,7 @@ import {
 import { cnJoin } from "@/lib/utils/cn";
 import { formatDateTime, formatEnumLabel, formatKoboAsNaira } from "@/lib/utils/formatters";
 import { EmptyState } from "@/pages/(protected)/dashboard/-components/EmptyState";
+import { DashboardDataTable } from "../-components/DashboardDataTableShared";
 import { Main } from "../-components/Main";
 
 type ActivityRow = InventoryActivityQueryResultType["rows"][number];
@@ -206,20 +206,13 @@ function ReportsPage() {
 							</div>
 						</header>
 
-						<DataTable
+						<DashboardDataTable
 							table={table}
 							isError={inventoryActivityQueryResult.isError}
 							isLoading={inventoryActivityQueryResult.isLoading}
 							emptyMessage="No stock movements match these filters."
 							errorMessage="Failed to load stock movements."
 							totalRows={activity?.pagination.total}
-							classNames={{
-								tableCell: "px-6 py-4",
-								tableHead: `h-12 px-6 text-[12px] font-bold tracking-wider
-								text-vitastock-body-color/80 uppercase`,
-								tableHeader: "bg-shadcn-muted",
-								tableRow: "border-b border-shadcn-border",
-							}}
 						>
 							<DataTableQueryToolbar
 								table={table}
@@ -227,7 +220,7 @@ function ReportsPage() {
 								selectLabel="All movements"
 								selectOptions={STOCK_LOG_TYPE_FILTER_OPTIONS}
 							/>
-						</DataTable>
+						</DashboardDataTable>
 					</section>
 				</Switch.Default>
 			</Switch.Root>

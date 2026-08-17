@@ -146,7 +146,9 @@ export const getAlertRecipients = async (workspaceId: string) => {
 			),
 	]);
 
-	if (!workspace?.emailAlertsEnabledAt || !workspace.alertEmail) return [];
+	if (!workspace?.emailAlertsEnabledAt || !workspace.alertEmail) {
+		return [];
+	}
 
 	const recipients = new Map<string, { email: string; name: string }>([
 		[
@@ -215,7 +217,9 @@ const persistInventoryAlertChanges = async (options: {
 		);
 
 		const newlyRaisedAlerts = reconciledAlerts.flatMap(({ alert, isNewOccurrence }) => {
-			if (!alert || !isNewOccurrence) return [];
+			if (!alert || !isNewOccurrence) {
+				return [];
+			}
 
 			return [alert];
 		});
@@ -267,9 +271,13 @@ export const syncInventoryAlerts = async (options: {
 };
 
 const getInventoryAlertAction = (type: AlertCondition["type"]) => {
-	if (type === "expired") return "remove" as const;
+	if (type === "expired") {
+		return "remove" as const;
+	}
 
-	if (type === "low_stock") return "restock" as const;
+	if (type === "low_stock") {
+		return "restock" as const;
+	}
 
 	return "review" as const;
 };

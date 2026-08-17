@@ -33,6 +33,9 @@ export type DataTableQueryKeys = {
 };
 
 type DataTableColumnMeta = {
+	classNames?: {
+		column?: string;
+	};
 	label?: string;
 	options?: readonly DataTableFilterOption[];
 	placeholder?: string;

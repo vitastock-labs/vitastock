@@ -33,9 +33,11 @@ app.basePath("/api/v1")
 
 try {
 	const bullBoardAuthMiddleware = basicAuth({
-		password: ENVIRONMENT.BULL_BOARD_PASSWORD,
-		realm: "VitaStock Queue Administration",
-		username: ENVIRONMENT.BULL_BOARD_USERNAME,
+		verifyUser: (username, password) => {
+			return (
+				username === ENVIRONMENT.BULL_BOARD_USERNAME && password === ENVIRONMENT.BULL_BOARD_PASSWORD
+			);
+		},
 	});
 
 	const bullBoardSetup = await createBullBoardSetup();

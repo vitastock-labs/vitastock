@@ -1,0 +1,106 @@
+meta {
+  name: bulk-import
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseURL}}/inventory/bulk-import
+  body: json
+  auth: inherit
+}
+
+headers {
+  x-idempotency-key: {{bulkImportIdempotencyKey}}
+}
+
+body:json {
+  {
+    "rows": [
+      {
+        "name": "Panadol",
+        "genericName": "Paracetamol",
+        "strength": "500mg",
+        "form": "Tablet",
+        "unit": "Pack",
+        "quantity": "100",
+        "unitCostNaira": "2200",
+        "expiryDate": "2027-12-31T00:00:00.000Z"
+      }
+    ]
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  # Bulk Import Inventory
+
+  Imports validated Drug Master and opening-stock rows into the authenticated workspace. The frontend parses CSV/XLSX files and submits canonical JSON rows to this endpoint. The API never accepts a workspace ID from the client.
+
+  ## Authorization
+
+  Requires an authenticated user with an active workspace membership.
+
+  ## Required Header
+
+  | Header | Type | Required | Description |
+  |--------|------|----------|-------------|
+  | `x-idempotency-key` | UUID | Yes | Stable identifier for this exact import request. |
+
+  Generate a new UUID after validating a new file. Reuse it only when retrying the same rows. Reusing it with another operation or payload returns `409 Conflict`.
+
+  ## Request Body
+
+  `rows` must contain between 1 and 2,000 entries.
+
+  | Field | Type | Required | Rules / Description |
+  |-------|------|----------|---------------------|
+  | `name` | string | Yes | Drug brand or trade name. |
+  | `genericName` | string | Yes | Active pharmaceutical ingredient. |
+  | `strength` | string | Yes | Medicine strength, such as `500mg`. |
+  | `form` | string | Yes | Dosage form, such as `Tablet`. |
+  | `unit` | string | Yes | Inventory counting unit, such as `Pack`. |
+  | `quantity` | numeric string | Yes | Positive whole number. |
+  | `unitCostNaira` | numeric string | No | Non-negative naira amount with at most two decimal places. |
+  | `expiryDate` | ISO 8601 date string | Yes | Must be a future date. |
+
+  ## Drug and Batch Behavior
+
+  - Drug identity is workspace-scoped and compares trimmed, case-insensitive name, generic name, strength, form, and unit values.
+  - A missing Drug Master record is created automatically.
+  - Every accepted row creates a separate stock batch and an `opening_stock` audit log.
+  - Naira unit cost is stored as integer kobo.
+  - Exact duplicate rows within one request are rejected before any writes occur.
+  - The transaction record, drugs, batches, and stock logs are committed atomically.
+  - Inventory alerts are synchronized after the import transaction commits.
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Bulk import completed successfully",
+    "data": {
+      "importedCount": 1
+    }
+  }
+  ```
+
+  ## Errors
+
+  | Status | Description |
+  |--------|-------------|
+  | `401 Unauthorized` | Authentication is invalid or workspace access is suspended. |
+  | `409 Conflict` | The idempotency key belongs to another operation or payload. |
+  | `422 Unprocessable Entity` | Header/body validation failed or duplicate rows were submitted. |
+
+  ## Idempotency
+
+  An exact retry returns the number of opening-stock logs already written and does not create duplicate drugs, batches, or logs.
+}

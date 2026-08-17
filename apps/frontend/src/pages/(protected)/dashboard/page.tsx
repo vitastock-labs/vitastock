@@ -8,7 +8,7 @@ import { NavLinkEphemeral } from "@/components/common/NavLink";
 import { Switch } from "@/components/common/switch";
 import { Badge, Card } from "@/components/ui";
 import { Button } from "@/components/ui/button";
-import { createDataTableColumnHelper, DataTable, useDataTable } from "@/components/ui/data-table";
+import { createDataTableColumnHelper, useDataTable } from "@/components/ui/data-table";
 import {
 	StockMovementLogTypeSchema,
 	StockReductionLogTypeSchema,
@@ -21,6 +21,7 @@ import {
 import { cnJoin } from "@/lib/utils/cn";
 import { formatDate, formatEnumLabel, formatKoboAsNaira } from "@/lib/utils/formatters";
 import { EmptyState } from "@/pages/(protected)/dashboard/-components/EmptyState";
+import { DashboardDataTable } from "./-components/DashboardDataTableShared";
 import { Main } from "./-components/Main";
 
 function DashboardPage() {
@@ -105,9 +106,9 @@ function DashboardStats() {
 		},
 		{
 			color: "text-vitastock-primary-main",
-			desc: "Estimated total",
+			desc: "Current inventory total",
 			icon: "lucide:wallet",
-			title: "Stock Value",
+			title: "Inventory Value",
 			value: formatKoboAsNaira(stats?.stockValueKobo ?? 0),
 		},
 	] as const;
@@ -131,7 +132,7 @@ function DashboardStats() {
 							<p
 								className={cnJoin(
 									"max-w-full text-[34px] leading-none font-extrabold tracking-tight text-black",
-									stat.title === "Stock Value" && "text-[28px] wrap-break-word"
+									stat.title === "Inventory Value" && "text-[28px] wrap-break-word"
 								)}
 							>
 								{dashboardOverviewQueryResult.isLoading ? "..." : stat.value}
@@ -268,20 +269,13 @@ function DashboardActivity() {
 		>
 			<h2 className="px-6 text-[18px] font-bold text-black">Recent Activity</h2>
 
-			<DataTable
+			<DashboardDataTable
 				table={table}
 				isError={dashboardOverviewQueryResult.isError}
 				isLoading={dashboardOverviewQueryResult.isLoading}
 				showPagination={false}
 				emptyMessage="No stock activity yet."
 				errorMessage="Failed to load activity."
-				classNames={{
-					tableCell: "py-4",
-					tableHead: `h-11 text-[12px] font-semibold tracking-wider text-vitastock-body-color/70
-					uppercase`,
-					tableHeader: "bg-shadcn-muted",
-					tableRow: "border-b border-shadcn-border hover:bg-shadcn-muted/20",
-				}}
 			/>
 		</section>
 	);

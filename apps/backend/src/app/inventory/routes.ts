@@ -9,6 +9,7 @@ import {
 	getUnreadInventoryAlertCount,
 	syncInventoryAlerts,
 } from "./services/alertLifecycle";
+import { createInventoryBulkImport } from "./services/bulk-import";
 import { getInventoryActivity } from "./services/data-access/activity";
 import {
 	createDrugForWorkspace,
@@ -220,8 +221,9 @@ export const inventoryRoutes = new Hono()
 		validateWithZodMiddleware("json", backendApiSchemaRoutes["@post/inventory/stock-log"].body),
 		async (ctx) => {
 			const body = ctx.req.valid("json");
-			const { "idempotency-key": idempotencyKey } = ctx.req.valid("header");
+			const { "x-idempotency-key": idempotencyKey } = ctx.req.valid("header");
 			const currentUser = ctx.get("currentUser");
+			const currentWorkspace = ctx.get("currentWorkspace");
 
 			await getDrugForStockMovement({
 				drugId: body.drugId,
@@ -236,8 +238,8 @@ export const inventoryRoutes = new Hono()
 			});
 
 			await syncInventoryAlerts({
-				lowStockThreshold: ctx.get("currentWorkspace").lowStockThreshold,
-				nearExpiryDays: ctx.get("currentWorkspace").nearExpiryDays,
+				lowStockThreshold: currentWorkspace.lowStockThreshold,
+				nearExpiryDays: currentWorkspace.nearExpiryDays,
 				workspaceId: currentUser.workspaceId,
 			});
 
@@ -245,6 +247,37 @@ export const inventoryRoutes = new Hono()
 				data: null,
 				message: "Stock movement recorded successfully",
 				schema: backendApiSchemaRoutes["@post/inventory/stock-log"].data,
+			});
+		}
+	)
+
+	.post(
+		"/bulk-import",
+		validateWithZodMiddleware("header", backendApiSchemaRoutes["@post/inventory/bulk-import"].headers),
+		validateWithZodMiddleware("json", backendApiSchemaRoutes["@post/inventory/bulk-import"].body),
+		async (ctx) => {
+			const { rows } = ctx.req.valid("json");
+			const { "x-idempotency-key": idempotencyKey } = ctx.req.valid("header");
+			const currentUser = ctx.get("currentUser");
+			const currentWorkspace = ctx.get("currentWorkspace");
+
+			const { importedCount } = await createInventoryBulkImport({
+				idempotencyKey,
+				rows,
+				userId: currentUser.id,
+				workspaceId: currentUser.workspaceId,
+			});
+
+			await syncInventoryAlerts({
+				lowStockThreshold: currentWorkspace.lowStockThreshold,
+				nearExpiryDays: currentWorkspace.nearExpiryDays,
+				workspaceId: currentUser.workspaceId,
+			});
+
+			return AppJsonResponse(ctx, {
+				data: { importedCount },
+				message: "Bulk import completed successfully",
+				schema: backendApiSchemaRoutes["@post/inventory/bulk-import"].data,
 			});
 		}
 	);

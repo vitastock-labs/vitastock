@@ -4,13 +4,16 @@ import {
 	STOCK_OUT_REASONS,
 	stockBatches,
 	stockLogs,
-	stockTransactions,
 } from "@vitastock/db/schema/inventory";
 import type { backendApiSchemaRoutes } from "@vitastock/shared/validation/backendApiSchema";
 import { isEqual, startOfDay } from "date-fns";
 import { and, asc, eq, gt, gte, lt } from "drizzle-orm";
 import type { z } from "zod";
 import { AppError } from "@/lib/utils";
+import {
+	claimStockTransaction,
+	createStockTransactionRequestHash,
+} from "./data-access/stock-transactions";
 import { getFefoStockMovements } from "./utils/common";
 
 type StockLogBody = z.infer<(typeof backendApiSchemaRoutes)["@post/inventory/stock-log"]["body"]>;
@@ -22,6 +25,7 @@ export const createInventoryStockLog = async (options: {
 	workspaceId: string;
 }) => {
 	const { body, idempotencyKey, userId, workspaceId } = options;
+	const requestHash = createStockTransactionRequestHash(body);
 
 	const { drugId, notes, quantity } = body;
 
@@ -33,6 +37,7 @@ export const createInventoryStockLog = async (options: {
 			notes: notes ?? undefined,
 			quantity,
 			reason: body.reason,
+			requestHash,
 			userId,
 			workspaceId,
 		});
@@ -41,21 +46,24 @@ export const createInventoryStockLog = async (options: {
 	}
 
 	await db.transaction(async (tx) => {
-		const { batchNumber, expiryDate, unitCostNaira = 0 } = body;
+		const { batchNumber, expiryDate, unitCostNaira } = body;
 		const unitCostKobo = Math.round(unitCostNaira * 100);
 
-		const [createdTransaction] = await tx
-			.insert(stockTransactions)
-			.values({ idempotencyKey, performedByUserId: userId, workspaceId })
-			.onConflictDoNothing({
-				target: [stockTransactions.workspaceId, stockTransactions.idempotencyKey],
-			})
-			.returning({ id: stockTransactions.id });
+		const stockTransaction = await claimStockTransaction({
+			idempotencyKey,
+			operation: "stock_log",
+			requestHash,
+			tx,
+			userId,
+			workspaceId,
+		});
 
-		if (!createdTransaction) return;
+		if (stockTransaction.isReplay) return;
 
 		const [existingBatch] = await (async () => {
-			if (!batchNumber) return [];
+			if (!batchNumber) {
+				return [];
+			}
 
 			return tx
 				.select()
@@ -85,7 +93,7 @@ export const createInventoryStockLog = async (options: {
 					.set({
 						quantityAvailable: existingBatch.quantityAvailable + quantity,
 						quantityReceived: existingBatch.quantityReceived + quantity,
-						...(unitCostKobo > 0 && { unitCostKobo }),
+						unitCostKobo,
 					})
 					.where(eq(stockBatches.id, existingBatch.id))
 					.returning();
@@ -120,7 +128,7 @@ export const createInventoryStockLog = async (options: {
 			notes,
 			performedByUserId: userId,
 			quantity,
-			stockTransactionId: createdTransaction.id,
+			stockTransactionId: stockTransaction.id,
 			unitCostKobo,
 			workspaceId,
 		});
@@ -134,21 +142,24 @@ const createStockOutLog = async (options: {
 	notes?: string;
 	quantity: number;
 	reason: (typeof STOCK_OUT_REASONS)[number];
+	requestHash: string;
 	userId: string;
 	workspaceId: string;
 }) => {
-	const { batchId, drugId, idempotencyKey, notes, quantity, reason, userId, workspaceId } = options;
+	const { batchId, drugId, idempotencyKey, notes, quantity, reason, requestHash, userId, workspaceId } =
+		options;
 
 	await db.transaction(async (tx) => {
-		const [createdTransaction] = await tx
-			.insert(stockTransactions)
-			.values({ idempotencyKey, performedByUserId: userId, workspaceId })
-			.onConflictDoNothing({
-				target: [stockTransactions.workspaceId, stockTransactions.idempotencyKey],
-			})
-			.returning({ id: stockTransactions.id });
+		const stockTransaction = await claimStockTransaction({
+			idempotencyKey,
+			operation: "stock_log",
+			requestHash,
+			tx,
+			userId,
+			workspaceId,
+		});
 
-		if (!createdTransaction) return;
+		if (stockTransaction.isReplay) return;
 
 		const isExpiredStockRemoval = reason === STOCK_OUT_REASONS[1];
 		const today = startOfDay(new Date());
@@ -202,7 +213,7 @@ const createStockOutLog = async (options: {
 				performedByUserId: userId,
 				quantity: movement.quantity,
 				reason,
-				stockTransactionId: createdTransaction.id,
+				stockTransactionId: stockTransaction.id,
 				unitCostKobo: movement.batch.unitCostKobo,
 				workspaceId,
 			}))

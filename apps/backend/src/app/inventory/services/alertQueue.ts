@@ -27,7 +27,7 @@ const inventoryAlertJobDefinitions = [
 	},
 ] as const;
 
-const inventoryAlertQueue = new Queue<Record<string, never>>(inventoryAlertQueueName, {
+export const inventoryAlertQueue = new Queue<Record<string, never>>(inventoryAlertQueueName, {
 	connection: redisQueueClient,
 	defaultJobOptions: {
 		attempts: 3,

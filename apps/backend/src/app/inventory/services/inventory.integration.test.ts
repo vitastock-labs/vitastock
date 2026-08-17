@@ -175,7 +175,9 @@ test("Expired stock integration - removes only the targeted expired batch", asyn
 			)
 		);
 
-	if (!expiredBatch) throw new Error("Expected an expired stock batch");
+	if (!expiredBatch) {
+		throw new Error("Expected an expired stock batch");
+	}
 
 	await createInventoryStockLog({
 		body: {
@@ -227,7 +229,9 @@ test("Inventory reporting integration - calculates weekly movement and expiry lo
 		.from(stockBatches)
 		.where(eq(stockBatches.workspaceId, fixture.workspace.id));
 
-	if (!expiredBatch) throw new Error("Expected an expired stock batch");
+	if (!expiredBatch) {
+		throw new Error("Expected an expired stock batch");
+	}
 
 	await createInventoryStockLog({
 		body: {
@@ -266,6 +270,7 @@ test("Stock transaction integration - rolls back an insufficient stock-out trans
 			expiryDate: addDays(new Date(), 90),
 			logType: "stock_in",
 			quantity: 5,
+			unitCostNaira: 10,
 		},
 		idempotencyKey: randomUUID(),
 		userId: fixture.user.id,
@@ -359,6 +364,7 @@ test("Alert lifecycle integration - deduplicates, resolves, and reactivates low-
 			expiryDate: addDays(new Date(), 180),
 			logType: "stock_in",
 			quantity: 20,
+			unitCostNaira: 10,
 		},
 		idempotencyKey: randomUUID(),
 		userId: fixture.user.id,

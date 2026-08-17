@@ -34,9 +34,13 @@ export const getInventoryStatus = (options: {
 }): InventoryStatus => {
 	const { hasExpiredStock, lowStockThreshold, totalAvailable } = options;
 
-	if (totalAvailable <= 0) return hasExpiredStock ? "expired" : "out_of_stock";
+	if (totalAvailable <= 0) {
+		return hasExpiredStock ? "expired" : "out_of_stock";
+	}
 
-	if (totalAvailable <= lowStockThreshold) return "low_stock";
+	if (totalAvailable <= lowStockThreshold) {
+		return "low_stock";
+	}
 
 	return "normal";
 };

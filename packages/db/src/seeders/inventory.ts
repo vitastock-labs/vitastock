@@ -63,6 +63,12 @@ const getDrugSeedData = (workspaceId: string) => {
 	] satisfies InsertDrugType[];
 };
 
+const getDrugIdentityKey = (drug: InsertDrugType) => {
+	return [drug.workspaceId, drug.name, drug.genericName, drug.strength, drug.form, drug.unit]
+		.map((value) => value.trim().toLowerCase())
+		.join("|");
+};
+
 const getBatchSeedData = (options: {
 	drugByName: Map<string, InsertDrugType & { id: string }>;
 	userId: string;
@@ -76,7 +82,9 @@ const getBatchSeedData = (options: {
 	const getDrugId = (name: string) => {
 		const drug = drugByName.get(name);
 
-		if (!drug) throw new Error(`Missing seeded drug: ${name}`);
+		if (!drug) {
+			throw new Error(`Missing seeded drug: ${name}`);
+		}
 
 		return drug.id;
 	};
@@ -168,23 +176,22 @@ export const seedInventory = async (
 	consola.info(`Seeding inventory for ${seededWorkspaces.length} workspaces...`);
 
 	const allDrugSeeds = seededWorkspaces.flatMap((workspace) => getDrugSeedData(workspace.id));
+	const seededDrugIdentityKeys = new Set(allDrugSeeds.map((drug) => getDrugIdentityKey(drug)));
+	const seededWorkspaceIds = seededWorkspaces.map((workspace) => workspace.id);
 
+	await db.insert(drugs).values(allDrugSeeds).onConflictDoNothing();
+
+	const persistedWorkspaceDrugs = await db
+		.select()
+		.from(drugs)
+		.where(inArray(drugs.workspaceId, seededWorkspaceIds));
+	const seededDrugIds = persistedWorkspaceDrugs
+		.filter((drug) => seededDrugIdentityKeys.has(getDrugIdentityKey(drug)))
+		.map((drug) => drug.id);
 	const seededDrugs = await db
-		.insert(drugs)
-		.values(allDrugSeeds)
-		.onConflictDoUpdate({
-			set: {
-				isActive: sql`excluded.is_active`,
-			},
-			target: [
-				drugs.workspaceId,
-				drugs.name,
-				drugs.genericName,
-				drugs.strength,
-				drugs.form,
-				drugs.unit,
-			],
-		})
+		.update(drugs)
+		.set({ isActive: true })
+		.where(inArray(drugs.id, seededDrugIds))
 		.returning();
 
 	const allBatchSeeds = seededWorkspaces.flatMap((workspace) => {
@@ -195,12 +202,12 @@ export const seedInventory = async (
 			workspaceName: workspace.name,
 		});
 
-		const workspaceDrugs = new Map(
+		const workspaceDrugByName = new Map(
 			seededDrugs.filter((drug) => drug.workspaceId === workspace.id).map((drug) => [drug.name, drug])
 		);
 
 		return getBatchSeedData({
-			drugByName: workspaceDrugs,
+			drugByName: workspaceDrugByName,
 			userId: actor.id,
 			workspaceId: workspace.id,
 		});
@@ -220,9 +227,6 @@ export const seedInventory = async (
 			target: [stockBatches.workspaceId, stockBatches.drugId, stockBatches.batchNumber],
 		})
 		.returning();
-
-	const seededDrugIds = seededDrugs.map((drug) => drug.id);
-	const seededWorkspaceIds = seededWorkspaces.map((workspace) => workspace.id);
 
 	await db.delete(stockLogs).where(inArray(stockLogs.drugId, seededDrugIds));
 	await db.delete(stockTransactions).where(inArray(stockTransactions.workspaceId, seededWorkspaceIds));
@@ -275,7 +279,9 @@ export const seedInventory = async (
 		allLogSeeds.map((stockLog) => ({
 			id: stockLog.stockTransactionId,
 			idempotencyKey: stockLog.stockTransactionId,
+			operation: "stock_log" as const,
 			performedByUserId: stockLog.performedByUserId,
+			requestHash: stockLog.stockTransactionId,
 			workspaceId: stockLog.workspaceId,
 		}))
 	);

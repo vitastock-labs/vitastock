@@ -69,6 +69,13 @@
 /* ------------------*/
 /* Shadcn Theme      */
 /*-------------------*/
+@custom-variant data-selected {
+	&:where([data-selected="true"]),
+	&:where([data-selected]:not([data-selected="false"])) {
+		@slot;
+	}
+}
+
 @theme {
 	--color-shadcn-background: hsl(0, 0%, 100%);
 	--color-shadcn-foreground: hsl(222.2, 47.4%, 11.2%);

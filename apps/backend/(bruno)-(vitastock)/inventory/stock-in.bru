@@ -11,7 +11,7 @@ post {
 }
 
 headers {
-  idempotency-key: {{stockInIdempotencyKey}}
+  x-idempotency-key: {{stockInIdempotencyKey}}
 }
 
 body:json {
@@ -44,7 +44,7 @@ docs {
 
   | Header | Type | Required | Description |
   |--------|------|----------|-------------|
-  | `idempotency-key` | UUID | Yes | Stable identifier for this logical stock transaction. |
+  | `x-idempotency-key` | UUID | Yes | Stable identifier for this logical stock transaction. |
 
   Generate a new UUID for each distinct movement. Reuse the same key only when retrying the exact same request.
 
@@ -98,5 +98,5 @@ docs {
 
   ## Idempotency
 
-  Retrying an already-completed request with the same key does not add stock twice. The current implementation does not compare the new payload with the original payload, so never reuse a key for a different logical movement.
+  Retrying the exact request with the same key does not add stock twice. Reusing the key with another operation or payload returns `409 Conflict`.
 }

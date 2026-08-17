@@ -3,29 +3,42 @@
 import type { RowData } from "@tanstack/react-table";
 import * as Table from "@/components/ui/table";
 import { cnMerge } from "@/lib/utils/cn";
-import { DataTablePagination } from "./data-table-pagination";
+import {
+	DataTablePagination,
+	type DataTablePaginationVariant,
+} from "./data-table-pagination";
 import type { DataTableInstance, DataTableRow } from "./data-table-types";
 
-type DataTableClassNames = {
+type DataTableClassNames<TData extends RowData = RowData> = {
 	base?: string;
 	pagination?: string;
+	paginationBase?: string;
+	paginationCountLabel?: string;
+	paginationEllipsis?: string;
+	paginationItem?: string;
+	paginationNextTrigger?: string;
+	paginationPreviousTrigger?: string;
+	paginationRoot?: string;
 	tableBody?: string;
 	tableCell?: string;
 	tableContainer?: string;
 	tableHead?: string;
 	tableHeader?: string;
 	tableRoot?: string;
-	tableRow?: string;
+	tableRow?:
+		| string
+		| ((props: { index: number; row: DataTableRow<TData> }) => string | undefined);
 };
 
 export function DataTable<TData extends RowData>(
 	props: React.ComponentProps<"div"> & {
-		classNames?: DataTableClassNames;
+		classNames?: DataTableClassNames<TData>;
+		countLabelVariant?: "count" | "range";
 		emptyMessage?: string;
 		errorMessage?: string;
-		getRowClassName?: (row: DataTableRow<TData>) => string | undefined;
 		isError?: boolean;
 		isLoading?: boolean;
+		paginationVariant?: DataTablePaginationVariant;
 		showPagination?: boolean;
 		table: DataTableInstance<TData>;
 		totalRows?: number;
@@ -35,11 +48,12 @@ export function DataTable<TData extends RowData>(
 		children,
 		className,
 		classNames,
+		countLabelVariant,
 		emptyMessage = "No results found.",
 		errorMessage = "Failed to load data.",
-		getRowClassName,
 		isError = false,
 		isLoading = false,
+		paginationVariant,
 		showPagination = true,
 		table,
 		totalRows,
@@ -82,14 +96,24 @@ export function DataTable<TData extends RowData>(
 			);
 		}
 
-		return rows.map((row) => (
+		return rows.map((row, index) => (
 			<Table.Row
 				key={row.id}
 				data-state={row.getIsSelected() ? "selected" : undefined}
-				className={cnMerge(classNames?.tableRow, getRowClassName?.(row))}
+				className={
+					typeof classNames?.tableRow === "function" ?
+						classNames.tableRow({ index, row })
+					:	classNames?.tableRow
+				}
 			>
 				{row.getVisibleCells().map((cell) => (
-					<Table.Cell key={cell.id} className={classNames?.tableCell}>
+					<Table.Cell
+						key={cell.id}
+						className={cnMerge(
+							classNames?.tableCell,
+							cell.column.columnDef.meta?.classNames?.column
+						)}
+					>
 						<table.FlexRender cell={cell} />
 					</Table.Cell>
 				))}
@@ -111,13 +135,19 @@ export function DataTable<TData extends RowData>(
 					{table.getHeaderGroups().map((headerGroup) => (
 						<Table.Row
 							key={headerGroup.id}
-							className={cnMerge("hover:bg-transparent", classNames?.tableRow)}
+							className={cnMerge(
+								"hover:bg-transparent",
+								typeof classNames?.tableRow === "string" && classNames.tableRow
+							)}
 						>
 							{headerGroup.headers.map((header) => (
 								<Table.Head
 									key={header.id}
 									colSpan={header.colSpan}
-									className={classNames?.tableHead}
+									className={cnMerge(
+										classNames?.tableHead,
+										header.column.columnDef.meta?.classNames?.column
+									)}
 								>
 									{header.isPlaceholder ? null : <table.FlexRender header={header} />}
 								</Table.Head>
@@ -130,7 +160,22 @@ export function DataTable<TData extends RowData>(
 			</Table.Root>
 
 			{showPagination && !isLoading && !isError && (
-				<DataTablePagination table={table} totalRows={totalRows} className={classNames?.pagination} />
+				<DataTablePagination
+					table={table}
+					totalRows={totalRows}
+					countLabelVariant={countLabelVariant}
+					paginationVariant={paginationVariant}
+					classNames={{
+						base: classNames?.paginationBase,
+						countLabel: classNames?.paginationCountLabel,
+						ellipsis: classNames?.paginationEllipsis,
+						item: classNames?.paginationItem,
+						nextTrigger: classNames?.paginationNextTrigger,
+						previousTrigger: classNames?.paginationPreviousTrigger,
+						root: classNames?.paginationRoot,
+					}}
+					className={classNames?.pagination}
+				/>
 			)}
 		</div>
 	);

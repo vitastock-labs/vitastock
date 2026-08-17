@@ -10,7 +10,6 @@ import { IconBox, type MoniconIconBoxProps } from "@/components/common/IconBox";
 import { Avatar, Button, DropdownMenu, Select } from "@/components/ui";
 import {
 	createDataTableColumnHelper,
-	DataTable,
 	DataTableColumnHeader,
 	DataTableToolbar,
 	useDataTable,
@@ -35,6 +34,7 @@ import {
 import { cnJoin, cnMerge } from "@/lib/utils/cn";
 import { getNameInitials } from "@/lib/utils/common";
 import { formatDate } from "@/lib/utils/formatters";
+import { DashboardDataTable } from "../-components/DashboardDataTableShared";
 import { DrugMasterDialog } from "../-components/DrugMasterDialog";
 import { Main } from "../-components/Main";
 
@@ -65,7 +65,9 @@ function DrugManagementSection() {
 	const sessionQueryResult = useQuery(sessionQuery());
 	const currentUserRole = sessionQueryResult.data?.user.role;
 
-	if (currentUserRole !== "owner" && currentUserRole !== "admin") return null;
+	if (currentUserRole !== "owner" && currentUserRole !== "admin") {
+		return null;
+	}
 
 	return (
 		<section
@@ -423,7 +425,7 @@ function ManagePeopleDialog() {
 			</DialogAnimated.Header>
 
 			<section className="flex min-h-0 grow flex-col">
-				<DataTable
+				<DashboardDataTable
 					table={table}
 					isError={workspaceMembersQueryResult.isError}
 					isLoading={workspaceMembersQueryResult.isLoading}
@@ -431,12 +433,7 @@ function ManagePeopleDialog() {
 					errorMessage="Failed to load members. Please try again later."
 					classNames={{
 						base: "min-h-0 grow overflow-hidden text-[14px] font-medium",
-						tableCell: "px-6 py-4",
 						tableContainer: "min-h-0 grow overflow-auto",
-						tableHead: `h-11 px-6 text-[12px] font-bold tracking-wider text-vitastock-body-color
-						uppercase`,
-						tableHeader: "bg-shadcn-muted",
-						tableRow: "border-b border-shadcn-border",
 					}}
 				>
 					<DataTableToolbar
@@ -459,7 +456,7 @@ function ManagePeopleDialog() {
 							)
 						}
 					/>
-				</DataTable>
+				</DashboardDataTable>
 			</section>
 		</DialogAnimated.Content>
 	);

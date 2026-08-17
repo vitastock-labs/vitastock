@@ -9,16 +9,14 @@ import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import type { z } from "zod";
 import { DialogAnimated } from "@/components/animated/ui";
-import * as DropZoneInput from "@/components/common/DropZoneInput";
 import { For } from "@/components/common/for";
 import { IconBox } from "@/components/common/IconBox";
 import { Show } from "@/components/common/show";
 import { Switch } from "@/components/common/switch";
-import { Badge, Select } from "@/components/ui";
+import { Badge, Card, Select } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import {
 	createDataTableColumnHelper,
-	DataTable,
 	DataTableColumnHeader,
 	useDataTable,
 } from "@/components/ui/data-table";
@@ -43,16 +41,20 @@ import {
 import { cnJoin } from "@/lib/utils/cn";
 import { formatDate, formatEnumLabel, formatKoboAsNaira } from "@/lib/utils/formatters";
 import { EmptyState } from "@/pages/(protected)/dashboard/-components/EmptyState";
+import { DashboardDataTable } from "../-components/DashboardDataTableShared";
 import { CreateDrugDialog, EditDrugDialog } from "../-components/DrugMasterDialog";
 import { Main } from "../-components/Main";
+import { BulkImportDialog } from "./-components/BulkImportDialog";
 
 function InventoryPage() {
 	const inventorySummaryQueryResult = useQuery(inventorySummaryQuery());
 	const hasNoInventory =
 		inventorySummaryQueryResult.isSuccess && inventorySummaryQueryResult.data.rows.length === 0;
 
+	const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
+
 	return (
-		<Main className="gap-10 px-12 pt-12">
+		<Main className="gap-8 px-5 pt-8 md:px-8 lg:px-12 lg:pt-12">
 			<InventoryHeader />
 
 			<Switch.Root>
@@ -62,14 +64,14 @@ function InventoryPage() {
 						title="No inventory yet"
 						description="Add your first stock entry or import your inventory to get started."
 						action={
-							<DialogAnimated.Root>
+							<DialogAnimated.Root open={isBulkImportOpen} onOpenChange={setIsBulkImportOpen}>
 								<DialogAnimated.Trigger asChild={true}>
 									<Button>
 										<IconBox icon="lucide:plus" className="size-4" />
 										Import Drugs
 									</Button>
 								</DialogAnimated.Trigger>
-								<BulkImportDialog />
+								<BulkImportDialog onImported={() => setIsBulkImportOpen(false)} />
 							</DialogAnimated.Root>
 						}
 					/>
@@ -79,22 +81,21 @@ function InventoryPage() {
 					<InventoryStats />
 					<InventoryActions />
 
-					<div className="flex flex-col gap-6 lg:flex-row">
+					<section className="flex flex-col gap-6 lg:flex-row">
 						<InventoryTable />
 						<ProjectedStockOut />
-					</div>
+					</section>
 				</Switch.Default>
 			</Switch.Root>
 		</Main>
 	);
 }
-
 export default InventoryPage;
 
 function InventoryHeader() {
 	return (
 		<header className="flex flex-col gap-1.5">
-			<h1 className="text-[30px] font-extrabold tracking-tight text-black">Inventory</h1>
+			<h1 className="text-[30px] font-extrabold tracking-tight text-shadcn-foreground">Inventory</h1>
 			<p className="text-[15px] font-medium text-vitastock-body-color">
 				Manage stock levels, expirations, and Drug Master records.
 			</p>
@@ -107,46 +108,53 @@ function InventoryStats() {
 	const summary = inventorySummaryQueryResult.data;
 
 	return (
-		<section className="flex flex-col gap-6 lg:flex-row">
-			<div
-				className="flex w-full items-center justify-between rounded-2xl bg-neutral-50 p-6 shadow-sm
-					ring-1 ring-shadcn-border/60"
+		<section className="grid gap-6 lg:grid-cols-2" aria-label="Inventory summary">
+			<Card.Root
+				className="flex min-w-0 flex-row items-center justify-between gap-6 rounded-lg
+					border-shadcn-border bg-shadcn-background p-6"
 			>
-				<div className="flex flex-col gap-2">
-					<h3 className="text-[13px] font-bold tracking-widest text-vitastock-body-color uppercase">
+				<Card.Content className="flex min-w-0 flex-col gap-2">
+					<Card.Title
+						className="text-[13px] font-bold tracking-widest text-vitastock-body-color uppercase"
+					>
 						Total Inventory Value
-					</h3>
-					<p className="text-[34px] leading-none font-extrabold tracking-tight text-black">
+					</Card.Title>
+					<p
+						className="max-w-full text-[34px] leading-none font-extrabold tracking-tight
+							wrap-break-word text-shadcn-foreground"
+					>
 						{formatKoboAsNaira(summary?.stats.stockValueKobo ?? 0)}
 					</p>
-				</div>
+				</Card.Content>
 
 				<span
-					className="grid size-14 place-items-center rounded-xl bg-vitastock-primary-main/15
+					className="grid size-14 place-items-center rounded-lg bg-vitastock-primary-main/15
 						text-vitastock-primary-main"
 				>
 					<IconBox icon="lucide:dollar-sign" className="size-6" />
 				</span>
-			</div>
+			</Card.Root>
 
-			<div
-				className="flex w-full items-center justify-between rounded-2xl bg-red-100 p-6 shadow-sm ring-1
-					ring-red-300"
+			<Card.Root
+				className="flex min-w-0 flex-row items-center justify-between gap-6 rounded-lg border-red-300
+					bg-red-100 p-6"
 			>
-				<div className="flex flex-col gap-2">
-					<h3 className="text-[13px] font-bold tracking-widest text-red-700 uppercase">
+				<Card.Content className="flex min-w-0 flex-col gap-2">
+					<Card.Title className="text-[13px] font-bold tracking-widest text-red-700 uppercase">
 						Critical Supply Alerts
-					</h3>
+					</Card.Title>
 					<p className="text-[34px] leading-none font-extrabold tracking-tight text-red-700">
 						{summary?.stats.criticalCount ?? 0}
 					</p>
-					<p className="text-[13px] font-medium text-red-700/90">Requires immediate review</p>
-				</div>
+					<Card.Description className="text-[13px] font-medium text-red-700/90">
+						Requires immediate review
+					</Card.Description>
+				</Card.Content>
 
-				<span className="grid size-14 place-items-center rounded-xl bg-red-700 text-white">
+				<span className="grid size-14 place-items-center rounded-lg bg-red-700 text-white">
 					<IconBox icon="lucide:triangle-alert" className="size-6" />
 				</span>
-			</div>
+			</Card.Root>
 		</section>
 	);
 }
@@ -166,10 +174,12 @@ function InventoryActions() {
 		);
 	};
 
+	const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
+
 	return (
-		<>
-			<section className="flex flex-wrap items-center justify-between gap-4">
-				<div className="flex flex-wrap items-center gap-4">
+		<section className="flex flex-col gap-4" aria-label="Inventory actions">
+			<nav className="flex flex-wrap items-center justify-between gap-4">
+				<div className="flex flex-wrap items-center gap-3">
 					<DialogAnimated.Root>
 						<DialogAnimated.Trigger asChild={true}>
 							<Button className="px-6">
@@ -204,7 +214,7 @@ function InventoryActions() {
 					</DialogAnimated.Root>
 				</div>
 
-				<DialogAnimated.Root>
+				<DialogAnimated.Root open={isBulkImportOpen} onOpenChange={setIsBulkImportOpen}>
 					<DialogAnimated.Trigger asChild={true}>
 						<Button theme="secondary-outline" className="px-5 text-vitastock-primary-main">
 							<IconBox icon="lucide:file-down" className="size-4.5" />
@@ -212,25 +222,51 @@ function InventoryActions() {
 						</Button>
 					</DialogAnimated.Trigger>
 
-					<BulkImportDialog />
+					<BulkImportDialog onImported={() => setIsBulkImportOpen(false)} />
 				</DialogAnimated.Root>
-			</section>
+			</nav>
 
-			{stockMovementSearchParams.movement && (
-				<DialogAnimated.Root
-					defaultOpen={true}
-					onOpenChange={(open) => !open && closeAlertActionDialog()}
-				>
-					<StockMovementDialog
-						defaultLogType={stockMovementSearchParams.movement}
-						initialBatchId={stockMovementSearchParams.batchId ?? undefined}
-						initialDrugId={stockMovementSearchParams.drugId ?? undefined}
-						initialReason={stockMovementSearchParams.reason ?? undefined}
-						onComplete={closeAlertActionDialog}
-					/>
-				</DialogAnimated.Root>
-			)}
-		</>
+			<StockMovementQueryDialog
+				batchId={stockMovementSearchParams.batchId}
+				drugId={stockMovementSearchParams.drugId}
+				movement={stockMovementSearchParams.movement}
+				reason={stockMovementSearchParams.reason}
+				onClose={closeAlertActionDialog}
+			/>
+		</section>
+	);
+}
+
+function StockMovementQueryDialog(props: {
+	batchId: string | null;
+	drugId: string | null;
+	movement: StockMovementType | null;
+	onClose: () => void;
+	reason: z.infer<typeof StockOutReasonSchema> | null;
+}) {
+	const { batchId, drugId, movement, onClose, reason } = props;
+
+	if (!movement) {
+		return null;
+	}
+
+	return (
+		<DialogAnimated.Root
+			defaultOpen={true}
+			onOpenChange={(open) => {
+				if (!open) {
+					onClose();
+				}
+			}}
+		>
+			<StockMovementDialog
+				defaultLogType={movement}
+				initialBatchId={batchId ?? undefined}
+				initialDrugId={drugId ?? undefined}
+				initialReason={reason ?? undefined}
+				onComplete={onClose}
+			/>
+		</DialogAnimated.Root>
 	);
 }
 
@@ -288,7 +324,7 @@ function InventoryTable() {
 					{
 						cell: ({ row }) => (
 							<div>
-								<p className="font-medium text-black">
+								<p className="font-medium text-shadcn-foreground">
 									{row.original.drug.name} {row.original.drug.strength}
 								</p>
 								<p className="mt-0.5 text-[12px] text-vitastock-body-color">
@@ -332,7 +368,7 @@ function InventoryTable() {
 				}),
 				inventoryColumnHelper.accessor("totalAvailable", {
 					cell: ({ row }) => (
-						<span className="font-bold text-black">
+						<span className="font-bold text-shadcn-foreground">
 							{row.original.totalAvailable.toLocaleString()} {row.original.drug.unit}
 						</span>
 					),
@@ -386,11 +422,14 @@ function InventoryTable() {
 
 	return (
 		<>
-			<section
-				className="flex w-full flex-col rounded-2xl bg-white shadow-sm ring-1 ring-shadcn-border/60"
+			<Card.Root
+				className="flex w-full min-w-0 flex-col overflow-hidden rounded-lg border-shadcn-border
+					bg-shadcn-background"
 			>
 				<header className="flex items-center justify-between border-b border-shadcn-border/50 p-5">
-					<h2 className="text-[16px] font-bold text-black">Current Stock</h2>
+					<Card.Title className="text-[16px] font-bold text-shadcn-foreground">
+						Current Stock
+					</Card.Title>
 					<Select.Root
 						value={activeFilter}
 						onValueChange={(value) => {
@@ -414,35 +453,48 @@ function InventoryTable() {
 					</Select.Root>
 				</header>
 
-				<DataTable
+				<DashboardDataTable
 					table={table}
 					isError={inventorySummaryQueryResult.isError}
 					isLoading={inventorySummaryQueryResult.isLoading}
 					emptyMessage="No inventory records match this filter."
 					errorMessage="Failed to load inventory."
-					getRowClassName={(row) =>
-						cnJoin(
-							"hover:bg-shadcn-muted/20",
-							row.original.hasExpiredStock && "bg-red-100/30 hover:bg-red-100/50",
-							row.original.status === "low_stock" && "bg-orange-100/30 hover:bg-orange-100/50"
-						)
-					}
 					classNames={{
-						tableCell: "px-5 py-4",
-						tableHead: `h-12 px-5 text-[12px] font-bold tracking-wider text-vitastock-body-color/70
-						uppercase`,
-						tableHeader: "bg-shadcn-muted",
-						tableRow: "border-b border-shadcn-border",
+						tableCell: "px-5",
+						tableHead: "px-5",
+						tableRow: ({ row }) =>
+							cnJoin(
+								"border-b border-shadcn-border hover:bg-shadcn-muted/20",
+								row.original.hasExpiredStock && "bg-red-100/30 hover:bg-red-100/50",
+								row.original.status === "low_stock" && "bg-orange-100/30 hover:bg-orange-100/50"
+							),
 					}}
 				/>
-			</section>
+			</Card.Root>
 
-			{drugToEdit && (
-				<DialogAnimated.Root open={true} onOpenChange={(open) => !open && setDrugToEdit(null)}>
-					<EditDrugDialog drug={drugToEdit} onComplete={() => setDrugToEdit(null)} />
-				</DialogAnimated.Root>
-			)}
+			<InventoryEditDrugDialog drug={drugToEdit} onClose={() => setDrugToEdit(null)} />
 		</>
+	);
+}
+
+function InventoryEditDrugDialog(props: { drug: InventoryRow["drug"] | null; onClose: () => void }) {
+	const { drug, onClose } = props;
+
+	if (!drug) {
+		return null;
+	}
+
+	return (
+		<DialogAnimated.Root
+			open={true}
+			onOpenChange={(open) => {
+				if (!open) {
+					onClose();
+				}
+			}}
+		>
+			<EditDrugDialog drug={drug} onComplete={onClose} />
+		</DialogAnimated.Root>
 	);
 }
 
@@ -486,13 +538,13 @@ function ProjectedStockOut() {
 	const lowRows = rows.filter((row) => row.status === "low_stock" || row.status === "out_of_stock");
 
 	return (
-		<aside
-			className="flex w-full max-w-90 flex-col rounded-2xl bg-white p-5 shadow-sm ring-1
-				ring-shadcn-border/60"
+		<Card.Root
+			className="flex w-full max-w-90 flex-col gap-5 rounded-lg border-shadcn-border
+				bg-shadcn-background p-5"
 		>
-			<h2 className="text-[16px] font-bold text-black">Needs Attention</h2>
+			<Card.Title className="text-[16px] font-bold text-shadcn-foreground">Needs Attention</Card.Title>
 
-			<div className="mt-5 flex flex-col gap-3">
+			<Card.Content className="flex flex-col gap-3">
 				{lowRows.length === 0 && (
 					<p className="text-[14px] font-medium text-vitastock-body-color">
 						No critical stock items.
@@ -502,12 +554,12 @@ function ProjectedStockOut() {
 				<For
 					each={lowRows}
 					renderItem={(item) => (
-						<div
+						<article
 							key={item.drugId}
 							className="flex items-center justify-between rounded-lg bg-shadcn-muted/40 p-3"
 						>
 							<div className="min-w-0">
-								<p className="truncate text-[14px] font-bold text-black">
+								<p className="truncate text-[14px] font-bold text-shadcn-foreground">
 									{item.drug.name} {item.drug.strength}
 								</p>
 								<p className="truncate text-[12px] text-vitastock-body-color">
@@ -518,11 +570,11 @@ function ProjectedStockOut() {
 								</p>
 							</div>
 							<StatusBadge hasExpiredStock={item.hasExpiredStock} status={item.status} />
-						</div>
+						</article>
 					)}
 				/>
-			</div>
-		</aside>
+			</Card.Content>
+		</Card.Root>
 	);
 }
 
@@ -562,7 +614,7 @@ function StockMovementDialog(props: {
 			notes: "",
 			quantity: "",
 			reason: initialReason ?? StockOutReasonSchema.enum.patient,
-			unitCostNaira: "0",
+			unitCostNaira: "",
 		},
 		resolver: zodResolver(StockLogSchema),
 	});
@@ -570,7 +622,7 @@ function StockMovementDialog(props: {
 	const onSubmit = form.handleSubmit(async (data) => {
 		await callBackendApiForQuery("@post/inventory/stock-log", {
 			body: data,
-			headers: { "idempotency-key": idempotencyKey },
+			headers: { "x-idempotency-key": idempotencyKey },
 			meta: { toast: { success: true } },
 			onSuccess: () => {
 				void queryClient.invalidateQueries(inventorySummaryQuery());
@@ -590,14 +642,14 @@ function StockMovementDialog(props: {
 	return (
 		<DialogAnimated.Content
 			withCloseButton={false}
-			className="max-w-[430px] gap-0 overflow-hidden rounded-xl border-shadcn-border bg-white p-0
-				shadow-2xl"
+			className="max-w-[430px] gap-0 overflow-hidden rounded-lg border-shadcn-border
+				bg-shadcn-background p-0"
 		>
 			<header
 				className="flex items-start justify-between gap-6 border-b border-shadcn-border/70 px-5 py-4"
 			>
 				<div className="flex flex-col gap-1">
-					<DialogAnimated.Title className="text-[17px] font-extrabold text-black">
+					<DialogAnimated.Title className="text-[17px] font-extrabold text-shadcn-foreground">
 						{isDispense ? "Dispense Medication" : "Add New Stock"}
 					</DialogAnimated.Title>
 					<DialogAnimated.Description className="text-[12px] font-medium text-vitastock-body-color/90">
@@ -641,7 +693,8 @@ function StockMovementDialog(props: {
 									render={({ field }) => (
 										<Select.Root value={field.value} onValueChange={field.onChange}>
 											<Select.Trigger
-												className="h-10 rounded-lg border border-shadcn-border bg-white px-4"
+												className="h-10 rounded-lg border border-shadcn-border
+													bg-shadcn-background px-4"
 											>
 												<Select.Value placeholder="Select drug" />
 											</Select.Trigger>
@@ -666,7 +719,8 @@ function StockMovementDialog(props: {
 									<Form.Input
 										type="number"
 										placeholder={isDispense ? "e.g. 10" : "e.g. 100"}
-										className="h-10 rounded-lg border border-shadcn-border bg-white px-4"
+										className="h-10 rounded-lg border border-shadcn-border bg-shadcn-background
+											px-4"
 									/>
 								</Form.Field>
 
@@ -688,8 +742,8 @@ function StockMovementDialog(props: {
 														onChangeDate: "yyyy-MM-dd",
 														visibleDate: "MMM d, yyyy",
 													}}
-													className="h-10 rounded-lg border border-shadcn-border bg-white
-														px-4"
+													className="h-10 rounded-lg border border-shadcn-border
+														bg-shadcn-background px-4"
 													onDateStringChange={field.onChange}
 												/>
 											)}
@@ -699,47 +753,47 @@ function StockMovementDialog(props: {
 							</div>
 
 							<Show.Root when={isDispense}>
-								<Show.Content>
-									<Form.Field control={form.control} name="reason">
-										<Form.Label>Reason</Form.Label>
-										<Form.FieldBoundController
-											render={({ field }) => (
-												<Select.Root value={field.value} onValueChange={field.onChange}>
-													<Select.Trigger
-														className="h-10 rounded-lg border border-shadcn-border bg-white
-															px-4"
-													>
-														<Select.Value placeholder="Select reason" />
-													</Select.Trigger>
-													<Select.Content>
-														<For
-															each={StockOutReasonSchema.options}
-															renderItem={(reason) => (
-																<Select.Item key={reason} value={reason}>
-																	{stockOutReasonLabels[reason]}
-																</Select.Item>
-															)}
-														/>
-													</Select.Content>
-												</Select.Root>
-											)}
-										/>
-									</Form.Field>
-								</Show.Content>
+								<Form.Field control={form.control} name="reason">
+									<Form.Label>Reason</Form.Label>
+									<Form.FieldBoundController
+										render={({ field }) => (
+											<Select.Root value={field.value} onValueChange={field.onChange}>
+												<Select.Trigger
+													className="h-10 rounded-lg border border-shadcn-border
+														bg-shadcn-background px-4"
+												>
+													<Select.Value placeholder="Select reason" />
+												</Select.Trigger>
+												<Select.Content>
+													<For
+														each={StockOutReasonSchema.options}
+														renderItem={(reason) => (
+															<Select.Item key={reason} value={reason}>
+																{stockOutReasonLabels[reason]}
+															</Select.Item>
+														)}
+													/>
+												</Select.Content>
+											</Select.Root>
+										)}
+									/>
+								</Form.Field>
 
 								<Show.Fallback>
 									<Form.Field control={form.control} name="batchNumber">
 										<Form.Label>Batch Number</Form.Label>
 										<Form.Input
 											placeholder="Optional batch number"
-											className="h-10 rounded-lg border border-shadcn-border bg-white px-4"
+											className="h-10 rounded-lg border border-shadcn-border
+												bg-shadcn-background px-4"
 										/>
 									</Form.Field>
 
 									<Form.Field control={form.control} name="unitCostNaira">
 										<Form.Label>Unit Cost</Form.Label>
 										<Form.InputGroup
-											className="h-10 rounded-lg border border-shadcn-border bg-white px-4"
+											className="h-10 rounded-lg border border-shadcn-border
+												bg-shadcn-background px-4"
 										>
 											<Form.InputGroupAddon>
 												<IconBox icon="tabler:currency-naira" className="size-4" />
@@ -791,182 +845,29 @@ function NoDrugsFound(props: { onDrugCreated: Parameters<typeof CreateDrugDialog
 	const { onDrugCreated } = props;
 
 	return (
-		<div className="flex flex-col items-center px-6 py-8 text-center">
-			<div
-				className="grid size-16 place-items-center rounded-xl bg-shadcn-muted
+		<div className="flex flex-col items-center gap-2 px-6 py-8 text-center">
+			<span
+				className="grid size-16 place-items-center rounded-lg bg-shadcn-muted
 					text-vitastock-body-color"
 			>
 				<IconBox icon="lucide:search-x" className="size-7" />
-			</div>
+			</span>
 
-			<h3 className="mt-6 text-[20px] font-extrabold text-black">No matching drug found</h3>
-			<p className="mt-2 text-[14px] font-medium text-vitastock-body-color">
+			<h3 className="mt-4 text-[20px] font-extrabold text-shadcn-foreground">No matching drug found</h3>
+			<p className="text-[14px] font-medium text-vitastock-body-color">
 				Create a drug in Drug Management before recording stock movements.
 			</p>
 
 			<DialogAnimated.Root>
 				<DialogAnimated.Trigger asChild={true}>
-					<Button className="mt-6 h-10 px-5">
+					<Button className="mt-4 h-10 px-5">
 						<IconBox icon="lucide:plus" className="size-4" />
 						Add New Drug
 					</Button>
 				</DialogAnimated.Trigger>
+
 				<CreateDrugDialog onComplete={onDrugCreated} />
 			</DialogAnimated.Root>
 		</div>
-	);
-}
-
-function BulkImportDialog() {
-	return (
-		<DialogAnimated.Content
-			withCloseButton={false}
-			className="max-w-[700px] gap-0 overflow-hidden rounded-xl border-shadcn-border bg-white p-0
-				shadow-2xl"
-		>
-			<header
-				className="flex items-start justify-between gap-6 border-b border-shadcn-border/70 px-7 py-5"
-			>
-				<div className="flex flex-col gap-1">
-					<DialogAnimated.Title className="text-[22px] font-extrabold text-black">
-						Bulk Import Stock
-					</DialogAnimated.Title>
-					<DialogAnimated.Description className="text-[13px] font-medium text-vitastock-body-color/90">
-						Step 1: Upload a csv/excel file containing your drug stock to add your stock in bulk
-					</DialogAnimated.Description>
-				</div>
-
-				<DialogAnimated.Close
-					className="rounded-lg p-1 text-vitastock-body-color hover:bg-shadcn-muted"
-				>
-					<IconBox icon="lucide:x" className="size-6" />
-					<span className="sr-only">Close</span>
-				</DialogAnimated.Close>
-			</header>
-
-			<div className="flex flex-col gap-6 p-7">
-				<DropZoneInput.Root
-					allowedFileTypes={[".csv", ".xls", ".xlsx"]}
-					maxFileCount={1}
-					maxFileSize={{ mb: 10 }}
-				>
-					<DropZoneInput.Area
-						classNames={{
-							container: `grid min-h-54 cursor-pointer place-items-center rounded-lg border
-							border-dashed border-vitastock-primary-light bg-shadcn-muted/40 transition-colors
-							hover:border-vitastock-primary-main
-							data-[drag-over=true]:border-vitastock-primary-main
-							data-[drag-over=true]:bg-vitastock-primary-main/5`,
-						}}
-						unstyled={true}
-					>
-						<div className="flex flex-col items-center text-center">
-							<span
-								className="grid size-14 place-items-center rounded-xl bg-vitastock-primary-main/15
-									text-vitastock-primary-main"
-							>
-								<IconBox icon="lucide:file-down" className="size-7" />
-							</span>
-
-							<p className="mt-5 text-[16px] font-bold text-black">
-								Drag and drop your file here or click to browse
-							</p>
-							<p className="mt-1 text-[13px] font-medium text-vitastock-body-color">
-								CSV or Excel files only (max 10MB)
-							</p>
-
-							<Button className="mt-5 h-9 px-4 shadow-sm" type="button">
-								Browse Files
-							</Button>
-
-							<DropZoneInput.ImagePreview />
-						</div>
-					</DropZoneInput.Area>
-				</DropZoneInput.Root>
-
-				<article className="rounded-lg bg-shadcn-muted/70 p-5">
-					<div className="flex items-center justify-between gap-4">
-						<h4 className="flex items-center gap-2 text-[14px] font-bold text-black">
-							<IconBox
-								icon="lucide:circle"
-								className="size-4 rounded-full text-vitastock-primary-main"
-							/>
-							File Requirements
-						</h4>
-
-						<Button
-							unstyled={true}
-							isDisabled={true}
-							className="flex items-center gap-1.5 text-[13px] font-bold text-vitastock-primary-main
-								disabled:opacity-60"
-						>
-							<IconBox icon="lucide:download" className="size-4" />
-							Download Sample Template
-						</Button>
-					</div>
-
-					<div className="mt-5 grid gap-6 md:grid-cols-2">
-						<div>
-							<p
-								className="text-[11px] font-bold tracking-wider text-vitastock-body-color
-									uppercase"
-							>
-								Required Fields
-							</p>
-							<ul className="mt-2 space-y-1.5 text-[13px] font-medium text-vitastock-body-color">
-								<li className="flex items-center gap-2">
-									<span className="size-1.5 rounded-full bg-shadcn-destructive" />
-									Drug Name
-								</li>
-								<li className="flex items-center gap-2">
-									<span className="size-1.5 rounded-full bg-shadcn-destructive" />
-									Quantity
-								</li>
-								<li className="flex items-center gap-2">
-									<span className="size-1.5 rounded-full bg-shadcn-destructive" />
-									Expiry Date (YYYY-MM-DD)
-								</li>
-							</ul>
-						</div>
-
-						<div>
-							<p
-								className="text-[11px] font-bold tracking-wider text-vitastock-body-color
-									uppercase"
-							>
-								Optional Fields
-							</p>
-							<ul className="mt-2 space-y-1.5 text-[13px] font-medium text-vitastock-body-color">
-								<li className="flex items-center gap-2">
-									<span className="size-1.5 rounded-full bg-shadcn-border" />
-									Unit
-								</li>
-								<li className="flex items-center gap-2">
-									<span className="size-1.5 rounded-full bg-shadcn-border" />
-									Unit Cost (Naira)
-								</li>
-								<li className="flex items-center gap-2">
-									<span className="size-1.5 rounded-full bg-shadcn-border" />
-									Supplier ID
-								</li>
-							</ul>
-						</div>
-					</div>
-				</article>
-			</div>
-
-			<DialogAnimated.Footer
-				className="flex-row justify-end gap-5 border-t border-shadcn-border/70 bg-shadcn-muted/30 p-5"
-			>
-				<DialogAnimated.Close asChild={true}>
-					<Button theme="primary-ghost">Cancel</Button>
-				</DialogAnimated.Close>
-
-				<Button isDisabled={true} className="h-12 min-w-38 gap-2 rounded-lg px-6 text-[15px]">
-					Continue
-					<IconBox icon="lucide:arrow-right" className="size-4" />
-				</Button>
-			</DialogAnimated.Footer>
-		</DialogAnimated.Content>
 	);
 }

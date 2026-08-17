@@ -69,7 +69,7 @@ function DashboardSidebar() {
 								group-data-[state=collapsed]:absolute group-data-[state=collapsed]:w-0
 								group-data-[state=collapsed]:opacity-0"
 						>
-							<h3 className="text-[19px] leading-none font-extrabold text-vitastock-primary-main">
+							<h3 className="text-[20px] leading-none font-extrabold text-vitastock-primary-main">
 								VitaStock
 							</h3>
 							<p className="mt-1.5 text-[11px] font-semibold text-vitastock-body-color/60">

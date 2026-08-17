@@ -23,6 +23,84 @@ import { fallBackRouteSchemaKey } from "@zayne-labs/callapi/constants";
 import { defineSchema, defineSchemaRoutes } from "@zayne-labs/callapi/utils";
 import { z } from "zod";
 
+export const INVENTORY_BULK_IMPORT_MAX_ROWS = 2000;
+
+export const INVENTORY_BULK_IMPORT_COLUMNS = {
+	"Dosage Form": "form",
+	"Drug Name": "name",
+	"Expiry Date": "expiryDate",
+	"Generic Name": "genericName",
+	Quantity: "quantity",
+	Strength: "strength",
+	Unit: "unit",
+	"Unit Cost (₦)": "unitCostNaira",
+} as const;
+
+export const InventoryBulkImportHeadersSchema = z.array(z.string()).superRefine((headers, ctx) => {
+	const seenHeaders = new Set<string>();
+	const duplicateHeaders = new Set<string>();
+
+	for (const header of headers) {
+		if (!header) continue;
+
+		if (seenHeaders.has(header)) {
+			duplicateHeaders.add(header);
+		}
+
+		seenHeaders.add(header);
+	}
+
+	if (duplicateHeaders.size > 0) {
+		ctx.addIssue({
+			code: "custom",
+			message: `Duplicate columns: ${[...duplicateHeaders].join(", ")}`,
+		});
+	}
+
+	const unknownHeaders = headers.filter(
+		(header) => header.length > 0 && !(header in INVENTORY_BULK_IMPORT_COLUMNS)
+	);
+
+	if (unknownHeaders.length > 0) {
+		ctx.addIssue({
+			code: "custom",
+			message: `Unknown columns: ${unknownHeaders.join(", ")}`,
+		});
+	}
+
+	const missingHeaders = Object.keys(INVENTORY_BULK_IMPORT_COLUMNS).filter(
+		(header) => !seenHeaders.has(header)
+	);
+
+	if (missingHeaders.length > 0) {
+		ctx.addIssue({
+			code: "custom",
+			message: `Missing required columns: ${missingHeaders.join(", ")}`,
+		});
+	}
+});
+
+type InventoryBulkImportRowIdentity = {
+	expiryDate: Date;
+	form: string;
+	genericName: string;
+	name: string;
+	quantity: number;
+	strength: string;
+	unit: string;
+	unitCostNaira: number;
+};
+
+export const createInventoryBulkImportRowKey = (row: InventoryBulkImportRowIdentity) => {
+	const drugIdentity = [row.name, row.genericName, row.strength, row.form, row.unit]
+		.map((value) => value.trim().toLowerCase())
+		.join("|");
+
+	const unitCostKobo = Math.round(row.unitCostNaira * 100);
+
+	return `${drugIdentity}|${row.expiryDate.toISOString()}|${row.quantity}|${unitCostKobo}`;
+};
+
 const BaseSuccessResponseSchema = z.object({
 	data: z.record(z.string(), z.unknown()),
 	message: z.string(),
@@ -125,7 +203,7 @@ const stringWithDateValidation = () => {
 };
 
 const stringWithNumberValidation = <TNumberSchema extends z.ZodNumber>(numberSchema: TNumberSchema) => {
-	return z.preprocess((value: number | string) => Number(value), numberSchema);
+	return z.preprocess((value: number | string) => (value === "" ? undefined : Number(value)), numberSchema);
 };
 
 const TokenObjectSchema = z.object({
@@ -448,7 +526,7 @@ const inventoryRoutes = () => {
 		quantity: z.number(),
 		reason: StockOutReasonSchema.optional(),
 		stockTransactionId: z.uuid(),
-		unitCostKobo: z.number().default(0),
+		unitCostKobo: z.number(),
 		workspaceId: z.uuid(),
 	}) satisfies z.ZodType<InsertStockLogType>;
 
@@ -460,7 +538,7 @@ const inventoryRoutes = () => {
 		id: z.uuid(),
 		quantityAvailable: z.number(),
 		quantityReceived: z.number(),
-		unitCostKobo: z.number().default(0),
+		unitCostKobo: z.number(),
 		updatedAt: stringWithDateValidation(),
 		userId: z.uuid(),
 		workspaceId: z.uuid(),
@@ -476,7 +554,7 @@ const inventoryRoutes = () => {
 		expiryDate: stringWithDateValidation(),
 		logType: StockAdditionLogTypeSchema,
 		quantity: stringWithNumberValidation(InsertStockLogSchema.shape.quantity.positive()),
-		unitCostNaira: stringWithNumberValidation(z.number().min(0).multipleOf(0.01)).optional(),
+		unitCostNaira: stringWithNumberValidation(z.number().min(0).multipleOf(0.01)),
 	});
 
 	const StockOutBodySchema = InsertStockLogSchema.pick({
@@ -491,6 +569,45 @@ const inventoryRoutes = () => {
 		quantity: stringWithNumberValidation(InsertStockLogSchema.shape.quantity.positive()),
 		reason: StockOutReasonSchema,
 	});
+
+	const InventoryBulkImportRowSchema = DrugCreateSchema.extend({
+		form: DrugCreateSchema.shape.form.trim(),
+		genericName: DrugCreateSchema.shape.genericName.trim(),
+		name: DrugCreateSchema.shape.name.trim(),
+		strength: DrugCreateSchema.shape.strength.trim(),
+		unit: DrugCreateSchema.shape.unit.trim(),
+	}).extend({
+		expiryDate: stringWithDateValidation().refine(
+			(date) => date > new Date(),
+			"Expiry date must be in the future"
+		),
+		quantity: stringWithNumberValidation(InsertStockLogSchema.shape.quantity.positive().int()),
+		unitCostNaira: stringWithNumberValidation(z.number().min(0).multipleOf(0.01)),
+	});
+
+	const InventoryBulkImportRowsSchema = InventoryBulkImportRowSchema.array()
+		.min(1)
+		.max(INVENTORY_BULK_IMPORT_MAX_ROWS)
+		.superRefine((rows, ctx) => {
+			const firstRowIndexByKey = new Map<string, number>();
+
+			for (const [rowIndex, row] of rows.entries()) {
+				const rowKey = createInventoryBulkImportRowKey(row);
+				const firstRowIndex = firstRowIndexByKey.get(rowKey);
+
+				if (firstRowIndex !== undefined) {
+					ctx.addIssue({
+						code: "custom",
+						message: `Duplicate of row ${firstRowIndex + 1}`,
+						path: [rowIndex],
+					});
+
+					continue;
+				}
+
+				firstRowIndexByKey.set(rowKey, rowIndex);
+			}
+		});
 
 	const InventorySummaryRowSchema = z.object({
 		drug: DrugDetailsSchema,
@@ -645,6 +762,16 @@ const inventoryRoutes = () => {
 			data: NullSuccessResponseSchema,
 		},
 
+		"@post/inventory/bulk-import": {
+			body: z.object({
+				rows: InventoryBulkImportRowsSchema,
+			}),
+			data: withBaseSuccessResponse(z.object({ importedCount: z.number() })),
+			headers: z.object({
+				"x-idempotency-key": z.uuid(),
+			}),
+		},
+
 		"@post/inventory/drugs": {
 			body: DrugCreateSchema,
 			data: withBaseSuccessResponse(
@@ -670,7 +797,7 @@ const inventoryRoutes = () => {
 			body: z.discriminatedUnion("logType", [StockAdditionBodySchema, StockOutBodySchema]),
 			data: NullSuccessResponseSchema,
 			headers: z.object({
-				"idempotency-key": z.uuid(),
+				"x-idempotency-key": z.uuid(),
 			}),
 		},
 	});

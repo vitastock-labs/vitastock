@@ -1,3 +1,4 @@
+import { inventoryAlertQueue } from "@/app/inventory/services/alertQueue";
 import { emailQueue } from "../emailQueue";
 
 export const createBullBoardSetup = async () => {
@@ -8,12 +9,12 @@ export const createBullBoardSetup = async () => {
 		import("@hono/node-server/serve-static"),
 	]);
 
-	const baseQueuesPath = "/api/v1/queues" as const;
+	const baseQueuesPath = "/admin/queues" as const;
 
 	const queuesServerAdapter = new HonoAdapter(serveStatic).setBasePath(baseQueuesPath);
 
 	createBullBoard({
-		queues: [new BullMQAdapter(emailQueue)],
+		queues: [new BullMQAdapter(emailQueue), new BullMQAdapter(inventoryAlertQueue)],
 		serverAdapter: queuesServerAdapter,
 	});
 
