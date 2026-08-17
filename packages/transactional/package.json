@@ -14,13 +14,13 @@
 		"lint:type-check": "tsc --pretty -p tsconfig.json"
 	},
 	"dependencies": {
-		"@react-email/ui": "6.9.1",
+		"@react-email/ui": "6.9.2",
 		"@vitastock/shared": "workspace:*",
-		"@zayne-labs/toolkit-react": "0.12.57",
-		"@zayne-labs/toolkit-type-helpers": "0.12.57",
+		"@zayne-labs/toolkit-react": "0.12.58",
+		"@zayne-labs/toolkit-type-helpers": "0.12.58",
 		"react": "19.2.8",
 		"react-dom": "19.2.8",
-		"react-email": "6.9.1"
+		"react-email": "6.9.2"
 	},
 	"devDependencies": {
 		"@total-typescript/ts-reset": "0.6.1",
