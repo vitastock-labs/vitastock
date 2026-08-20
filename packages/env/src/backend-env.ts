@@ -37,7 +37,7 @@ export const backendEnvSchema = z.object({
 	GOOGLE_AUTH_REFRESH_TOKEN: z.string(),
 	GOOGLE_CLIENT_ID: z.string(),
 	GOOGLE_CLIENT_SECRET: z.string(),
-	LOG_LEVEL: z.literal(["debug", "info", "warn", "error", "fatal", "silent"]).default("info"),
+	LOG_LEVEL: z.literal(["debug", "info", "warn", "error", "fatal", "silent", "trace"]).default("info"),
 	PORT: z.coerce.number().default(8000),
 	PROCESS_TYPE: z.literal(["api", "worker"]).default("api"),
 	REDIS_CACHE_URL: z.url(),
