@@ -6,8 +6,8 @@ export const sharedEnvSchema = z.object({
 		.default("https://api-vitastock.onrender.com"),
 	BASE_BACKEND_HOST_DEV: z.literal("http://localhost:8000").default("http://localhost:8000"),
 	BASE_BACKEND_HOST_STAGING: z
-		.literal("https://api-vitastock-staging.onrender.com")
-		.default("https://api-vitastock-staging.onrender.com"),
+		.literal("https://api-vitastock-staging-7nm6.onrender.com")
+		.default("https://api-vitastock-staging-7nm6.onrender.com"),
 	BASE_FRONTEND_HOST: z.literal("https://vitastock.vercel.app").default("https://vitastock.vercel.app"),
 	BASE_FRONTEND_HOST_DEV: z.literal("http://localhost:5173").default("http://localhost:5173"),
 	BASE_FRONTEND_HOST_STAGING: z

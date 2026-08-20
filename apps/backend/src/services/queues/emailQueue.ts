@@ -97,7 +97,7 @@ const createEmailWorker = () => {
 };
 
 const createEmailQueueEvents = () => {
-	const queueEvents = new QueueEvents(emailQueueName, { connection: redisQueueClient });
+	const queueEvents = new QueueEvents<unknown>(emailQueueName, { connection: redisQueueClient });
 
 	queueEvents.on("failed", ({ failedReason, jobId }) => {
 		appLogger.pretty.error(`Job '${jobId}' failed with error ${failedReason}`, { failedReason });
