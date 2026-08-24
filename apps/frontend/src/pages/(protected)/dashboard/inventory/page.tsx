@@ -695,13 +695,15 @@ function StockMovementDialog(props: {
 											<Combobox.Trigger
 												aria-invalid={fieldState.invalid}
 												className="h-10 w-full justify-between rounded-lg border-shadcn-border
-													bg-shadcn-background px-4 text-left text-[14px] font-normal shadow-none
-													hover:bg-shadcn-background aria-invalid:border-shadcn-destructive
-													aria-invalid:ring-[3px] aria-invalid:ring-shadcn-destructive/20"
+													bg-shadcn-background px-4 text-left text-[14px] font-normal
+													shadow-none hover:bg-shadcn-background
+													aria-invalid:border-shadcn-destructive aria-invalid:ring-[3px]
+													aria-invalid:ring-shadcn-destructive/20"
 												classNames={{ icon: "text-vitastock-body-color/70" }}
 											/>
 											<Combobox.Content
-												className="rounded-lg border-shadcn-border bg-shadcn-background shadow-md"
+												className="rounded-lg border-shadcn-border bg-shadcn-background
+													shadow-md"
 												popoverOptions={{ align: "start", sideOffset: 6 }}
 											>
 												<Combobox.Input
