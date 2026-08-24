@@ -28,14 +28,13 @@ export const getFefoStockMovements = <Batch extends FefoBatch>(batches: Batch[],
 type InventoryStatus = (typeof INVENTORY_STATUS)[number];
 
 export const getInventoryStatus = (options: {
-	hasExpiredStock: boolean;
 	lowStockThreshold: number;
 	totalAvailable: number;
 }): InventoryStatus => {
-	const { hasExpiredStock, lowStockThreshold, totalAvailable } = options;
+	const { lowStockThreshold, totalAvailable } = options;
 
 	if (totalAvailable <= 0) {
-		return hasExpiredStock ? "expired" : "out_of_stock";
+		return "out_of_stock";
 	}
 
 	if (totalAvailable <= lowStockThreshold) {

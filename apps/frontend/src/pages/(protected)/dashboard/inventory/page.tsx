@@ -13,7 +13,7 @@ import { For } from "@/components/common/for";
 import { IconBox } from "@/components/common/IconBox";
 import { Show } from "@/components/common/show";
 import { Switch } from "@/components/common/switch";
-import { Badge, Card, Select } from "@/components/ui";
+import { Badge, Card, Combobox, Select } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import {
 	createDataTableColumnHelper,
@@ -351,15 +351,9 @@ function InventoryTable() {
 				}),
 				inventoryColumnHelper.accessor((row) => row.nearestExpiryDate?.getTime() ?? 0, {
 					cell: ({ row }) => (
-						<div className="flex items-center gap-2.5">
-							<span className="text-vitastock-body-color">
-								{row.original.nearestExpiryDate ? formatDate(row.original.nearestExpiryDate) : "-"}
-							</span>
-							<StatusBadge
-								hasExpiredStock={row.original.hasExpiredStock}
-								status={row.original.status}
-							/>
-						</div>
+						<span className="text-vitastock-body-color">
+							{row.original.nearestExpiryDate ? formatDate(row.original.nearestExpiryDate) : "-"}
+						</span>
 					),
 					header: ({ column }) => (
 						<DataTableColumnHeader column={column}>Expiry</DataTableColumnHeader>
@@ -368,9 +362,17 @@ function InventoryTable() {
 				}),
 				inventoryColumnHelper.accessor("totalAvailable", {
 					cell: ({ row }) => (
-						<span className="font-bold text-shadcn-foreground">
-							{row.original.totalAvailable.toLocaleString()} {row.original.drug.unit}
-						</span>
+						<div className="flex flex-col items-start gap-1.5">
+							<span className="font-bold text-shadcn-foreground">
+								{row.original.totalAvailable.toLocaleString()} {row.original.drug.unit}
+							</span>
+							<StatusBadge status={row.original.status} />
+							{row.original.hasExpiredStock && (
+								<span className="text-[11px] font-semibold text-red-700">
+									Expired stock also present
+								</span>
+							)}
+						</div>
 					),
 					header: ({ column }) => (
 						<DataTableColumnHeader column={column}>Available Stock</DataTableColumnHeader>
@@ -498,37 +500,23 @@ function InventoryEditDrugDialog(props: { drug: InventoryRow["drug"] | null; onC
 	);
 }
 
-function StatusBadge(props: {
-	hasExpiredStock: boolean;
-	status: InventorySummaryQueryResultType["rows"][number]["status"];
-}) {
-	const { hasExpiredStock, status } = props;
+function StatusBadge(props: { status: InventorySummaryQueryResultType["rows"][number]["status"] }) {
+	const { status } = props;
 
-	if (status === "normal" && !hasExpiredStock) {
+	if (status === "normal") {
 		return null;
 	}
 
 	return (
-		<>
-			{status !== "normal" && (
-				<Badge
-					className={cnJoin(
-						"border-none px-2 py-0.5 text-[11px] font-bold capitalize",
-						status === "expired" && "bg-red-100 text-red-700",
-						status === "low_stock" && "bg-orange-100 text-orange-700",
-						status === "out_of_stock" && "bg-shadcn-muted text-vitastock-body-color"
-					)}
-				>
-					{formatEnumLabel(status)}
-				</Badge>
+		<Badge
+			className={cnJoin(
+				"border-none px-2 py-0.5 text-[11px] font-bold capitalize",
+				status === "low_stock" && "bg-orange-100 text-orange-700",
+				status === "out_of_stock" && "bg-shadcn-muted text-vitastock-body-color"
 			)}
-
-			{hasExpiredStock && status !== "expired" && (
-				<Badge className="border-none bg-red-100 px-2 py-0.5 text-[11px] font-bold text-red-700">
-					Expired batch
-				</Badge>
-			)}
-		</>
+		>
+			{formatEnumLabel(status)}
+		</Badge>
 	);
 }
 
@@ -569,7 +557,7 @@ function ProjectedStockOut() {
 									{item.totalAvailable} {item.drug.unit} left
 								</p>
 							</div>
-							<StatusBadge hasExpiredStock={item.hasExpiredStock} status={item.status} />
+							<StatusBadge status={item.status} />
 						</article>
 					)}
 				/>
@@ -601,8 +589,12 @@ function StockMovementDialog(props: {
 
 	const inventoryDrugsQueryResult = useQuery(inventoryDrugsQuery());
 	const drugs = inventoryDrugsQueryResult.data?.drugs ?? [];
+	const getDrugLabel = (drug: (typeof drugs)[number]) =>
+		`${drug.name} (${drug.genericName}) ${drug.strength}`;
 	const queryClient = useQueryClient();
 	const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
+	const [drugSearch, setDrugSearch] = useState("");
+	const [isCreateDrugOpen, setIsCreateDrugOpen] = useState(false);
 
 	const form = useForm({
 		defaultValues: {
@@ -690,25 +682,65 @@ function StockMovementDialog(props: {
 							<Form.Field control={form.control} name="drugId">
 								<Form.Label>Drug Name</Form.Label>
 								<Form.FieldBoundController
-									render={({ field }) => (
-										<Select.Root value={field.value} onValueChange={field.onChange}>
-											<Select.Trigger
-												className="h-10 rounded-lg border border-shadcn-border
-													bg-shadcn-background px-4"
+									render={({ field, fieldState }) => (
+										<Combobox.Root
+											data={drugs.map((drug) => ({
+												label: getDrugLabel(drug),
+												value: drug.id,
+											}))}
+											type="drug"
+											value={field.value}
+											onValueChange={field.onChange}
+										>
+											<Combobox.Trigger
+												aria-invalid={fieldState.invalid}
+												className="h-10 w-full justify-between rounded-lg border-shadcn-border
+													bg-shadcn-background px-4 text-left text-[14px] font-normal shadow-none
+													hover:bg-shadcn-background aria-invalid:border-shadcn-destructive
+													aria-invalid:ring-[3px] aria-invalid:ring-shadcn-destructive/20"
+												classNames={{ icon: "text-vitastock-body-color/70" }}
+											/>
+											<Combobox.Content
+												className="rounded-lg border-shadcn-border bg-shadcn-background shadow-md"
+												popoverOptions={{ align: "start", sideOffset: 6 }}
 											>
-												<Select.Value placeholder="Select drug" />
-											</Select.Trigger>
-											<Select.Content>
-												<For
-													each={drugs}
-													renderItem={(drug) => (
-														<Select.Item key={drug.id} value={drug.id}>
-															{drug.name} ({drug.genericName}) {drug.strength}
-														</Select.Item>
-													)}
+												<Combobox.Input
+													className="h-10 text-[14px]"
+													onValueChange={setDrugSearch}
 												/>
-											</Select.Content>
-										</Select.Root>
+												<Combobox.Empty className="p-2">
+													{drugSearch.trim() && (
+														<Button
+															type="button"
+															className="h-9 w-full justify-start px-3"
+															onClick={() => setIsCreateDrugOpen(true)}
+														>
+															<IconBox icon="lucide:plus" className="size-4" />
+															Add "{drugSearch.trim()}" as a new drug
+														</Button>
+													)}
+												</Combobox.Empty>
+												<Combobox.List className="max-h-64 p-1.5">
+													<Combobox.Group className="p-0">
+														<For
+															each={drugs}
+															renderItem={(drug) => (
+																<Combobox.Item
+																	key={drug.id}
+																	value={drug.id}
+																	keywords={[getDrugLabel(drug)]}
+																	className="min-h-9 rounded-md px-3 text-[14px]
+																		data-[selected=true]:bg-vitastock-primary-main/10
+																		data-[selected=true]:text-vitastock-primary-dark"
+																>
+																	{getDrugLabel(drug)}
+																</Combobox.Item>
+															)}
+														/>
+													</Combobox.Group>
+												</Combobox.List>
+											</Combobox.Content>
+										</Combobox.Root>
 									)}
 								/>
 							</Form.Field>
@@ -837,6 +869,18 @@ function StockMovementDialog(props: {
 					</Form.Root>
 				</Switch.Default>
 			</Switch.Root>
+
+			<DialogAnimated.Root open={isCreateDrugOpen} onOpenChange={setIsCreateDrugOpen}>
+				{isCreateDrugOpen && (
+					<CreateDrugDialog
+						initialName={drugSearch.trim()}
+						onComplete={(drug) => {
+							form.setValue("drugId", drug.id, { shouldValidate: true });
+							setIsCreateDrugOpen(false);
+						}}
+					/>
+				)}
+			</DialogAnimated.Root>
 		</DialogAnimated.Content>
 	);
 }

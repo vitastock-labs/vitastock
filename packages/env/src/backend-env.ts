@@ -28,11 +28,9 @@ export const backendEnvSchema = z.object({
 	DB_MIGRATING: stringBoolean.default(false),
 	DB_SEEDING: stringBoolean.default(false),
 	EMAIL_APP_PASSWORD: z.string(),
-	EMAIL_APP_PASSWORD_DEV: z.literal("YWdGtMC5WuvXFExr9P").default("YWdGtMC5WuvXFExr9P"),
+	EMAIL_APP_PASSWORD_DEV: z.literal("s2H4TH6NFvg4F8UpBNP").default("s2H4TH6NFvg4F8UpBNP"),
 	EMAIL_USER: z.email(),
-	EMAIL_USER_DEV: z
-		.literal("emilio.connelly70@ethereal.email")
-		.default("emilio.connelly70@ethereal.email"),
+	EMAIL_USER_DEV: z.literal("kacie83@ethereal.email").default("kacie83@ethereal.email"),
 	GOOGLE_AUTH_API_KEY: z.string(),
 	GOOGLE_AUTH_REFRESH_TOKEN: z.string(),
 	GOOGLE_CLIENT_ID: z.string(),

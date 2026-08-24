@@ -5,7 +5,7 @@ import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { users } from "./auth";
 import { workspaces } from "./workspace";
 
-export const INVENTORY_STATUS = defineEnum(["expired", "low_stock", "normal", "out_of_stock"], {
+export const INVENTORY_STATUS = defineEnum(["low_stock", "normal", "out_of_stock"], {
 	inferredUnionVariant: "values",
 });
 

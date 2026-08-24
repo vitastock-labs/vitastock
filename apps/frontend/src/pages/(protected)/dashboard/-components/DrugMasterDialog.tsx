@@ -210,15 +210,15 @@ export function DrugMasterDialog() {
 	);
 }
 
-export function CreateDrugDialog(props: { onComplete?: (drug: Drug) => void }) {
-	const { onComplete } = props;
+export function CreateDrugDialog(props: { initialName?: string; onComplete?: (drug: Drug) => void }) {
+	const { initialName = "", onComplete } = props;
 	const dialogContext = useDialogContext();
 	const queryClient = useQueryClient();
 	const form = useForm({
 		defaultValues: {
 			form: "",
 			genericName: "",
-			name: "",
+			name: initialName,
 			strength: "",
 			unit: "",
 		},

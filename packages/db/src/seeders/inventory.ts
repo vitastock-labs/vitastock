@@ -1,5 +1,5 @@
 import { consola } from "consola";
-import { inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, notExists, sql } from "drizzle-orm";
 import { db } from "../db";
 import {
 	drugs,
@@ -228,8 +228,23 @@ export const seedInventory = async (
 		})
 		.returning();
 
-	await db.delete(stockLogs).where(inArray(stockLogs.drugId, seededDrugIds));
-	await db.delete(stockTransactions).where(inArray(stockTransactions.workspaceId, seededWorkspaceIds));
+	await db.delete(stockLogs).where(
+		and(
+			inArray(stockLogs.workspaceId, seededWorkspaceIds),
+			inArray(stockLogs.notes, ["Seed opening stock", "Seed stock-out activity"])
+		)
+	);
+	await db.delete(stockTransactions).where(
+		and(
+			inArray(stockTransactions.workspaceId, seededWorkspaceIds),
+			notExists(
+				db
+					.select({ id: stockLogs.id })
+					.from(stockLogs)
+					.where(eq(stockLogs.stockTransactionId, stockTransactions.id))
+			)
+		)
+	);
 
 	const allLogSeeds = seededWorkspaces.flatMap((workspace) => {
 		const actor = getWorkspaceOwnerUser({

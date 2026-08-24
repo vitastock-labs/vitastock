@@ -199,7 +199,7 @@ export const inventoryRoutes = new Hono()
 		});
 
 		const criticalCount = inventorySummaryRows.filter(
-			(row) => row.status === "expired" || row.status === "low_stock" || row.status === "out_of_stock"
+			(row) => row.status === "low_stock" || row.status === "out_of_stock" || row.hasExpiredStock
 		).length;
 
 		return AppJsonResponse(ctx, {

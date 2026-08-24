@@ -1,39 +1,47 @@
 {
-	"theme": "dice",
-	"active": "default",
-	"activateOnStartup": false,
-	"keepExistingTerminals": false,
-	"noClear": true,
-	"sessions": {
-		"default": [
-			{
-				"autoExecuteCommands": true,
-				"cwd": "apps/frontend",
-				"icon": "browser",
-				"name": "dev:frontend",
-				"commands": ["pnpm dev"]
-			},
-			{
-				"autoExecuteCommands": true,
-				"cwd": "apps/backend",
-				"icon": "server",
-				"name": "dev:backend",
-				"commands": ["pnpm dev"]
-			},
-			{
-				"autoExecuteCommands": true,
-				"cwd": "apps/backend",
-				"icon": "database",
-				"name": "dev:postgres-redis",
-				"commands": ["pnpm dev:docker-postgres-redis"]
-			},
-			{
-				"autoExecuteCommands": true,
-				"cwd": "packages/db",
-				"icon": "eye-watch",
-				"name": "db:studio",
-				"commands": ["pnpm db:studio"]
-			}
-		]
-	}
+   "theme": "dice",
+   "active": "default",
+   "activateOnStartup": false,
+   "keepExistingTerminals": false,
+   "noClear": true,
+   "sessions": {
+      "default": [
+         {
+            "autoExecuteCommands": true,
+            "cwd": "apps/frontend",
+            "icon": "browser",
+            "name": "dev:frontend",
+            "commands": [
+               "pnpm dev"
+            ]
+         },
+         {
+            "autoExecuteCommands": true,
+            "cwd": "apps/backend",
+            "icon": "server",
+            "name": "dev:backend",
+            "commands": [
+               "pnpm dev"
+            ]
+         },
+         {
+            "autoExecuteCommands": true,
+            "cwd": "apps/backend",
+            "icon": "database",
+            "name": "dev:postgres-redis",
+            "commands": [
+               "pnpm dev:docker-postgres-redis"
+            ]
+         },
+         {
+            "autoExecuteCommands": true,
+            "cwd": "packages/db",
+            "icon": "eye-watch",
+            "name": "db:studio",
+            "commands": [
+               "pnpm db:studio"
+            ]
+         }
+      ]
+   }
 }

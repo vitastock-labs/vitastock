@@ -39,7 +39,7 @@
 	},
 	"devDependencies": {
 		"@total-typescript/ts-reset": "0.6.1",
-		"@types/pg": "8.21.0",
+		"@types/pg": "8.23.1",
 		"tsdown": "0.22.14",
 		"typescript": "6.0.3"
 	}

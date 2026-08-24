@@ -7,7 +7,7 @@ import {
 } from "@vitastock/db/schema/inventory";
 import { workspaces } from "@vitastock/db/schema/workspace";
 import { subDays } from "date-fns";
-import { and, asc, count, eq, isNull, lt } from "drizzle-orm";
+import { and, asc, count, eq, inArray, isNull, lt } from "drizzle-orm";
 import { addEmailToQueue } from "@/services/queues/emailQueue";
 import { getAlertRecipients, syncInventoryAlerts } from "./alertLifecycle";
 
@@ -207,12 +207,7 @@ const enqueueInventoryAlertEmail = async (outboxRecord: SelectInventoryAlertOutb
 		.set({ dispatchedAt: new Date() })
 		.where(eq(inventoryAlertOutbox.id, outboxRecord.id));
 
-	if (!outboxRecord.alertId) return;
-
-	await db
-		.update(inventoryAlerts)
-		.set({ lastNotifiedAt: new Date() })
-		.where(eq(inventoryAlerts.id, outboxRecord.alertId));
+	return outboxRecord.alertId;
 };
 
 export const enqueuePendingInventoryAlertEmails = async () => {
@@ -223,5 +218,16 @@ export const enqueuePendingInventoryAlertEmails = async () => {
 		.orderBy(asc(inventoryAlertOutbox.createdAt))
 		.limit(alertOutboxBatchSize);
 
-	await Promise.all(outboxRecords.map((outboxRecord) => enqueueInventoryAlertEmail(outboxRecord)));
+	const dispatchedAlertIds = new Set(
+		await Promise.all(
+			outboxRecords.map((outboxRecord) => enqueueInventoryAlertEmail(outboxRecord))
+		).then((results) => results.filter((alertId) => alertId !== null))
+	);
+
+	if (dispatchedAlertIds.size > 0) {
+		await db
+			.update(inventoryAlerts)
+			.set({ lastNotifiedAt: new Date() })
+			.where(inArray(inventoryAlerts.id, [...dispatchedAlertIds]));
+	}
 };

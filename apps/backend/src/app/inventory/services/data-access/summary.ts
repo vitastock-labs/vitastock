@@ -133,7 +133,6 @@ export const getInventorySummaryRows = async (options: {
 		nearestBatch: nearestBatchByDrugId.get(row.drugId),
 		nearestExpiryDate: row.nearestExpiryDate ?? undefined,
 		status: getInventoryStatus({
-			hasExpiredStock: row.hasExpiredStock,
 			lowStockThreshold,
 			totalAvailable: row.totalAvailable,
 		}),

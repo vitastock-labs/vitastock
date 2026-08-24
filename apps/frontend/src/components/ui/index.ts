@@ -6,6 +6,7 @@ export { Card } from "./card";
 export * from "./calender";
 export * as Carousel from "./carousel";
 export * as Combobox from "./combobox";
+export * as ComboboxBase from "./combobox-base";
 export * as Dialog from "./dialog";
 export * as Drawer from "./drawer";
 export * as DropdownMenu from "./dropdown-menu";
