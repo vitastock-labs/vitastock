@@ -2,8 +2,12 @@ import { z } from "zod";
 
 export const sharedEnvSchema = z.object({
 	BASE_BACKEND_HOST: z
-		.literal(["https://api-vitastock.vercel.app", "https://api-vitastock.onrender.com"])
-		.default("https://api-vitastock.onrender.com"),
+		.literal([
+			"https://api-vitastock.vercel.app",
+			"https://api-vitastock.onrender.com",
+			"https://api-vitastock-nm82l.ondigitalocean.app",
+		])
+		.default("https://api-vitastock-nm82l.ondigitalocean.app"),
 	BASE_BACKEND_HOST_DEV: z.literal("http://localhost:8000").default("http://localhost:8000"),
 	BASE_BACKEND_HOST_STAGING: z
 		.literal("https://api-vitastock-staging-7nm6.onrender.com")
