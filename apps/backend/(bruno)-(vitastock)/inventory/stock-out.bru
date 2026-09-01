@@ -51,16 +51,19 @@ docs {
   | `drugId` | UUID | Yes | Existing active drug in the authenticated workspace. |
   | `logType` | string | Yes | Must be `stock_out`. |
   | `quantity` | numeric string | Yes | Must be greater than `0`. |
-  | `reason` | string | Yes | `damaged`, `expired`, `patient`, or `ward`. |
+  | `reason` | string | Yes | `patient` or `ward` for automatic FEFO; `damaged` or `expired` for physical-batch disposal. |
+  | `batchId` | UUID | Conditional | Forbidden for `patient`/`ward`; required for `damaged`/`expired`. |
   | `notes` | string or null | No | Operational context for the movement. |
 
   ## FEFO Behavior
 
   1. Eligible batches are restricted to the authenticated workspace and selected drug.
   2. Batches must have available quantity and must not be expired.
-  3. Batches are ordered by earliest expiry date.
+  3. Batches are ordered by expiry date, creation time, and ID for deterministic tie-breaking.
   4. The requested quantity may be split across multiple batches.
   5. All deductions and audit logs commit in one transaction.
+
+  Damaged and expired removals do not run across multiple batches. The operator must first select an eligible physical batch from `GET /inventory/drugs/:drugId/batches`.
 
   ## Success Response
 
@@ -84,9 +87,10 @@ docs {
 
   | Status | Description |
   |--------|-------------|
-  | `400 Bad Request` | Eligible non-expired stock is insufficient, or the drug is inactive. No partial deduction is committed. |
+  | `400 Bad Request` | The drug is inactive. |
   | `401 Unauthorized` | Authentication is invalid or workspace access is suspended. |
-  | `404 Not Found` | The drug does not exist in the authenticated workspace. |
+  | `404 Not Found` | The drug or selected eligible batch does not exist in the authenticated workspace. |
+  | `409 Conflict` | The requested quantity exceeds the currently eligible quantity. The safe error message includes the available quantity. |
   | `422 Unprocessable Entity` | Header or request-body validation failed. |
 
   ## Idempotency

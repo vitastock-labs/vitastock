@@ -4,6 +4,7 @@ import {
 	INVENTORY_BULK_IMPORT_MAX_ROWS,
 	InventoryBulkImportHeadersSchema,
 } from "@vitastock/shared/validation/backendApiSchema";
+import { format } from "date-fns";
 import type { z } from "zod";
 import { backendApiSchemaRoutes } from "@/lib/api/callBackendApi/apiSchema";
 
@@ -20,7 +21,7 @@ const cellToString = (cell: unknown): string => {
 	}
 
 	if (cell instanceof Date) {
-		return cell.toISOString();
+		return format(cell, "yyyy-MM-dd");
 	}
 
 	if (typeof cell === "string" || typeof cell === "number" || typeof cell === "boolean") {
@@ -89,7 +90,10 @@ const isRowEmpty = (row: unknown[]) => {
 	return row.every((cell) => cellToString(cell).trim() === "");
 };
 
-export const validateBulkImportSheet = (sheetRows: unknown[][]): BulkImportParseResult => {
+export const validateBulkImportSheet = (
+	sheetRows: unknown[][],
+	minimumExpiryDate = format(new Date(), "yyyy-MM-dd")
+): BulkImportParseResult => {
 	const [headerRow, ...dataRows] = sheetRows;
 
 	if (!headerRow) {
@@ -124,10 +128,16 @@ export const validateBulkImportSheet = (sheetRows: unknown[][]): BulkImportParse
 	const invalidRows: Array<Extract<BulkImportRowResult, { status: "invalid" }>> = [];
 	const duplicateRows: Array<Extract<BulkImportRowResult, { status: "duplicate" }>> = [];
 	const seenDedupeKeys = new Map<string, number>();
+	const rowSchema = InventoryBulkImportRowSchema.extend({
+		expiryDate: InventoryBulkImportRowSchema.shape.expiryDate.refine(
+			(expiryDate) => expiryDate >= minimumExpiryDate,
+			"Expiry date cannot be before today"
+		),
+	});
 
 	for (const { row, rowNumber } of nonEmptyRows) {
 		const rawRow = mapSpreadsheetRowToInventoryFields(normalizedHeaderRow, row);
-		const parsedRows = InventoryBulkImportRowSchema.safeParse(rawRow);
+		const parsedRows = rowSchema.safeParse(rawRow);
 
 		if (!parsedRows.success) {
 			invalidRows.push({

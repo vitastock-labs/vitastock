@@ -1,0 +1,80 @@
+meta {
+  name: eligible-batches
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseURL}}/inventory/drugs/{{drugId}}/batches
+  body: none
+  auth: inherit
+}
+
+params:query {
+  availability: usable
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  # Get Eligible Drug Batches
+
+  Returns positive-quantity physical batches for one drug in the authenticated workspace. This endpoint supports operator guidance and explicit damaged/expired disposal; it does not choose batches for patient or ward dispensing.
+
+  ## Authorization
+
+  Requires an authenticated user with an active workspace membership.
+
+  ## Path Parameters
+
+  | Parameter | Type | Required | Description |
+  |-----------|------|----------|-------------|
+  | `drugId` | UUID | Yes | Drug Master record in the authenticated workspace. |
+
+  ## Query Parameters
+
+  | Parameter | Type | Required | Description |
+  |-----------|------|----------|-------------|
+  | `availability` | string | Yes | `usable` returns batches expiring today or later. `expired` returns batches whose expiry date is before today. Boundaries use the workspace timezone. |
+
+  ## Ordering
+
+  Results use deterministic FEFO order: `expiryDate`, then `createdAt`, then batch `id`.
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Drug batches fetched successfully",
+    "data": {
+      "batches": [
+        {
+          "id": "batch-uuid",
+          "batchNumber": "BATCH-001",
+          "expiryDate": "2027-12-31",
+          "quantityAvailable": 40
+        }
+      ]
+    }
+  }
+  ```
+
+  ## Notes
+
+  - No cost, workspace, actor, or internal audit fields are exposed.
+  - An unknown drug or a drug with no eligible batches returns an empty array.
+  - Patient and ward stock-out requests must not submit a batch ID; the backend applies FEFO automatically.
+
+  ## Errors
+
+  | Status | Description |
+  |--------|-------------|
+  | `401 Unauthorized` | Authentication is invalid or workspace access is suspended. |
+  | `422 Unprocessable Entity` | The path UUID or availability value is invalid. |
+}

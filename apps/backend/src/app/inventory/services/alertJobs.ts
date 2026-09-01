@@ -5,29 +5,20 @@ import {
 	inventoryAlerts,
 	type SelectInventoryAlertOutboxType,
 } from "@vitastock/db/schema/inventory";
-import { workspaces } from "@vitastock/db/schema/workspace";
+import { workspaces, type SelectWorkspaceType } from "@vitastock/db/schema/workspace";
 import { subDays } from "date-fns";
 import { and, asc, count, eq, inArray, isNull, lt } from "drizzle-orm";
 import { addEmailToQueue } from "@/services/queues/emailQueue";
-import { getAlertRecipients, syncInventoryAlerts } from "./alertLifecycle";
+import {
+	canSendImmediateInventoryAlertEmail,
+	getAlertEmailConfiguration,
+	syncInventoryAlerts,
+} from "./alertLifecycle";
+import { getWorkspaceDateAndHour } from "./utils/date";
 
 const alertOutboxBatchSize = 50;
 const dispatchedOutboxRetentionDays = 7;
 const resolvedAlertRetentionDays = 180;
-
-const getWorkspaceDate = (date: Date, timeZone: string) => {
-	const parts = new Intl.DateTimeFormat("en-CA", {
-		day: "2-digit",
-		hour: "2-digit",
-		hourCycle: "h23",
-		month: "2-digit",
-		timeZone,
-		year: "numeric",
-	}).formatToParts(date);
-	const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-
-	return { date: `${values.year}-${values.month}-${values.day}`, hour: values.hour ?? "00" };
-};
 
 const getAlertSummary = (alert: {
 	drugName: string;
@@ -48,6 +39,7 @@ const syncAllWorkspaceInventoryAlerts = async () => {
 			id: workspaces.id,
 			lowStockThreshold: workspaces.lowStockThreshold,
 			nearExpiryDays: workspaces.nearExpiryDays,
+			timezone: workspaces.timezone,
 		})
 		.from(workspaces);
 
@@ -56,6 +48,7 @@ const syncAllWorkspaceInventoryAlerts = async () => {
 			syncInventoryAlerts({
 				lowStockThreshold: workspace.lowStockThreshold,
 				nearExpiryDays: workspace.nearExpiryDays,
+				timezone: workspace.timezone,
 				workspaceId: workspace.id,
 			})
 		)
@@ -88,7 +81,7 @@ const createWorkspaceDigestOutboxRecords = async (options: {
 	workspace: { id: string; timezone: string };
 }) => {
 	const { now, workspace } = options;
-	const workspaceDate = getWorkspaceDate(now, workspace.timezone);
+	const workspaceDate = getWorkspaceDateAndHour(now, workspace.timezone);
 
 	if (workspaceDate.hour < "08") return;
 
@@ -99,14 +92,14 @@ const createWorkspaceDigestOutboxRecords = async (options: {
 
 	if (!activeAlertCount || activeAlertCount.total === 0) return;
 
-	const recipients = await getAlertRecipients(workspace.id);
+	const emailConfiguration = await getAlertEmailConfiguration(workspace.id);
 
-	if (recipients.length === 0) return;
+	if (!emailConfiguration) return;
 
 	await db
 		.insert(inventoryAlertOutbox)
 		.values(
-			recipients.map((recipient) => ({
+			emailConfiguration.recipients.map((recipient) => ({
 				dedupeKey: `daily_digest:${workspace.id}:${workspaceDate.date}:${recipient.email.toLowerCase()}`,
 				recipientEmail: recipient.email,
 				recipientName: recipient.name,
@@ -150,7 +143,9 @@ const enqueueDigestEmail = async (outboxRecord: SelectInventoryAlertOutboxType) 
 			)
 		);
 
-	if (!workspace || activeAlerts.length === 0) return;
+	if (!workspace || activeAlerts.length === 0) {
+		return false;
+	}
 
 	await addEmailToQueue({
 		data: {
@@ -163,10 +158,19 @@ const enqueueDigestEmail = async (outboxRecord: SelectInventoryAlertOutboxType) 
 		jobId: outboxRecord.id,
 		type: "inventoryAlertDigest",
 	});
+
+	return true;
 };
 
-const enqueueImmediateAlertEmail = async (outboxRecord: SelectInventoryAlertOutboxType) => {
-	if (!outboxRecord.alertId) return;
+const enqueueImmediateAlertEmail = async (options: {
+	deliveryPolicy: SelectWorkspaceType["emailAlertDeliveryPolicy"];
+	outboxRecord: SelectInventoryAlertOutboxType;
+}) => {
+	const { deliveryPolicy, outboxRecord } = options;
+
+	if (!outboxRecord.alertId) {
+		return false;
+	}
 
 	const [alert] = await db
 		.select({
@@ -182,7 +186,9 @@ const enqueueImmediateAlertEmail = async (outboxRecord: SelectInventoryAlertOutb
 		.where(eq(inventoryAlerts.id, outboxRecord.alertId))
 		.limit(1);
 
-	if (!alert) return;
+	if (!alert || !canSendImmediateInventoryAlertEmail({ deliveryPolicy, type: alert.type })) {
+		return false;
+	}
 
 	await addEmailToQueue({
 		data: {
@@ -195,19 +201,36 @@ const enqueueImmediateAlertEmail = async (outboxRecord: SelectInventoryAlertOutb
 		jobId: outboxRecord.id,
 		type: "inventoryAlert",
 	});
+
+	return true;
 };
 
 const enqueueInventoryAlertEmail = async (outboxRecord: SelectInventoryAlertOutboxType) => {
-	await (outboxRecord.type === "alert_raised" ?
-		enqueueImmediateAlertEmail(outboxRecord)
-	:	enqueueDigestEmail(outboxRecord));
+	const emailConfiguration = await getAlertEmailConfiguration(outboxRecord.workspaceId);
+	const isCurrentRecipient = emailConfiguration?.recipients.some(
+		(recipient) => recipient.email.toLowerCase() === outboxRecord.recipientEmail.toLowerCase()
+	);
+	const wasQueued = await (async () => {
+		if (!emailConfiguration || !isCurrentRecipient) {
+			return false;
+		}
+
+		if (outboxRecord.type === "alert_raised") {
+			return enqueueImmediateAlertEmail({
+				deliveryPolicy: emailConfiguration.deliveryPolicy,
+				outboxRecord,
+			});
+		}
+
+		return enqueueDigestEmail(outboxRecord);
+	})();
 
 	await db
 		.update(inventoryAlertOutbox)
 		.set({ dispatchedAt: new Date() })
 		.where(eq(inventoryAlertOutbox.id, outboxRecord.id));
 
-	return outboxRecord.alertId;
+	return wasQueued ? outboxRecord.alertId : null;
 };
 
 export const enqueuePendingInventoryAlertEmails = async () => {

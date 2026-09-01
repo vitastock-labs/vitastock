@@ -6,9 +6,13 @@ import {
 	inventoryAlertOutbox,
 	inventoryAlerts,
 	stockBatches,
+	type SelectInventoryAlertType,
 } from "@vitastock/db/schema/inventory";
-import { workspaceMemberships, workspaces } from "@vitastock/db/schema/workspace";
-import { add, endOfDay, startOfDay } from "date-fns";
+import {
+	EMAIL_ALERT_DELIVERY_POLICIES,
+	workspaceMemberships,
+	workspaces,
+} from "@vitastock/db/schema/workspace";
 import {
 	and,
 	asc,
@@ -24,32 +28,51 @@ import {
 	notInArray,
 	sql,
 } from "drizzle-orm";
+import { getWorkspaceInventoryDates } from "./utils/date";
 
 type AlertCondition = {
 	batchId?: string;
 	dedupeKey: string;
 	drugId: string;
-	expiryDate?: Date;
+	expiryDate?: string;
 	quantityAffected?: number;
 	threshold?: number;
-	type: "expired" | "expiring_soon" | "low_stock";
+	type: SelectInventoryAlertType["type"];
+};
+
+type AlertEmailConfiguration = {
+	deliveryPolicy: typeof EMAIL_ALERT_DELIVERY_POLICIES.$inferUnion;
+	recipients: Array<{ email: string; name: string }>;
+};
+
+export const canSendImmediateInventoryAlertEmail = (options: {
+	deliveryPolicy: AlertEmailConfiguration["deliveryPolicy"];
+	type: AlertCondition["type"];
+}) => {
+	const { deliveryPolicy, type } = options;
+
+	if (deliveryPolicy === "all_immediate") {
+		return true;
+	}
+
+	return deliveryPolicy === "critical_immediate" && (type === "expired" || type === "low_stock");
 };
 
 const getAlertConditions = async (options: {
 	lowStockThreshold: number;
 	nearExpiryDays: number;
+	timezone: string;
 	workspaceId: string;
 }) => {
-	const { lowStockThreshold, nearExpiryDays, workspaceId } = options;
-	const today = startOfDay(new Date());
-	const nearExpiryCutoff = endOfDay(add(today, { days: nearExpiryDays }));
+	const { lowStockThreshold, nearExpiryDays, timezone, workspaceId } = options;
+	const { nearExpiryDate, today } = getWorkspaceInventoryDates({ nearExpiryDays, timezone });
 	const [lowStockDrugs, expiredBatches, nearExpiryBatches] = await Promise.all([
 		db
 			.select({
 				drugId: drugs.id,
 				totalAvailable: sql<number>`
 					coalesce(sum(case when ${stockBatches.expiryDate} >= ${today} then ${stockBatches.quantityAvailable} else 0 end), 0)
-				`,
+				`.mapWith(Number),
 			})
 			.from(drugs)
 			.leftJoin(
@@ -87,7 +110,7 @@ const getAlertConditions = async (options: {
 					eq(stockBatches.workspaceId, workspaceId),
 					gt(stockBatches.quantityAvailable, 0),
 					gte(stockBatches.expiryDate, today),
-					lte(stockBatches.expiryDate, nearExpiryCutoff)
+					lte(stockBatches.expiryDate, nearExpiryDate)
 				)
 			)
 			.orderBy(asc(stockBatches.expiryDate)),
@@ -122,11 +145,14 @@ const getAlertConditions = async (options: {
 	];
 };
 
-export const getAlertRecipients = async (workspaceId: string) => {
+export const getAlertEmailConfiguration = async (
+	workspaceId: string
+): Promise<AlertEmailConfiguration | null> => {
 	const [[workspace], memberships] = await Promise.all([
 		db
 			.select({
 				alertEmail: workspaces.alertEmail,
+				deliveryPolicy: workspaces.emailAlertDeliveryPolicy,
 				emailAlertsEnabledAt: workspaces.emailAlertsEnabledAt,
 				name: workspaces.name,
 			})
@@ -147,7 +173,7 @@ export const getAlertRecipients = async (workspaceId: string) => {
 	]);
 
 	if (!workspace?.emailAlertsEnabledAt || !workspace.alertEmail) {
-		return [];
+		return null;
 	}
 
 	const recipients = new Map<string, { email: string; name: string }>([
@@ -167,15 +193,18 @@ export const getAlertRecipients = async (workspaceId: string) => {
 		});
 	}
 
-	return [...recipients.values()];
+	return {
+		deliveryPolicy: workspace.deliveryPolicy,
+		recipients: [...recipients.values()],
+	};
 };
 
 const persistInventoryAlertChanges = async (options: {
 	currentConditions: AlertCondition[];
-	recipients: Awaited<ReturnType<typeof getAlertRecipients>>;
+	emailConfiguration: AlertEmailConfiguration | null;
 	workspaceId: string;
 }) => {
-	const { currentConditions, recipients, workspaceId } = options;
+	const { currentConditions, emailConfiguration, workspaceId } = options;
 	const now = new Date();
 
 	await db.transaction(async (tx) => {
@@ -223,16 +252,29 @@ const persistInventoryAlertChanges = async (options: {
 
 			return [alert];
 		});
-		const outboxRecords = newlyRaisedAlerts.flatMap((alert) =>
-			recipients.map((recipient) => ({
-				alertId: alert.id,
-				dedupeKey: `alert_raised:${alert.id}:${now.toISOString()}:${recipient.email.toLowerCase()}`,
-				recipientEmail: recipient.email,
-				recipientName: recipient.name,
-				type: "alert_raised" as const,
-				workspaceId,
-			}))
-		);
+		const immediateAlerts = newlyRaisedAlerts.filter((alert) => {
+			if (!emailConfiguration) {
+				return false;
+			}
+
+			return canSendImmediateInventoryAlertEmail({
+				deliveryPolicy: emailConfiguration.deliveryPolicy,
+				type: alert.type,
+			});
+		});
+		const outboxRecords =
+			emailConfiguration ?
+				immediateAlerts.flatMap((alert) =>
+					emailConfiguration.recipients.map((recipient) => ({
+						alertId: alert.id,
+						dedupeKey: `alert_raised:${alert.id}:${now.toISOString()}:${recipient.email.toLowerCase()}`,
+						recipientEmail: recipient.email,
+						recipientName: recipient.name,
+						type: "alert_raised" as const,
+						workspaceId,
+					}))
+				)
+			:	[];
 
 		if (outboxRecords.length > 0) {
 			await tx.insert(inventoryAlertOutbox).values(outboxRecords).onConflictDoNothing();
@@ -258,16 +300,17 @@ const persistInventoryAlertChanges = async (options: {
 export const syncInventoryAlerts = async (options: {
 	lowStockThreshold: number;
 	nearExpiryDays: number;
+	timezone: string;
 	workspaceId: string;
 }) => {
-	const { lowStockThreshold, nearExpiryDays, workspaceId } = options;
+	const { lowStockThreshold, nearExpiryDays, timezone, workspaceId } = options;
 
-	const [currentConditions, recipients] = await Promise.all([
-		getAlertConditions({ lowStockThreshold, nearExpiryDays, workspaceId }),
-		getAlertRecipients(workspaceId),
+	const [currentConditions, emailConfiguration] = await Promise.all([
+		getAlertConditions({ lowStockThreshold, nearExpiryDays, timezone, workspaceId }),
+		getAlertEmailConfiguration(workspaceId),
 	]);
 
-	await persistInventoryAlertChanges({ currentConditions, recipients, workspaceId });
+	await persistInventoryAlertChanges({ currentConditions, emailConfiguration, workspaceId });
 };
 
 const getInventoryAlertAction = (type: AlertCondition["type"]) => {

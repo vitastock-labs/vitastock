@@ -20,12 +20,8 @@ body:json {
       {
         "name": "Panadol",
         "genericName": "Paracetamol",
-        "strength": "500mg",
-        "form": "Tablet",
-        "unit": "Pack",
         "quantity": "100",
-        "unitCostNaira": "2200",
-        "expiryDate": "2027-12-31T00:00:00.000Z"
+        "expiryDate": "2027-12-31"
       }
     ]
   }
@@ -61,19 +57,20 @@ docs {
   |-------|------|----------|---------------------|
   | `name` | string | Yes | Drug brand or trade name. |
   | `genericName` | string | Yes | Active pharmaceutical ingredient. |
-  | `strength` | string | Yes | Medicine strength, such as `500mg`. |
-  | `form` | string | Yes | Dosage form, such as `Tablet`. |
-  | `unit` | string | Yes | Inventory counting unit, such as `Pack`. |
+  | `strength` | string | No | Medicine strength, such as `500mg`. Blank values become `null`. |
+  | `form` | string | No | Dosage form, such as `Tablet`. Blank values become `null`. |
+  | `unit` | string | No | Inventory counting unit, such as `Pack`. Blank values become `null`. |
   | `quantity` | numeric string | Yes | Positive whole number. |
   | `unitCostNaira` | numeric string | No | Non-negative naira amount with at most two decimal places. |
-  | `expiryDate` | ISO 8601 date string | Yes | Must be a future date. |
+  | `expiryDate` | calendar-date string | Yes | `YYYY-MM-DD`; today or a future date in the workspace timezone. |
 
   ## Drug and Batch Behavior
 
-  - Drug identity is workspace-scoped and compares trimmed, case-insensitive name, generic name, strength, form, and unit values.
+  - Drug resolution first matches trimmed, case-insensitive brand and generic names, then narrows candidates with each optional identity field supplied by the row.
+  - One compatible Drug Master record is reused. No match creates a record with missing metadata stored as `null`. Multiple compatible records return `409 Conflict` rather than guessing.
   - A missing Drug Master record is created automatically.
   - Every accepted row creates a separate stock batch and an `opening_stock` audit log.
-  - Naira unit cost is stored as integer kobo.
+  - A supplied naira unit cost is stored as integer kobo. Missing cost remains `null` and is excluded from recorded inventory value.
   - Exact duplicate rows within one request are rejected before any writes occur.
   - The transaction record, drugs, batches, and stock logs are committed atomically.
   - Inventory alerts are synchronized after the import transaction commits.
@@ -97,7 +94,7 @@ docs {
   | Status | Description |
   |--------|-------------|
   | `401 Unauthorized` | Authentication is invalid or workspace access is suspended. |
-  | `409 Conflict` | The idempotency key belongs to another operation or payload. |
+  | `409 Conflict` | The idempotency key belongs to another operation or payload, or a row resolves ambiguously. |
   | `422 Unprocessable Entity` | Header/body validation failed or duplicate rows were submitted. |
 
   ## Idempotency

@@ -20,6 +20,7 @@ export default zayne(
 			query: true,
 		},
 		typescript: {
+			// tsconfigPath: ["apps/*/tsconfig.json", "packages/*/tsconfig.json"],
 			tsconfigPath: ["**/tsconfig.json"],
 		},
 	},

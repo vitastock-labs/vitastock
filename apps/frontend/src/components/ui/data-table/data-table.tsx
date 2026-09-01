@@ -161,7 +161,7 @@ export function DataTable<TData extends RowData>(
 					countLabelVariant={countLabelVariant}
 					paginationVariant={paginationVariant}
 					classNames={{
-						base: classNames?.paginationBase,
+						base: cnMerge(classNames?.pagination, classNames?.paginationBase),
 						countLabel: classNames?.paginationCountLabel,
 						ellipsis: classNames?.paginationEllipsis,
 						item: classNames?.paginationItem,
@@ -169,7 +169,6 @@ export function DataTable<TData extends RowData>(
 						previousTrigger: classNames?.paginationPreviousTrigger,
 						root: classNames?.paginationRoot,
 					}}
-					className={classNames?.pagination}
 				/>
 			)}
 		</div>

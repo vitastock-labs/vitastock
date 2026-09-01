@@ -69,6 +69,25 @@ export type InventoryDrugsQueryResultType = Awaited<
 	ReturnType<NonNullable<ReturnType<typeof inventoryDrugsQuery>["select"]>>
 >;
 
+export const inventoryDrugBatchesQuery = (
+	params: z.infer<BackendApiRoutes["@get/inventory/drugs/:drugId/batches"]["params"]>,
+	query: z.infer<NonNullable<BackendApiRoutes["@get/inventory/drugs/:drugId/batches"]["query"]>>
+) => {
+	return queryOptions({
+		queryFn: () =>
+			callBackendApiForQuery("@get/inventory/drugs/:drugId/batches", {
+				params,
+				query,
+			}),
+		queryKey: ["inventory", "drugs", params, "batches", query],
+		select: (data) => data.data,
+	});
+};
+
+export type InventoryDrugBatchesQueryResultType = Awaited<
+	ReturnType<NonNullable<ReturnType<typeof inventoryDrugBatchesQuery>["select"]>>
+>;
+
 export const inventoryAlertsQuery = (
 	query: z.infer<NonNullable<BackendApiRoutes["@get/inventory/alerts"]["query"]>> = {}
 ) => {

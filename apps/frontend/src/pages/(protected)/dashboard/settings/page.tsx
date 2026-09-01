@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import { useDialogContext } from "@/components/animated/primitives/dialog-radix";
 import { DialogAnimated } from "@/components/animated/ui";
 import { IconBox, type MoniconIconBoxProps } from "@/components/common/IconBox";
-import { Avatar, Button, DropdownMenu, Select } from "@/components/ui";
+import { Avatar, Button, DropdownMenu } from "@/components/ui";
 import {
 	createDataTableColumnHelper,
 	DataTableColumnHeader,
@@ -34,6 +34,7 @@ import {
 import { cnJoin, cnMerge } from "@/lib/utils/cn";
 import { getNameInitials } from "@/lib/utils/common";
 import { formatDate } from "@/lib/utils/formatters";
+import { FormField, InputField, SelectField } from "@/pages/(home)/-components/FormPartsShared";
 import { DashboardDataTable } from "../-components/DashboardDataTableShared";
 import { DrugMasterDialog } from "../-components/DrugMasterDialog";
 import { Main } from "../-components/Main";
@@ -110,6 +111,8 @@ function AlertSettingsSection() {
 		resolver: zodResolver(AlertSettingsSchema),
 		values: {
 			alertEmail: sessionQueryResult.data?.workspace.alertEmail ?? undefined,
+			emailAlertDeliveryPolicy:
+				sessionQueryResult.data?.workspace.emailAlertDeliveryPolicy ?? "critical_immediate",
 			emailAlertsEnabled: Boolean(sessionQueryResult.data?.workspace.alertEmail),
 			lowStockThreshold: sessionQueryResult.data?.workspace.lowStockThreshold ?? 0,
 			nearExpiryDays: sessionQueryResult.data?.workspace.nearExpiryDays ?? 0,
@@ -144,16 +147,12 @@ function AlertSettingsSection() {
 						</p>
 					</div>
 
-					<Form.Field control={form.control} name="lowStockThreshold">
-						<Form.Input
-							type="number"
-							className="h-10 w-25 rounded-lg border border-shadcn-border bg-transparent px-3
-								text-center text-[14.5px] font-medium text-black transition-colors outline-none
-								focus-within:border-vitastock-primary-main focus-within:ring-1
-								focus-within:ring-vitastock-primary-main"
-						/>
-						<Form.ErrorMessage />
-					</Form.Field>
+					<InputField
+						control={form.control}
+						name="lowStockThreshold"
+						type="number"
+						classNames={{ input: "w-25 bg-transparent px-3 text-center text-[14.5px] font-medium" }}
+					/>
 				</article>
 
 				<article className="flex items-center justify-between border-b border-shadcn-border/50 py-6">
@@ -164,42 +163,66 @@ function AlertSettingsSection() {
 						</p>
 					</div>
 
-					<Form.FieldWithController
-						control={form.control}
-						name="emailAlertsEnabled"
-						render={({ field }) => (
-							<SwitchButton
-								checked={field.value}
-								onCheckedChange={field.onChange}
-								classNames={{
-									base: "data-checked:bg-vitastock-primary-dark",
-									thumb: "data-checked:bg-white data-unchecked:bg-vitastock-primary-dark",
-								}}
-							/>
-						)}
-					/>
+					<FormField control={form.control} name="emailAlertsEnabled">
+						<Form.FieldBoundController
+							render={({ field }) => (
+								<SwitchButton
+									checked={field.value}
+									onCheckedChange={field.onChange}
+									classNames={{
+										base: "data-checked:bg-vitastock-primary-dark",
+										thumb: "data-checked:bg-white data-unchecked:bg-vitastock-primary-dark",
+									}}
+								/>
+							)}
+						/>
+					</FormField>
 				</article>
 
-				<Form.Watch name="emailAlertsEnabled">
+				<Form.Watch control={form.control} name="emailAlertsEnabled">
 					{(emailAlertsEnabled) => (
-						<Form.Field control={form.control} name="alertEmail" className="pt-6">
-							<Form.Label className="text-[14.5px] font-bold text-black">Alert Email</Form.Label>
-							<Form.Description>
-								Immediate alerts and daily digests are sent to this address and active workspace
-								managers.
-							</Form.Description>
-							<Form.Input
+						<>
+							<InputField
+								control={form.control}
+								name="alertEmail"
 								type="email"
 								disabled={!canUpdateAlertSettings || !emailAlertsEnabled}
+								label="Alert Email"
+								description="Alert emails are sent to this address and active workspace managers."
 								placeholder="alerts@pharmacy.com"
-								className="mt-2 h-10 rounded-lg border border-shadcn-border bg-transparent px-3
-									text-[14.5px] font-medium text-black transition-colors outline-none
-									placeholder:text-vitastock-body-color/60
-									focus-within:border-vitastock-primary-main focus-within:ring-1
-									focus-within:ring-vitastock-primary-main"
+								classNames={{
+									base: "pt-6",
+									input: "mt-2 bg-transparent px-3 text-[14.5px] font-medium",
+									label: "text-[14.5px] font-bold text-black",
+								}}
 							/>
-							<Form.ErrorMessage />
-						</Form.Field>
+
+							{emailAlertsEnabled && (
+								<SelectField
+									control={form.control}
+									name="emailAlertDeliveryPolicy"
+									disabled={!canUpdateAlertSettings}
+									label="Email Delivery"
+									description="Critical alerts include low stock and expired stock. Near-expiry alerts are always visible in VitaStock and are emailed immediately only with the highest-frequency option."
+									options={[
+										{ label: "Daily digest only", value: "digest_only" },
+										{
+											label: "Critical alerts + daily digest",
+											value: "critical_immediate",
+										},
+										{
+											label: "All alerts immediately + daily digest",
+											value: "all_immediate",
+										},
+									]}
+									classNames={{
+										base: "pt-6",
+										label: "text-[14.5px] font-bold text-black",
+										trigger: "mt-2 bg-transparent font-medium",
+									}}
+								/>
+							)}
+						</>
 					)}
 				</Form.Watch>
 
@@ -211,17 +234,13 @@ function AlertSettingsSection() {
 						</p>
 					</div>
 
-					<Form.Field control={form.control} name="nearExpiryDays">
-						<Form.Input
-							type="number"
-							disabled={!canUpdateAlertSettings}
-							className="h-10 w-25 rounded-lg border border-shadcn-border bg-transparent px-3
-								text-center text-[14.5px] font-medium text-black transition-colors outline-none
-								focus-within:border-vitastock-primary-main focus-within:ring-1
-								focus-within:ring-vitastock-primary-main"
-						/>
-						<Form.ErrorMessage />
-					</Form.Field>
+					<InputField
+						control={form.control}
+						name="nearExpiryDays"
+						type="number"
+						disabled={!canUpdateAlertSettings}
+						classNames={{ input: "w-25 bg-transparent px-3 text-center text-[14.5px] font-medium" }}
+					/>
 				</article>
 
 				{canUpdateAlertSettings && (
@@ -947,72 +966,53 @@ function InviteMemberDialog() {
 
 			<Form.Root form={form} onSubmit={(event) => void onSubmit(event)}>
 				<div className="flex flex-col gap-5 border-y border-shadcn-border/70 p-6">
-					<Form.Field control={form.control} name="inviteeName">
-						<Form.Label className="text-[14px] font-medium text-black">
-							Name of pharmacist
-						</Form.Label>
-						<Form.Description>
-							This name will be used to track what this user does within the work space. It cannot
-							be changed later.
-						</Form.Description>
-						<Form.Input
-							placeholder="Enter full name"
-							className="h-10 rounded-lg border border-shadcn-border bg-transparent px-4 text-[14px]
-								font-medium text-black outline-none placeholder:text-vitastock-body-color/60
-								focus-within:border-vitastock-primary-main focus-within:ring-1
-								focus-within:ring-vitastock-primary-main"
-						/>
-						<Form.ErrorMessage />
-					</Form.Field>
+					<InputField
+						control={form.control}
+						name="inviteeName"
+						label="Name of pharmacist"
+						description="This name will be used to track what this user does within the workspace. It cannot be changed later."
+						placeholder="Enter full name"
+						classNames={{
+							input: "bg-transparent font-medium",
+							label: "text-[14px] font-medium text-black",
+						}}
+					/>
 
-					<Form.Field control={form.control} name="inviteeEmail">
-						<Form.Label className="text-[14px] font-medium text-black">Email Address</Form.Label>
-						<Form.Input
-							type="email"
-							placeholder="e.g. name@company.com"
-							className="h-10 rounded-lg border border-shadcn-border bg-transparent px-4 text-[14px]
-								font-medium text-black outline-none placeholder:text-vitastock-body-color/60
-								focus-within:border-vitastock-primary-main focus-within:ring-1
-								focus-within:ring-vitastock-primary-main"
-						/>
-						<Form.ErrorMessage />
-					</Form.Field>
+					<InputField
+						control={form.control}
+						name="inviteeEmail"
+						type="email"
+						label="Email Address"
+						placeholder="e.g. name@company.com"
+						classNames={{
+							input: "bg-transparent font-medium",
+							label: "text-[14px] font-medium text-black",
+						}}
+					/>
 
-					<Form.Field control={form.control} name="defaultPassword">
-						<Form.Label className="text-[14px] font-medium text-black">Default Password</Form.Label>
-						<Form.Input
-							type="password"
-							placeholder="Enter initial password"
-							classNames={{
-								inputGroup: `h-10 rounded-lg border border-shadcn-border bg-transparent px-4
-								text-[16px] font-medium text-black outline-none
-								focus-within:border-vitastock-primary-main focus-within:ring-1
-								focus-within:ring-vitastock-primary-main`,
-							}}
-						/>
-						<Form.ErrorMessage />
-					</Form.Field>
+					<InputField
+						control={form.control}
+						name="defaultPassword"
+						type="password"
+						label="Default Password"
+						placeholder="Enter initial password"
+						classNames={{
+							inputGroup: "bg-transparent text-[16px] font-medium",
+							label: "text-[14px] font-medium text-black",
+						}}
+					/>
 
-					<Form.Field control={form.control} name="role">
-						<Form.Label className="text-[14px] font-medium text-black">Role</Form.Label>
-						<Form.FieldBoundController
-							render={({ field }) => (
-								<Select.Root value={field.value} onValueChange={field.onChange}>
-									<Select.Trigger
-										className="h-10 rounded-lg border border-shadcn-border bg-white px-4
-											text-[14px] font-medium text-black"
-									>
-										<Select.Value placeholder="Select role" />
-									</Select.Trigger>
-									<Select.Content classNames={{ viewport: "gap-1" }}>
-										<Select.Item value="pharmacist">Pharmacist</Select.Item>
-										<Select.Item value="admin">Admin</Select.Item>
-									</Select.Content>
-								</Select.Root>
-							)}
-						/>
-						<Form.ErrorMessage />
-					</Form.Field>
+					<SelectField
+						control={form.control}
+						name="role"
+						label="Role"
+						placeholder="Select role"
+						options={[
+							{ label: "Pharmacist", value: "pharmacist" },
+							{ label: "Admin", value: "admin" },
+						]}
+						classNames={{ label: "text-[14px] font-medium text-black", viewport: "gap-1" }}
+					/>
 				</div>
 
 				<DialogAnimated.Footer className="flex-row items-center justify-end gap-3 p-4">
@@ -1097,20 +1097,17 @@ function ResendInvitationDialog(props: { invitationId: string }) {
 
 			<Form.Root form={form} onSubmit={(event) => void onSubmit(event)}>
 				<div className="flex flex-col gap-5 border-y border-shadcn-border/70 p-6">
-					<Form.Field control={form.control} name="defaultPassword">
-						<Form.Label className="text-[14px] font-medium text-black">Default Password</Form.Label>
-						<Form.Input
-							type="password"
-							placeholder="Enter initial password"
-							classNames={{
-								inputGroup: `h-10 rounded-lg border border-shadcn-border bg-transparent px-4
-								text-[16px] font-medium text-black outline-none
-								focus-within:border-vitastock-primary-main focus-within:ring-1
-								focus-within:ring-vitastock-primary-main`,
-							}}
-						/>
-						<Form.ErrorMessage />
-					</Form.Field>
+					<InputField
+						control={form.control}
+						name="defaultPassword"
+						type="password"
+						label="Default Password"
+						placeholder="Enter initial password"
+						classNames={{
+							inputGroup: "bg-transparent text-[16px] font-medium",
+							label: "text-[14px] font-medium text-black",
+						}}
+					/>
 				</div>
 
 				<DialogAnimated.Footer className="flex-row items-center justify-end gap-3 p-4">

@@ -19,7 +19,7 @@ body:json {
     "drugId": "{{drugId}}",
     "logType": "stock_in",
     "quantity": "100",
-    "expiryDate": "2027-12-31T00:00:00.000Z",
+    "expiryDate": "2027-12-31",
     "batchNumber": "BATCH-001",
     "unitCostNaira": "250",
     "notes": "Supplier delivery"
@@ -55,7 +55,7 @@ docs {
   | `drugId` | UUID | Yes | Existing active drug in the authenticated workspace. |
   | `logType` | string | Yes | `stock_in` or `opening_stock`. |
   | `quantity` | numeric string | Yes | Must be greater than `0`. |
-  | `expiryDate` | ISO 8601 date string | Yes | Expiry date assigned to the stock batch. |
+  | `expiryDate` | calendar-date string | Yes | `YYYY-MM-DD`; today or a future date in the workspace timezone. |
   | `batchNumber` | string or null | No | Supplier/manufacturer batch identifier. |
   | `unitCostNaira` | numeric string | No | Non-negative cost per unit in naira, with at most two decimal places. |
   | `notes` | string or null | No | Operational context for the movement. |
@@ -64,7 +64,8 @@ docs {
 
   - When `batchNumber` is supplied and that number already exists for the same workspace and drug, the existing batch is locked and incremented.
   - An existing batch number must keep its original expiry date; a different expiry is rejected.
-  - A positive supplied `unitCostNaira` is converted to kobo and replaces the existing batch's unit cost.
+  - A supplied `unitCostNaira` is converted to kobo and replaces the existing batch's unit cost.
+  - If cost is omitted, a new batch is stored with unknown cost. Restocking an existing costed batch without cost preserves its recorded batch cost.
   - When no matching batch number exists, a new batch is created.
   - When `batchNumber` is omitted, a new batch is created rather than inferred from expiry or cost.
 

@@ -1,24 +1,26 @@
 import { randomUUID } from "node:crypto";
 import { db } from "@vitastock/db";
 import { drugs, inventoryAlerts, stockBatches, stockLogs } from "@vitastock/db/schema/inventory";
-import { addDays } from "date-fns";
+import { addDays, format } from "date-fns";
 import { and, eq } from "drizzle-orm";
 import { afterAll, expect, test } from "vitest";
 import { AppError } from "@/lib/utils";
 import { createInventoryFixture } from "@/test/inventoryFixture";
 import { syncInventoryAlerts } from "./alertLifecycle";
-import { createInventoryBulkImport } from "./bulk-import";
+import { createInventoryBulkImport, validateInventoryBulkImportRows } from "./bulk-import";
 import { createInventoryStockLog } from "./stock-log";
 
 afterAll(async () => {
 	await db.$client.end();
 });
 
+const getDateFromToday = (days: number) => format(addDays(new Date(), days), "yyyy-MM-dd");
+
 const buildRow = (
 	overrides: Partial<Parameters<typeof createInventoryBulkImport>[0]["rows"][number]> = {}
 ) => {
 	return {
-		expiryDate: addDays(new Date(), 180),
+		expiryDate: getDateFromToday(180),
 		form: "Tablet",
 		genericName: "Ibuprofen",
 		name: "Ibuprofen",
@@ -55,6 +57,7 @@ test("Bulk import integration - creates a drug, batch, and opening-stock log per
 	const result = await createInventoryBulkImport({
 		idempotencyKey: randomUUID(),
 		rows: [buildRow()],
+		timezone: fixture.workspace.timezone,
 		userId: fixture.user.id,
 		workspaceId: fixture.workspace.id,
 	});
@@ -82,6 +85,7 @@ test("Bulk import integration - converts naira to kobo by rounding", async () =>
 	await createInventoryBulkImport({
 		idempotencyKey: randomUUID(),
 		rows: [buildRow({ unitCostNaira: 12.345 })],
+		timezone: fixture.workspace.timezone,
 		userId: fixture.user.id,
 		workspaceId: fixture.workspace.id,
 	});
@@ -94,6 +98,103 @@ test("Bulk import integration - converts naira to kobo by rounding", async () =>
 	expect(batch?.unitCostKobo).toBe(Math.round(12.345 * 100));
 });
 
+test("Bulk import integration - preserves missing metadata and cost as null", async () => {
+	await using fixture = await createInventoryFixture();
+
+	await createInventoryBulkImport({
+		idempotencyKey: randomUUID(),
+		rows: [
+			{
+				expiryDate: getDateFromToday(180),
+				genericName: "Cetirizine",
+				name: "Cetirizine",
+				quantity: 25,
+			},
+		],
+		timezone: fixture.workspace.timezone,
+		userId: fixture.user.id,
+		workspaceId: fixture.workspace.id,
+	});
+
+	const drug = await getDrugByName(fixture.workspace.id, "Cetirizine");
+	const [batch] = await db.select().from(stockBatches).where(eq(stockBatches.drugId, drug.id));
+	const [log] = await db.select().from(stockLogs).where(eq(stockLogs.drugId, drug.id));
+
+	expect(drug).toMatchObject({ form: null, strength: null, unit: null });
+	expect(batch?.unitCostKobo).toBeNull();
+	expect(log?.unitCostKobo).toBeNull();
+});
+
+test("Bulk import validation - reports ambiguous incomplete drug identities", async () => {
+	await using fixture = await createInventoryFixture();
+
+	await db.insert(drugs).values({
+		form: fixture.drug.form,
+		genericName: fixture.drug.genericName,
+		name: fixture.drug.name,
+		strength: "250mg",
+		unit: fixture.drug.unit,
+		workspaceId: fixture.workspace.id,
+	});
+
+	const row = {
+		expiryDate: getDateFromToday(180),
+		genericName: fixture.drug.genericName,
+		name: fixture.drug.name,
+		quantity: 20,
+	};
+	const results = await validateInventoryBulkImportRows({
+		rows: [row],
+		workspaceId: fixture.workspace.id,
+	});
+
+	expect(results).toEqual([
+		expect.objectContaining({
+			message: "Multiple Drug Master records match this row. Supply more drug details.",
+			rowIndex: 0,
+		}),
+	]);
+	await expect(
+		createInventoryBulkImport({
+			idempotencyKey: randomUUID(),
+			rows: [row],
+			timezone: fixture.workspace.timezone,
+			userId: fixture.user.id,
+			workspaceId: fixture.workspace.id,
+		})
+	).rejects.toEqual(expect.objectContaining<Partial<AppError>>({ statusCode: 409 }));
+});
+
+test("Bulk import validation - reports ambiguity introduced by rows in the same file", async () => {
+	await using fixture = await createInventoryFixture();
+	const rows = [
+		{
+			expiryDate: getDateFromToday(180),
+			genericName: "Paracetamol",
+			name: "Panadol",
+			quantity: 20,
+			strength: "500mg",
+		},
+		{
+			expiryDate: getDateFromToday(240),
+			genericName: "Paracetamol",
+			name: "Panadol",
+			quantity: 10,
+		},
+	];
+	const results = await validateInventoryBulkImportRows({
+		rows,
+		workspaceId: fixture.workspace.id,
+	});
+
+	expect(results).toEqual([
+		expect.objectContaining({
+			message: "Multiple Drug Master records match this row. Supply more drug details.",
+			rowIndex: 1,
+		}),
+	]);
+});
+
 test("Bulk import integration - matches an existing drug case- and whitespace-insensitively", async () => {
 	await using fixture = await createInventoryFixture();
 
@@ -101,13 +202,14 @@ test("Bulk import integration - matches an existing drug case- and whitespace-in
 		idempotencyKey: randomUUID(),
 		rows: [
 			buildRow({
-				form: `  ${fixture.drug.form.toUpperCase()}  `,
+				form: fixture.drug.form?.toUpperCase(),
 				genericName: fixture.drug.genericName.toUpperCase(),
 				name: fixture.drug.name.toLowerCase(),
-				strength: fixture.drug.strength.toUpperCase(),
-				unit: fixture.drug.unit.toLowerCase(),
+				strength: fixture.drug.strength?.toUpperCase(),
+				unit: fixture.drug.unit?.toLowerCase(),
 			}),
 		],
+		timezone: fixture.workspace.timezone,
 		userId: fixture.user.id,
 		workspaceId: fixture.workspace.id,
 	});
@@ -127,9 +229,10 @@ test("Bulk import integration - creates separate batches for the same drug with 
 	await createInventoryBulkImport({
 		idempotencyKey: randomUUID(),
 		rows: [
-			buildRow({ expiryDate: addDays(new Date(), 60), quantity: 50 }),
-			buildRow({ expiryDate: addDays(new Date(), 400), quantity: 75 }),
+			buildRow({ expiryDate: getDateFromToday(60), quantity: 50 }),
+			buildRow({ expiryDate: getDateFromToday(400), quantity: 75 }),
 		],
+		timezone: fixture.workspace.timezone,
 		userId: fixture.user.id,
 		workspaceId: fixture.workspace.id,
 	});
@@ -152,6 +255,7 @@ test("Bulk import integration - allows the same drug with a different quantity a
 	await createInventoryBulkImport({
 		idempotencyKey: randomUUID(),
 		rows: [row, { ...row, quantity: row.quantity + 1 }],
+		timezone: fixture.workspace.timezone,
 		userId: fixture.user.id,
 		workspaceId: fixture.workspace.id,
 	});
@@ -169,6 +273,7 @@ test("Bulk import integration - retrying with the same idempotency key does not 
 	const options = {
 		idempotencyKey,
 		rows: [buildRow()],
+		timezone: fixture.workspace.timezone,
 		userId: fixture.user.id,
 		workspaceId: fixture.workspace.id,
 	};
@@ -194,6 +299,7 @@ test("Bulk import integration - rejects an idempotency key reused with another p
 	await createInventoryBulkImport({
 		idempotencyKey,
 		rows: [buildRow()],
+		timezone: fixture.workspace.timezone,
 		userId: fixture.user.id,
 		workspaceId: fixture.workspace.id,
 	});
@@ -201,6 +307,7 @@ test("Bulk import integration - rejects an idempotency key reused with another p
 	const importPromise = createInventoryBulkImport({
 		idempotencyKey,
 		rows: [buildRow({ quantity: 101 })],
+		timezone: fixture.workspace.timezone,
 		userId: fixture.user.id,
 		workspaceId: fixture.workspace.id,
 	});
@@ -217,12 +324,13 @@ test("Bulk import integration - rejects an idempotency key already used by a sto
 	await createInventoryStockLog({
 		body: {
 			drugId: fixture.drug.id,
-			expiryDate: addDays(new Date(), 90),
+			expiryDate: getDateFromToday(90),
 			logType: "stock_in",
 			quantity: 10,
 			unitCostNaira: 10,
 		},
 		idempotencyKey,
+		timezone: fixture.workspace.timezone,
 		userId: fixture.user.id,
 		workspaceId: fixture.workspace.id,
 	});
@@ -230,6 +338,7 @@ test("Bulk import integration - rejects an idempotency key already used by a sto
 	const importPromise = createInventoryBulkImport({
 		idempotencyKey,
 		rows: [buildRow()],
+		timezone: fixture.workspace.timezone,
 		userId: fixture.user.id,
 		workspaceId: fixture.workspace.id,
 	});
@@ -246,12 +355,14 @@ test("Bulk import integration - workspace isolation for identical drug identitie
 	await createInventoryBulkImport({
 		idempotencyKey: randomUUID(),
 		rows: [buildRow()],
+		timezone: firstFixture.workspace.timezone,
 		userId: firstFixture.user.id,
 		workspaceId: firstFixture.workspace.id,
 	});
 	await createInventoryBulkImport({
 		idempotencyKey: randomUUID(),
 		rows: [buildRow()],
+		timezone: secondFixture.workspace.timezone,
 		userId: secondFixture.user.id,
 		workspaceId: secondFixture.workspace.id,
 	});
@@ -268,6 +379,7 @@ test("Bulk import integration - imported batches feed into low-stock alert sync"
 	await createInventoryBulkImport({
 		idempotencyKey: randomUUID(),
 		rows: [buildRow({ quantity: 5 })],
+		timezone: fixture.workspace.timezone,
 		userId: fixture.user.id,
 		workspaceId: fixture.workspace.id,
 	});
@@ -275,6 +387,7 @@ test("Bulk import integration - imported batches feed into low-stock alert sync"
 	await syncInventoryAlerts({
 		lowStockThreshold: fixture.workspace.lowStockThreshold,
 		nearExpiryDays: fixture.workspace.nearExpiryDays,
+		timezone: fixture.workspace.timezone,
 		workspaceId: fixture.workspace.id,
 	});
 

@@ -1,6 +1,6 @@
 import { pickKeys } from "@zayne-labs/toolkit-core";
 import type { ErrorHandler } from "hono";
-import type { HTTPException } from "hono/http-exception";
+import { HTTPException } from "hono/http-exception";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { errorCodes } from "@/constants";
 import { appLogger } from "@/lib/logger";
@@ -9,6 +9,10 @@ import { AppError } from "@/lib/utils";
 import { transformError } from "./transformError";
 
 const errorHandler: ErrorHandler<HonoAppBindings> = (error: AppError | Error | HTTPException, ctx) => {
+	if (error instanceof HTTPException) {
+		return error.getResponse();
+	}
+
 	const modifiedError = transformError(error);
 	const { currentUser, currentWorkspace, logger, requestId, requestStartedAt } = ctx.var as Partial<
 		HonoAppBindings["Variables"]

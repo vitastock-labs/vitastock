@@ -1,7 +1,7 @@
 import { db } from "@vitastock/db";
-import { drugs } from "@vitastock/db/schema/inventory";
+import { drugs, stockBatches } from "@vitastock/db/schema/inventory";
 import type { backendApiSchemaRoutes } from "@vitastock/shared/validation/backendApiSchema";
-import { and, count, eq, ilike, or, type SQL } from "drizzle-orm";
+import { and, count, eq, gt, ilike, or, type SQL } from "drizzle-orm";
 import type { z } from "zod";
 import { AppError } from "@/lib/utils";
 
@@ -124,25 +124,6 @@ export const updateDrug = async (options: UpdateDrugBody & { drugId: string; wor
 
 	return drug;
 };
-export const deactivateDrug = async (options: { drugId: string; workspaceId: string }) => {
-	const { drugId, workspaceId } = options;
-
-	const [drug] = await db
-		.update(drugs)
-		.set({ isActive: false })
-		.where(and(eq(drugs.id, drugId), eq(drugs.workspaceId, workspaceId)))
-		.returning();
-
-	if (!drug) {
-		throw new AppError({
-			code: 404,
-			message: "Drug not found",
-		});
-	}
-
-	return drug;
-};
-
 type DrugActionBody = z.infer<
 	(typeof backendApiSchemaRoutes)["@post/inventory/drugs/:drugId/action"]["body"]
 >;
@@ -154,18 +135,49 @@ export const handleDrugAction = async (options: {
 }) => {
 	const { action, drugId, workspaceId } = options;
 
-	const [drug] = await db
-		.update(drugs)
-		.set({ isActive: action === "reactivate" })
-		.where(and(eq(drugs.id, drugId), eq(drugs.workspaceId, workspaceId)))
-		.returning();
+	return db.transaction(async (tx) => {
+		const [drug] = await tx
+			.select()
+			.from(drugs)
+			.where(and(eq(drugs.id, drugId), eq(drugs.workspaceId, workspaceId)))
+			.limit(1)
+			.for("update");
 
-	if (!drug) {
-		throw new AppError({
-			code: 404,
-			message: "Drug not found",
-		});
-	}
+		if (!drug) {
+			throw new AppError({ code: 404, message: "Drug not found" });
+		}
 
-	return drug;
+		if (action === "deactivate") {
+			const [stockedBatch] = await tx
+				.select({ id: stockBatches.id })
+				.from(stockBatches)
+				.where(
+					and(
+						eq(stockBatches.workspaceId, workspaceId),
+						eq(stockBatches.drugId, drugId),
+						gt(stockBatches.quantityAvailable, 0)
+					)
+				)
+				.limit(1);
+
+			if (stockedBatch) {
+				throw new AppError({
+					code: 409,
+					message: "Drugs with remaining stock cannot be deactivated",
+				});
+			}
+		}
+
+		const [updatedDrug] = await tx
+			.update(drugs)
+			.set({ isActive: action === "reactivate" })
+			.where(eq(drugs.id, drug.id))
+			.returning();
+
+		if (!updatedDrug) {
+			throw new AppError({ code: 500, message: "Failed to update drug status" });
+		}
+
+		return updatedDrug;
+	});
 };

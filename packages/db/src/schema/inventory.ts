@@ -5,7 +5,7 @@ import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { users } from "./auth";
 import { workspaces } from "./workspace";
 
-export const INVENTORY_STATUS = defineEnum(["low_stock", "normal", "out_of_stock"], {
+export const INVENTORY_STOCK_STATUS = defineEnum(["low_stock", "normal", "out_of_stock"], {
 	inferredUnionVariant: "values",
 });
 
@@ -13,13 +13,13 @@ export const drugs = pg.pgTable(
 	"drugs",
 	{
 		createdAt: pg.timestamp({ withTimezone: true }).notNull().defaultNow(),
-		form: pg.text().notNull(),
+		form: pg.text(),
 		genericName: pg.text().notNull(),
 		id: pg.uuid().defaultRandom().primaryKey(),
 		isActive: pg.boolean().notNull().default(true),
 		name: pg.text().notNull(),
-		strength: pg.text().notNull(),
-		unit: pg.text().notNull(),
+		strength: pg.text(),
+		unit: pg.text(),
 		updatedAt: pg
 			.timestamp({ withTimezone: true })
 			.notNull()
@@ -38,9 +38,9 @@ export const drugs = pg.pgTable(
 				table.workspaceId,
 				sql`lower(btrim(${table.name}))`,
 				sql`lower(btrim(${table.genericName}))`,
-				sql`lower(btrim(${table.strength}))`,
-				sql`lower(btrim(${table.form}))`,
-				sql`lower(btrim(${table.unit}))`
+				sql`coalesce(lower(btrim(${table.strength})), '')`,
+				sql`coalesce(lower(btrim(${table.form})), '')`,
+				sql`coalesce(lower(btrim(${table.unit})), '')`
 			),
 	]
 );
@@ -54,11 +54,11 @@ export const stockBatches = pg.pgTable(
 			.uuid()
 			.notNull()
 			.references(() => drugs.id, { onDelete: "cascade" }),
-		expiryDate: pg.timestamp({ withTimezone: true }).notNull(),
+		expiryDate: pg.date().notNull(),
 		id: pg.uuid().defaultRandom().primaryKey(),
 		quantityAvailable: pg.integer().notNull(),
 		quantityReceived: pg.integer().notNull(),
-		unitCostKobo: pg.integer().notNull(),
+		unitCostKobo: pg.integer(),
 		updatedAt: pg
 			.timestamp({ withTimezone: true })
 			.notNull()
@@ -77,8 +77,14 @@ export const stockBatches = pg.pgTable(
 		pg.index("stock_batch_drug_index").on(table.drugId),
 		pg.index("stock_batch_workspace_expiry_index").on(table.workspaceId, table.expiryDate),
 		pg
-			.uniqueIndex("stock_batch_workspace_drug_batch_number_index")
-			.on(table.workspaceId, table.drugId, table.batchNumber),
+			.uniqueIndex("stock_batch_receipt_layer_index")
+			.on(
+				table.workspaceId,
+				table.drugId,
+				sql`coalesce(lower(btrim(${table.batchNumber})), '')`,
+				table.expiryDate,
+				sql`coalesce(${table.unitCostKobo}, -1)`
+			),
 		pg.check("stock_batch_quantity_available_check", sql`${table.quantityAvailable} >= 0`),
 		pg.check("stock_batch_quantity_received_check", sql`${table.quantityReceived} > 0`),
 		pg.check(
@@ -152,7 +158,7 @@ export const stockLogs = pg.pgTable(
 			.uuid()
 			.notNull()
 			.references(() => stockTransactions.id, { onDelete: "restrict" }),
-		unitCostKobo: pg.integer().notNull(),
+		unitCostKobo: pg.integer(),
 		workspaceId: pg
 			.uuid()
 			.notNull()
@@ -179,7 +185,7 @@ export const inventoryAlerts = pg.pgTable(
 			.uuid()
 			.notNull()
 			.references(() => drugs.id, { onDelete: "cascade" }),
-		expiryDate: pg.timestamp({ withTimezone: true }),
+		expiryDate: pg.date(),
 		id: pg.uuid().defaultRandom().primaryKey(),
 		lastNotifiedAt: pg.timestamp({ withTimezone: true }),
 		quantityAffected: pg.integer(),

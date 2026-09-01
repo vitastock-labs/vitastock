@@ -7,19 +7,24 @@ import {
 	stockLogs,
 	stockTransactions,
 } from "@vitastock/db/schema/inventory";
-import { addDays } from "date-fns";
+import { workspaces } from "@vitastock/db/schema/workspace";
+import { addDays, format } from "date-fns";
 import { and, asc, eq } from "drizzle-orm";
 import { afterAll, expect, test } from "vitest";
 import { AppError } from "@/lib/utils";
 import { createInventoryFixture } from "@/test/inventoryFixture";
+import { enqueuePendingInventoryAlertEmails } from "./alertJobs";
 import { acknowledgeInventoryAlert, syncInventoryAlerts } from "./alertLifecycle";
 import { getInventoryActivity } from "./data-access/activity";
-import { getDrugForStockMovement } from "./data-access/summary";
+import { handleDrugAction } from "./data-access/drugs";
+import { getInventorySummaryRows } from "./data-access/summary";
 import { createInventoryStockLog } from "./stock-log";
 
 afterAll(async () => {
 	await db.$client.end();
 });
+
+const getDateFromToday = (days: number) => format(addDays(new Date(), days), "yyyy-MM-dd");
 
 test("Stock transaction integration - records a repeated transaction only once", async () => {
 	await using fixture = await createInventoryFixture();
@@ -27,7 +32,7 @@ test("Stock transaction integration - records a repeated transaction only once",
 	const body = {
 		batchNumber: "BATCH-IDEMPOTENT",
 		drugId: fixture.drug.id,
-		expiryDate: addDays(new Date(), 180),
+		expiryDate: getDateFromToday(180),
 		logType: "stock_in" as const,
 		quantity: 20,
 		unitCostNaira: 15,
@@ -35,6 +40,7 @@ test("Stock transaction integration - records a repeated transaction only once",
 	const options = {
 		body,
 		idempotencyKey,
+		timezone: fixture.workspace.timezone,
 		userId: fixture.user.id,
 		workspaceId: fixture.workspace.id,
 	};
@@ -62,10 +68,105 @@ test("Stock transaction integration - records a repeated transaction only once",
 	expect(logs).toHaveLength(1);
 });
 
+test("Stock transaction integration - excludes uncosted stock from recorded value", async () => {
+	await using fixture = await createInventoryFixture();
+
+	await createInventoryStockLog({
+		body: {
+			drugId: fixture.drug.id,
+			expiryDate: getDateFromToday(180),
+			logType: "stock_in",
+			quantity: 20,
+		},
+		idempotencyKey: randomUUID(),
+		timezone: fixture.workspace.timezone,
+		userId: fixture.user.id,
+		workspaceId: fixture.workspace.id,
+	});
+
+	const [batch] = await db
+		.select()
+		.from(stockBatches)
+		.where(eq(stockBatches.workspaceId, fixture.workspace.id));
+	const [log] = await db.select().from(stockLogs).where(eq(stockLogs.workspaceId, fixture.workspace.id));
+	const [summary] = await getInventorySummaryRows({
+		lowStockThreshold: fixture.workspace.lowStockThreshold,
+		nearExpiryDays: fixture.workspace.nearExpiryDays,
+		timezone: fixture.workspace.timezone,
+		workspaceId: fixture.workspace.id,
+	});
+
+	expect(batch?.unitCostKobo).toBeNull();
+	expect(log?.unitCostKobo).toBeNull();
+	expect(summary?.stockValueKobo).toBe(0);
+	expect(summary?.uncostedBatchCount).toBe(1);
+});
+
+test("Stock receipt integration - merges receipts with the same batch attributes and cost", async () => {
+	await using fixture = await createInventoryFixture();
+	const expiryDate = getDateFromToday(180);
+	const createReceipt = (quantity: number) =>
+		createInventoryStockLog({
+			body: {
+				batchNumber: "BATCH-SAME-COST",
+				drugId: fixture.drug.id,
+				expiryDate,
+				logType: "stock_in",
+				quantity,
+				unitCostNaira: 10,
+			},
+			idempotencyKey: randomUUID(),
+			timezone: fixture.workspace.timezone,
+			userId: fixture.user.id,
+			workspaceId: fixture.workspace.id,
+		});
+
+	await createReceipt(10);
+	await createReceipt(5);
+
+	const batches = await db.select().from(stockBatches).where(eq(stockBatches.drugId, fixture.drug.id));
+
+	expect(batches).toHaveLength(1);
+	expect(batches[0]).toMatchObject({ quantityAvailable: 15, quantityReceived: 15 });
+});
+
+test("Stock receipt integration - separates receipts when cost differs or is unrecorded", async () => {
+	await using fixture = await createInventoryFixture();
+	const expiryDate = getDateFromToday(180);
+	const createReceipt = (unitCostNaira?: number) =>
+		createInventoryStockLog({
+			body: {
+				batchNumber: "BATCH-MIXED-COST",
+				drugId: fixture.drug.id,
+				expiryDate,
+				logType: "stock_in",
+				quantity: 5,
+				unitCostNaira,
+			},
+			idempotencyKey: randomUUID(),
+			timezone: fixture.workspace.timezone,
+			userId: fixture.user.id,
+			workspaceId: fixture.workspace.id,
+		});
+
+	await createReceipt(10);
+	await createReceipt(12);
+	await createReceipt();
+
+	const batches = await db
+		.select()
+		.from(stockBatches)
+		.where(eq(stockBatches.drugId, fixture.drug.id))
+		.orderBy(asc(stockBatches.unitCostKobo));
+
+	expect(batches).toHaveLength(3);
+	expect(batches.map((batch) => batch.unitCostKobo)).toEqual([1000, 1200, null]);
+});
+
 test("FEFO integration - deducts persisted batches from earliest expiry first", async () => {
 	await using fixture = await createInventoryFixture();
-	const firstExpiryDate = addDays(new Date(), 30);
-	const secondExpiryDate = addDays(new Date(), 90);
+	const firstExpiryDate = getDateFromToday(30);
+	const secondExpiryDate = getDateFromToday(90);
 
 	await createInventoryStockLog({
 		body: {
@@ -77,6 +178,7 @@ test("FEFO integration - deducts persisted batches from earliest expiry first", 
 			unitCostNaira: 10,
 		},
 		idempotencyKey: randomUUID(),
+		timezone: fixture.workspace.timezone,
 		userId: fixture.user.id,
 		workspaceId: fixture.workspace.id,
 	});
@@ -90,8 +192,26 @@ test("FEFO integration - deducts persisted batches from earliest expiry first", 
 			unitCostNaira: 12,
 		},
 		idempotencyKey: randomUUID(),
+		timezone: fixture.workspace.timezone,
 		userId: fixture.user.id,
 		workspaceId: fixture.workspace.id,
+	});
+
+	const [summaryBeforeDispense] = await getInventorySummaryRows({
+		lowStockThreshold: fixture.workspace.lowStockThreshold,
+		nearExpiryDays: fixture.workspace.nearExpiryDays,
+		timezone: fixture.workspace.timezone,
+		workspaceId: fixture.workspace.id,
+	});
+
+	expect(summaryBeforeDispense).toMatchObject({
+		nearestBatch: {
+			batchNumber: "BATCH-EARLY",
+			expiryDate: firstExpiryDate,
+			quantityAvailable: 4,
+		},
+		usableBatchCount: 2,
+		usableExpiryDateCount: 2,
 	});
 
 	const stockOutIdempotencyKey = randomUUID();
@@ -104,6 +224,7 @@ test("FEFO integration - deducts persisted batches from earliest expiry first", 
 			reason: "patient",
 		},
 		idempotencyKey: stockOutIdempotencyKey,
+		timezone: fixture.workspace.timezone,
 		userId: fixture.user.id,
 		workspaceId: fixture.workspace.id,
 	});
@@ -117,7 +238,7 @@ test("FEFO integration - deducts persisted batches from earliest expiry first", 
 		.where(eq(stockBatches.workspaceId, fixture.workspace.id))
 		.orderBy(asc(stockBatches.expiryDate));
 	const stockOutLogs = await db
-		.select({ quantity: stockLogs.quantity })
+		.select({ quantity: stockLogs.quantity, stockTransactionId: stockLogs.stockTransactionId })
 		.from(stockLogs)
 		.innerJoin(stockTransactions, eq(stockLogs.stockTransactionId, stockTransactions.id))
 		.where(
@@ -133,6 +254,74 @@ test("FEFO integration - deducts persisted batches from earliest expiry first", 
 		{ batchNumber: "BATCH-LATER", quantityAvailable: 7 },
 	]);
 	expect(stockOutLogs.map((log) => log.quantity)).toEqual([4, 3]);
+
+	const activity = await getInventoryActivity({
+		query: undefined,
+		workspaceId: fixture.workspace.id,
+	});
+	const stockOutActivity = activity.rows.find(
+		(row) => row.stockTransactionId === stockOutLogs[0]?.stockTransactionId
+	);
+
+	expect(stockOutActivity).toMatchObject({ batchCount: 2, quantity: 7 });
+});
+
+test("Inventory state integration - reports overlapping stock and expiry conditions", async () => {
+	await using fixture = await createInventoryFixture({ lowStockThreshold: 10, nearExpiryDays: 30 });
+
+	await createInventoryStockLog({
+		body: {
+			batchNumber: "BATCH-NEAR",
+			drugId: fixture.drug.id,
+			expiryDate: getDateFromToday(10),
+			logType: "stock_in",
+			quantity: 5,
+			unitCostNaira: 10,
+		},
+		idempotencyKey: randomUUID(),
+		timezone: fixture.workspace.timezone,
+		userId: fixture.user.id,
+		workspaceId: fixture.workspace.id,
+	});
+	await createInventoryStockLog({
+		body: {
+			batchNumber: "BATCH-AGED",
+			drugId: fixture.drug.id,
+			expiryDate: getDateFromToday(0),
+			logType: "stock_in",
+			quantity: 6,
+			unitCostNaira: 10,
+		},
+		idempotencyKey: randomUUID(),
+		timezone: fixture.workspace.timezone,
+		userId: fixture.user.id,
+		workspaceId: fixture.workspace.id,
+	});
+	await db
+		.update(stockBatches)
+		.set({ expiryDate: getDateFromToday(-1) })
+		.where(
+			and(
+				eq(stockBatches.workspaceId, fixture.workspace.id),
+				eq(stockBatches.batchNumber, "BATCH-AGED")
+			)
+		);
+
+	const [summary] = await getInventorySummaryRows({
+		lowStockThreshold: fixture.workspace.lowStockThreshold,
+		nearExpiryDays: fixture.workspace.nearExpiryDays,
+		timezone: fixture.workspace.timezone,
+		workspaceId: fixture.workspace.id,
+	});
+
+	expect(summary).toMatchObject({
+		expiredBatchCount: 1,
+		nearExpiryBatchCount: 1,
+		stockStatus: "low_stock",
+		totalAvailable: 5,
+		usableBatchCount: 1,
+		usableExpiryDateCount: 1,
+	});
 });
 
 test("Expired stock integration - removes only the targeted expired batch", async () => {
@@ -142,12 +331,13 @@ test("Expired stock integration - removes only the targeted expired batch", asyn
 		body: {
 			batchNumber: "BATCH-EXPIRED",
 			drugId: fixture.drug.id,
-			expiryDate: addDays(new Date(), -30),
+			expiryDate: getDateFromToday(0),
 			logType: "stock_in",
 			quantity: 5,
 			unitCostNaira: 10,
 		},
 		idempotencyKey: randomUUID(),
+		timezone: fixture.workspace.timezone,
 		userId: fixture.user.id,
 		workspaceId: fixture.workspace.id,
 	});
@@ -155,12 +345,13 @@ test("Expired stock integration - removes only the targeted expired batch", asyn
 		body: {
 			batchNumber: "BATCH-VALID",
 			drugId: fixture.drug.id,
-			expiryDate: addDays(new Date(), 90),
+			expiryDate: getDateFromToday(90),
 			logType: "stock_in",
 			quantity: 8,
 			unitCostNaira: 12,
 		},
 		idempotencyKey: randomUUID(),
+		timezone: fixture.workspace.timezone,
 		userId: fixture.user.id,
 		workspaceId: fixture.workspace.id,
 	});
@@ -179,6 +370,11 @@ test("Expired stock integration - removes only the targeted expired batch", asyn
 		throw new Error("Expected an expired stock batch");
 	}
 
+	await db
+		.update(stockBatches)
+		.set({ expiryDate: getDateFromToday(-30) })
+		.where(eq(stockBatches.id, expiredBatch.id));
+
 	await createInventoryStockLog({
 		body: {
 			batchId: expiredBatch.id,
@@ -188,6 +384,7 @@ test("Expired stock integration - removes only the targeted expired batch", asyn
 			reason: "expired",
 		},
 		idempotencyKey: randomUUID(),
+		timezone: fixture.workspace.timezone,
 		userId: fixture.user.id,
 		workspaceId: fixture.workspace.id,
 	});
@@ -214,12 +411,13 @@ test("Inventory reporting integration - calculates weekly movement and expiry lo
 		body: {
 			batchNumber: "BATCH-LOSS",
 			drugId: fixture.drug.id,
-			expiryDate: addDays(new Date(), -30),
+			expiryDate: getDateFromToday(0),
 			logType: "stock_in",
 			quantity: 6,
 			unitCostNaira: 2,
 		},
 		idempotencyKey: randomUUID(),
+		timezone: fixture.workspace.timezone,
 		userId: fixture.user.id,
 		workspaceId: fixture.workspace.id,
 	});
@@ -233,6 +431,11 @@ test("Inventory reporting integration - calculates weekly movement and expiry lo
 		throw new Error("Expected an expired stock batch");
 	}
 
+	await db
+		.update(stockBatches)
+		.set({ expiryDate: getDateFromToday(-30) })
+		.where(eq(stockBatches.id, expiredBatch.id));
+
 	await createInventoryStockLog({
 		body: {
 			batchId: expiredBatch.id,
@@ -242,6 +445,7 @@ test("Inventory reporting integration - calculates weekly movement and expiry lo
 			reason: "expired",
 		},
 		idempotencyKey: randomUUID(),
+		timezone: fixture.workspace.timezone,
 		userId: fixture.user.id,
 		workspaceId: fixture.workspace.id,
 	});
@@ -267,12 +471,13 @@ test("Stock transaction integration - rolls back an insufficient stock-out trans
 		body: {
 			batchNumber: "BATCH-LIMITED",
 			drugId: fixture.drug.id,
-			expiryDate: addDays(new Date(), 90),
+			expiryDate: getDateFromToday(90),
 			logType: "stock_in",
 			quantity: 5,
 			unitCostNaira: 10,
 		},
 		idempotencyKey: randomUUID(),
+		timezone: fixture.workspace.timezone,
 		userId: fixture.user.id,
 		workspaceId: fixture.workspace.id,
 	});
@@ -286,14 +491,15 @@ test("Stock transaction integration - rolls back an insufficient stock-out trans
 			reason: "patient",
 		},
 		idempotencyKey: stockOutIdempotencyKey,
+		timezone: fixture.workspace.timezone,
 		userId: fixture.user.id,
 		workspaceId: fixture.workspace.id,
 	});
 
 	await expect(stockOut).rejects.toEqual(
 		expect.objectContaining<Partial<AppError>>({
-			message: "Insufficient stock available",
-			statusCode: 400,
+			message: "Only 5 units are available",
+			statusCode: 409,
 		})
 	);
 
@@ -319,8 +525,17 @@ test("Inventory workspace isolation - rejects a drug that belongs to another wor
 	await using firstFixture = await createInventoryFixture();
 	await using secondFixture = await createInventoryFixture();
 
-	const result = getDrugForStockMovement({
-		drugId: firstFixture.drug.id,
+	const result = createInventoryStockLog({
+		body: {
+			drugId: firstFixture.drug.id,
+			expiryDate: getDateFromToday(90),
+			logType: "stock_in",
+			quantity: 1,
+			unitCostNaira: 1,
+		},
+		idempotencyKey: randomUUID(),
+		timezone: secondFixture.workspace.timezone,
+		userId: secondFixture.user.id,
 		workspaceId: secondFixture.workspace.id,
 	});
 
@@ -332,12 +547,61 @@ test("Inventory workspace isolation - rejects a drug that belongs to another wor
 	);
 });
 
+test("Drug lifecycle integration - blocks deactivation until all stock is removed", async () => {
+	await using fixture = await createInventoryFixture();
+
+	await createInventoryStockLog({
+		body: {
+			batchNumber: "BATCH-DEACTIVATION",
+			drugId: fixture.drug.id,
+			expiryDate: getDateFromToday(90),
+			logType: "stock_in",
+			quantity: 2,
+			unitCostNaira: 10,
+		},
+		idempotencyKey: randomUUID(),
+		timezone: fixture.workspace.timezone,
+		userId: fixture.user.id,
+		workspaceId: fixture.workspace.id,
+	});
+
+	await expect(
+		handleDrugAction({
+			action: "deactivate",
+			drugId: fixture.drug.id,
+			workspaceId: fixture.workspace.id,
+		})
+	).rejects.toEqual(expect.objectContaining<Partial<AppError>>({ statusCode: 409 }));
+
+	await createInventoryStockLog({
+		body: {
+			drugId: fixture.drug.id,
+			logType: "stock_out",
+			quantity: 2,
+			reason: "patient",
+		},
+		idempotencyKey: randomUUID(),
+		timezone: fixture.workspace.timezone,
+		userId: fixture.user.id,
+		workspaceId: fixture.workspace.id,
+	});
+
+	const deactivatedDrug = await handleDrugAction({
+		action: "deactivate",
+		drugId: fixture.drug.id,
+		workspaceId: fixture.workspace.id,
+	});
+
+	expect(deactivatedDrug.isActive).toBe(false);
+});
+
 test("Alert lifecycle integration - deduplicates, resolves, and reactivates low-stock alerts", async () => {
 	await using fixture = await createInventoryFixture({ lowStockThreshold: 10 });
 	const syncAlerts = () =>
 		syncInventoryAlerts({
 			lowStockThreshold: fixture.workspace.lowStockThreshold,
 			nearExpiryDays: fixture.workspace.nearExpiryDays,
+			timezone: fixture.workspace.timezone,
 			workspaceId: fixture.workspace.id,
 		});
 
@@ -361,12 +625,13 @@ test("Alert lifecycle integration - deduplicates, resolves, and reactivates low-
 		body: {
 			batchNumber: "BATCH-ALERT",
 			drugId: fixture.drug.id,
-			expiryDate: addDays(new Date(), 180),
+			expiryDate: getDateFromToday(180),
 			logType: "stock_in",
 			quantity: 20,
 			unitCostNaira: 10,
 		},
 		idempotencyKey: randomUUID(),
+		timezone: fixture.workspace.timezone,
 		userId: fixture.user.id,
 		workspaceId: fixture.workspace.id,
 	});
@@ -388,6 +653,7 @@ test("Alert lifecycle integration - deduplicates, resolves, and reactivates low-
 			reason: "patient",
 		},
 		idempotencyKey: randomUUID(),
+		timezone: fixture.workspace.timezone,
 		userId: fixture.user.id,
 		workspaceId: fixture.workspace.id,
 	});
@@ -413,6 +679,155 @@ test("Alert lifecycle integration - deduplicates, resolves, and reactivates low-
 	expect(outboxRecords).toHaveLength(2);
 });
 
+test.each([
+	{ emailAlertsEnabled: false, expectedOutboxCount: 0, policy: "critical_immediate" as const },
+	{ emailAlertsEnabled: true, expectedOutboxCount: 0, policy: "digest_only" as const },
+	{ emailAlertsEnabled: true, expectedOutboxCount: 1, policy: "critical_immediate" as const },
+	{ emailAlertsEnabled: true, expectedOutboxCount: 1, policy: "all_immediate" as const },
+])(
+	"Alert delivery integration - persists low-stock alerts with $policy policy",
+	async ({ emailAlertsEnabled, expectedOutboxCount, policy }) => {
+		await using fixture = await createInventoryFixture({
+			emailAlertDeliveryPolicy: policy,
+			emailAlertsEnabled,
+		});
+
+		await syncInventoryAlerts({
+			lowStockThreshold: fixture.workspace.lowStockThreshold,
+			nearExpiryDays: fixture.workspace.nearExpiryDays,
+			timezone: fixture.workspace.timezone,
+			workspaceId: fixture.workspace.id,
+		});
+
+		const [alerts, outboxRecords] = await Promise.all([
+			db.select().from(inventoryAlerts).where(eq(inventoryAlerts.workspaceId, fixture.workspace.id)),
+			db
+				.select()
+				.from(inventoryAlertOutbox)
+				.where(eq(inventoryAlertOutbox.workspaceId, fixture.workspace.id)),
+		]);
+
+		expect(alerts).toHaveLength(1);
+		expect(alerts[0]?.type).toBe("low_stock");
+		expect(outboxRecords).toHaveLength(expectedOutboxCount);
+	}
+);
+
+test.each([
+	{ expectedOutboxCount: 0, policy: "critical_immediate" as const },
+	{ expectedOutboxCount: 1, policy: "all_immediate" as const },
+])(
+	"Alert delivery integration - handles near-expiry alerts with $policy policy",
+	async ({ expectedOutboxCount, policy }) => {
+		await using fixture = await createInventoryFixture({ emailAlertDeliveryPolicy: policy });
+
+		await createInventoryStockLog({
+			body: {
+				batchNumber: "BATCH-NEAR-EXPIRY",
+				drugId: fixture.drug.id,
+				expiryDate: getDateFromToday(30),
+				logType: "stock_in",
+				quantity: 20,
+				unitCostNaira: 10,
+			},
+			idempotencyKey: randomUUID(),
+			timezone: fixture.workspace.timezone,
+			userId: fixture.user.id,
+			workspaceId: fixture.workspace.id,
+		});
+		await syncInventoryAlerts({
+			lowStockThreshold: fixture.workspace.lowStockThreshold,
+			nearExpiryDays: fixture.workspace.nearExpiryDays,
+			timezone: fixture.workspace.timezone,
+			workspaceId: fixture.workspace.id,
+		});
+
+		const [alerts, outboxRecords] = await Promise.all([
+			db.select().from(inventoryAlerts).where(eq(inventoryAlerts.workspaceId, fixture.workspace.id)),
+			db
+				.select()
+				.from(inventoryAlertOutbox)
+				.where(eq(inventoryAlertOutbox.workspaceId, fixture.workspace.id)),
+		]);
+
+		expect(alerts).toHaveLength(1);
+		expect(alerts[0]?.type).toBe("expiring_soon");
+		expect(outboxRecords).toHaveLength(expectedOutboxCount);
+	}
+);
+
+test("Alert delivery integration - skips pending email after delivery is disabled", async () => {
+	await using fixture = await createInventoryFixture();
+
+	await syncInventoryAlerts({
+		lowStockThreshold: fixture.workspace.lowStockThreshold,
+		nearExpiryDays: fixture.workspace.nearExpiryDays,
+		timezone: fixture.workspace.timezone,
+		workspaceId: fixture.workspace.id,
+	});
+	await db
+		.update(workspaces)
+		.set({ alertEmail: null, emailAlertsEnabledAt: null })
+		.where(eq(workspaces.id, fixture.workspace.id));
+
+	await enqueuePendingInventoryAlertEmails();
+
+	const [[alert], [outboxRecord]] = await Promise.all([
+		db.select().from(inventoryAlerts).where(eq(inventoryAlerts.workspaceId, fixture.workspace.id)),
+		db
+			.select()
+			.from(inventoryAlertOutbox)
+			.where(eq(inventoryAlertOutbox.workspaceId, fixture.workspace.id)),
+	]);
+
+	expect(alert?.lastNotifiedAt).toBeNull();
+	expect(outboxRecord?.dispatchedAt).toBeInstanceOf(Date);
+});
+
+test("Alert delivery integration - skips a pending near-expiry email after policy downgrade", async () => {
+	await using fixture = await createInventoryFixture({
+		emailAlertDeliveryPolicy: "all_immediate",
+	});
+
+	await createInventoryStockLog({
+		body: {
+			batchNumber: "BATCH-POLICY-DOWNGRADE",
+			drugId: fixture.drug.id,
+			expiryDate: getDateFromToday(30),
+			logType: "stock_in",
+			quantity: 20,
+			unitCostNaira: 10,
+		},
+		idempotencyKey: randomUUID(),
+		timezone: fixture.workspace.timezone,
+		userId: fixture.user.id,
+		workspaceId: fixture.workspace.id,
+	});
+	await syncInventoryAlerts({
+		lowStockThreshold: fixture.workspace.lowStockThreshold,
+		nearExpiryDays: fixture.workspace.nearExpiryDays,
+		timezone: fixture.workspace.timezone,
+		workspaceId: fixture.workspace.id,
+	});
+	await db
+		.update(workspaces)
+		.set({ emailAlertDeliveryPolicy: "critical_immediate" })
+		.where(eq(workspaces.id, fixture.workspace.id));
+
+	await enqueuePendingInventoryAlertEmails();
+
+	const [[alert], [outboxRecord]] = await Promise.all([
+		db.select().from(inventoryAlerts).where(eq(inventoryAlerts.workspaceId, fixture.workspace.id)),
+		db
+			.select()
+			.from(inventoryAlertOutbox)
+			.where(eq(inventoryAlertOutbox.workspaceId, fixture.workspace.id)),
+	]);
+
+	expect(alert?.lastNotifiedAt).toBeNull();
+	expect(outboxRecord?.dispatchedAt).toBeInstanceOf(Date);
+});
+
 test("Alert acknowledgement integration - cannot acknowledge another workspace's alert", async () => {
 	await using firstFixture = await createInventoryFixture();
 	await using secondFixture = await createInventoryFixture();
@@ -420,6 +835,7 @@ test("Alert acknowledgement integration - cannot acknowledge another workspace's
 	await syncInventoryAlerts({
 		lowStockThreshold: firstFixture.workspace.lowStockThreshold,
 		nearExpiryDays: firstFixture.workspace.nearExpiryDays,
+		timezone: firstFixture.workspace.timezone,
 		workspaceId: firstFixture.workspace.id,
 	});
 

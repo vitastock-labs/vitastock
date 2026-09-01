@@ -1,6 +1,6 @@
 "use client";
 
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	INVENTORY_BULK_IMPORT_COLUMNS,
 	INVENTORY_BULK_IMPORT_MAX_ROWS,
@@ -25,9 +25,11 @@ import {
 	inventoryAlertsUnreadCountQuery,
 	inventoryDrugsQuery,
 	inventorySummaryQuery,
+	sessionQuery,
 } from "@/lib/react-query/queryOptions";
 import { cnJoin } from "@/lib/utils/cn";
-import { formatDate } from "@/lib/utils/formatters";
+import { formatCalendarDateInTimezone, formatDate } from "@/lib/utils/formatters";
+import { EMPTY_DISPLAY_VALUE } from "@/pages/(protected)/dashboard/-components/constants";
 import {
 	MAX_BULK_IMPORT_FILE_SIZE_BYTES,
 	parseCsvFile,
@@ -77,13 +79,46 @@ const EMPTY_BULK_IMPORT_PREVIEW_ROWS: BulkImportRowResult[] = [];
 const bulkImportPreviewColumnHelper = createDataTableColumnHelper<BulkImportRowResult>();
 
 type BulkImportPreviewField = ExtractUnion<typeof INVENTORY_BULK_IMPORT_COLUMNS, "values">;
+type ValidBulkImportRow = Extract<BulkImportRowResult, { status: "valid" }>;
+type InvalidBulkImportRow = Extract<BulkImportRowResult, { status: "invalid" }>;
+
+const partitionBulkImportRows = (
+	rows: ValidBulkImportRow[],
+	issues: Array<{ message: string; rowIndex: number }>
+) => {
+	const issueByRowIndex = new Map(issues.map((issue) => [issue.rowIndex, issue.message]));
+	const invalidRows: InvalidBulkImportRow[] = [];
+	const validRows: ValidBulkImportRow[] = [];
+
+	for (const [rowIndex, row] of rows.entries()) {
+		const message = issueByRowIndex.get(rowIndex);
+
+		if (!message) {
+			validRows.push(row);
+			continue;
+		}
+
+		invalidRows.push({
+			errors: [{ field: "root", message }],
+			rawRow: row.data,
+			rowNumber: row.rowNumber,
+			status: "invalid",
+		});
+	}
+
+	return { invalidRows, validRows };
+};
 
 const getBulkImportPreviewFieldValue = (result: BulkImportRowResult, field: BulkImportPreviewField) => {
 	if (result.status === "valid") {
 		const value = result.data[field];
 
-		if (value instanceof Date) {
-			return formatDate(value);
+		if (value === undefined) {
+			return EMPTY_DISPLAY_VALUE;
+		}
+
+		if (field === "expiryDate") {
+			return formatDate(String(value));
 		}
 
 		if (typeof value === "number" && field === "unitCostNaira") {
@@ -96,7 +131,7 @@ const getBulkImportPreviewFieldValue = (result: BulkImportRowResult, field: Bulk
 	const raw = result.rawRow[field];
 
 	if (raw === undefined || raw === null || raw === "") {
-		return "-";
+		return EMPTY_DISPLAY_VALUE;
 	}
 
 	if (raw instanceof Date) {
@@ -106,13 +141,15 @@ const getBulkImportPreviewFieldValue = (result: BulkImportRowResult, field: Bulk
 		return String(raw);
 	}
 
-	return "-";
+	return EMPTY_DISPLAY_VALUE;
 };
 
 const getBulkImportFieldError = (result: BulkImportRowResult, field: BulkImportPreviewField) => {
 	if (result.status !== "invalid") return;
 
-	return result.errors.find((error) => error.field === field)?.message;
+	return result.errors.find(
+		(error) => error.field === field || (field === "name" && error.field === "root")
+	)?.message;
 };
 
 function BulkImportPreviewCell(props: { field: BulkImportPreviewField; result: BulkImportRowResult }) {
@@ -142,7 +179,7 @@ function BulkImportPreviewCell(props: { field: BulkImportPreviewField; result: B
 					:	"border-orange-300 bg-orange-50 text-orange-700"
 				)}
 			>
-				{value === "-" ? "[Empty]" : value}
+				{value === EMPTY_DISPLAY_VALUE ? "[Empty]" : value}
 			</span>
 			<span
 				className={cnJoin(
@@ -368,6 +405,7 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 	const { onImported } = props;
 
 	const queryClient = useQueryClient();
+	const sessionQueryResult = useQuery(sessionQuery());
 
 	const [state, setState] = useState<BulkImportStage>({ file: null, stage: "upload" });
 
@@ -403,6 +441,12 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 		if (state.stage !== "upload" || !state.file) return;
 
 		const { file } = state;
+		const workspaceTimezone = sessionQueryResult.data?.workspace.timezone;
+
+		if (!workspaceTimezone) {
+			setState({ error: "Unable to determine the workspace timezone", file, stage: "upload" });
+			return;
+		}
 
 		try {
 			setState({ stage: "processing", step: "reading" });
@@ -417,7 +461,10 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 			setState({ stage: "processing", step: "validating-rows" });
 			await yieldToUi();
 
-			const result = validateBulkImportSheet(sheetRows);
+			const result = validateBulkImportSheet(
+				sheetRows,
+				formatCalendarDateInTimezone(new Date(), workspaceTimezone)
+			);
 
 			if (result.status === "header-error") {
 				setState({ error: describeBulkImportHeaderIssues(result.issues), file, stage: "upload" });
@@ -436,12 +483,20 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 			setState({ stage: "processing", step: "preparing-preview" });
 			await yieldToUi();
 
+			const backendValidation = await callBackendApiForQuery("@post/inventory/bulk-import/validate", {
+				body: { rows: result.validRows.map((row) => row.data) },
+			});
+			const partitionedRows = partitionBulkImportRows(
+				result.validRows,
+				backendValidation.data.issues
+			);
+
 			setState({
 				duplicateRows: result.duplicateRows,
 				idempotencyKey: crypto.randomUUID(),
-				invalidRows: result.invalidRows,
+				invalidRows: [...result.invalidRows, ...partitionedRows.invalidRows],
 				stage: "preview",
-				validRows: result.validRows,
+				validRows: partitionedRows.validRows,
 			});
 		} catch (error) {
 			setState({
@@ -638,7 +693,7 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 												>
 													<li className="flex items-center gap-2">
 														<span className="size-1.5 rounded-full bg-shadcn-destructive" />
-														Drug Name, Generic Name, Strength, Dosage Form, Unit
+														Drug Name and Generic Name
 													</li>
 													<li className="flex items-center gap-2">
 														<span className="size-1.5 rounded-full bg-shadcn-destructive" />
@@ -656,15 +711,15 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 													className="text-[11px] font-bold tracking-wider
 														text-vitastock-body-color uppercase"
 												>
-													Required Cost Field
+													Optional Fields
 												</p>
 												<ul
 													className="space-y-1.5 text-[13px] font-medium
 														text-vitastock-body-color"
 												>
 													<li className="flex items-center gap-2">
-														<span className="size-1.5 rounded-full bg-shadcn-destructive" />
-														Unit Cost (₦)
+														<span className="size-1.5 rounded-full bg-shadcn-border" />
+														Strength, Dosage Form, Unit, Unit Cost (₦)
 													</li>
 												</ul>
 											</div>

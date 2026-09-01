@@ -3,12 +3,84 @@ import { users } from "@vitastock/db/schema/auth";
 import { drugs, stockLogs } from "@vitastock/db/schema/inventory";
 import type { backendApiSchemaRoutes } from "@vitastock/shared/validation/backendApiSchema";
 import { subDays } from "date-fns";
-import { and, count, desc, eq, gte, ilike, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, ilike, or, sql, type SQL } from "drizzle-orm";
 import type { z } from "zod";
 
 type InventoryActivityQuery = z.infer<
 	NonNullable<(typeof backendApiSchemaRoutes)["@get/inventory/activity"]["query"]>
 >;
+
+const activityId = sql<string>`
+  concat(
+    ${stockLogs.stockTransactionId}::text,
+    ':',
+    ${stockLogs.drugId}::text,
+    ':',
+    ${stockLogs.logType},
+    ':',
+    coalesce(${stockLogs.reason}, '')
+  )
+`;
+
+const logicalMovementCount = sql<number>`
+  count(distinct (
+    ${stockLogs.stockTransactionId},
+    ${stockLogs.drugId},
+    ${stockLogs.logType},
+    ${stockLogs.reason}
+  ))
+`.mapWith(Number);
+
+const getLogicalActivityRows = (options: {
+	limit: number;
+	offset?: number;
+	whereConditions: Array<SQL | undefined>;
+}) => {
+	const { limit, offset = 0, whereConditions } = options;
+
+	return db
+		.select({
+			batchCount: count(),
+			createdAt: sql<Date>`min(${stockLogs.createdAt})`.mapWith(stockLogs.createdAt),
+			drug: {
+				genericName: drugs.genericName,
+				id: drugs.id,
+				name: drugs.name,
+				strength: drugs.strength,
+				unit: drugs.unit,
+			},
+			id: activityId,
+			logType: stockLogs.logType,
+			notes: stockLogs.notes,
+			person: users.fullName,
+			quantity: sql<number>`sum(${stockLogs.quantity})`.mapWith(Number),
+			reason: stockLogs.reason,
+			stockTransactionId: stockLogs.stockTransactionId,
+		})
+		.from(stockLogs)
+		.innerJoin(drugs, eq(stockLogs.drugId, drugs.id))
+		.innerJoin(users, eq(stockLogs.performedByUserId, users.id))
+		.where(and(...whereConditions))
+		.groupBy(
+			stockLogs.stockTransactionId,
+			stockLogs.drugId,
+			stockLogs.logType,
+			stockLogs.reason,
+			stockLogs.notes,
+			drugs.id,
+			users.id
+		)
+		.orderBy(desc(sql`min(${stockLogs.createdAt})`))
+		.limit(limit)
+		.offset(offset);
+};
+
+export const getRecentInventoryActivity = (workspaceId: string, limit = 8) => {
+	return getLogicalActivityRows({
+		limit,
+		whereConditions: [eq(stockLogs.workspaceId, workspaceId)],
+	});
+};
 
 export const getInventoryActivity = async (options: {
 	query: InventoryActivityQuery | undefined;
@@ -37,40 +109,20 @@ export const getInventoryActivity = async (options: {
 	const thirtyDaysAgo = subDays(now, 30);
 
 	const [rows, totalResult, weeklyStatsResult, expiryLossResult] = await Promise.all([
+		getLogicalActivityRows({
+			limit: pageSize,
+			offset: (page - 1) * pageSize,
+			whereConditions,
+		}),
 		db
-			.select({
-				createdAt: stockLogs.createdAt,
-				drug: {
-					genericName: drugs.genericName,
-					id: drugs.id,
-					name: drugs.name,
-					strength: drugs.strength,
-					unit: drugs.unit,
-				},
-				id: stockLogs.id,
-				logType: stockLogs.logType,
-				notes: stockLogs.notes,
-				person: users.fullName,
-				quantity: stockLogs.quantity,
-				reason: stockLogs.reason,
-				unitCostKobo: stockLogs.unitCostKobo,
-			})
-			.from(stockLogs)
-			.innerJoin(drugs, eq(stockLogs.drugId, drugs.id))
-			.innerJoin(users, eq(stockLogs.performedByUserId, users.id))
-			.where(and(...whereConditions))
-			.orderBy(desc(stockLogs.createdAt))
-			.limit(pageSize)
-			.offset((page - 1) * pageSize),
-		db
-			.select({ total: count() })
+			.select({ total: logicalMovementCount })
 			.from(stockLogs)
 			.innerJoin(drugs, eq(stockLogs.drugId, drugs.id))
 			.innerJoin(users, eq(stockLogs.performedByUserId, users.id))
 			.where(and(...whereConditions)),
 		db
 			.select({
-				weeklyMovementCount: count(),
+				weeklyMovementCount: logicalMovementCount,
 				weeklyStockInQuantity: sql<number>`
 					coalesce(
 						sum(

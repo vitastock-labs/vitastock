@@ -1,4 +1,4 @@
-import type { NonEmptyArray } from "@zayne-labs/toolkit-type-helpers";
+import { defineEnum } from "@zayne-labs/toolkit-type-helpers";
 import { sql } from "drizzle-orm";
 import * as pg from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
@@ -6,9 +6,18 @@ import { z } from "zod";
 import { ROLES } from "../constants";
 import { users } from "./auth";
 
+export const EMAIL_ALERT_DELIVERY_POLICIES = defineEnum(
+	["all_immediate", "critical_immediate", "digest_only"],
+	{ inferredUnionVariant: "values" }
+);
+
 export const workspaces = pg.pgTable("workspaces", {
 	alertEmail: pg.text(),
 	createdAt: pg.timestamp({ withTimezone: true }).notNull().defaultNow(),
+	emailAlertDeliveryPolicy: pg
+		.text({ enum: EMAIL_ALERT_DELIVERY_POLICIES })
+		.notNull()
+		.default("critical_immediate"),
 	emailAlertsEnabledAt: pg.timestamp({ withTimezone: true }),
 	id: pg.uuid().defaultRandom().primaryKey(),
 	lowStockThreshold: pg.integer().notNull().default(10),
@@ -61,7 +70,7 @@ export const workspaceMemberships = pg.pgTable(
 	]
 );
 
-const ROLES_WITHOUT_OWNER = [ROLES[1], ROLES[2]] as NonEmptyArray<"admin" | "pharmacist">;
+const ROLES_WITHOUT_OWNER = defineEnum([ROLES[1], ROLES[2]]);
 
 export const workspaceInvitations = pg.pgTable("workspace_invitations", {
 	acceptedAt: pg.timestamp({ withTimezone: true }),

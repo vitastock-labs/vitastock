@@ -75,13 +75,31 @@ test("rejects a duplicated column", () => {
 	expect(result.issues).toContain("Duplicate columns: Drug Name");
 });
 
-test("rejects an empty unit cost", () => {
-	const result = validateBulkImportSheet([HEADER_ROW, validRow({ "Unit Cost (₦)": "" })]);
+test("accepts blank optional metadata and cost without coercing them", () => {
+	const result = validateBulkImportSheet([
+		HEADER_ROW,
+		validRow({ "Dosage Form": "", Strength: "", Unit: "", "Unit Cost (₦)": "" }),
+	]);
 
 	expect(result.status).toBe("parsed");
 	if (result.status !== "parsed") return;
-	expect(result.invalidRows).toHaveLength(1);
-	expect(result.validRows).toHaveLength(0);
+	expect(result.invalidRows).toHaveLength(0);
+	expect(result.validRows[0]?.data).toMatchObject({
+		form: undefined,
+		strength: undefined,
+		unit: undefined,
+		unitCostNaira: undefined,
+	});
+});
+
+test("accepts a file containing only the four required columns", () => {
+	const headers = ["Drug Name", "Generic Name", "Quantity", "Expiry Date"];
+	const result = validateBulkImportSheet([headers, ["Paracetamol", "Paracetamol", "100", futureDate]]);
+
+	expect(result.status).toBe("parsed");
+	if (result.status !== "parsed") return;
+	expect(result.validRows).toHaveLength(1);
+	expect(result.validRows[0]?.data.unitCostNaira).toBeUndefined();
 });
 
 test("ignores completely empty rows", () => {

@@ -26,7 +26,13 @@ import {
 	type InventoryActivityQueryResultType,
 } from "@/lib/react-query/queryOptions";
 import { cnJoin } from "@/lib/utils/cn";
-import { formatDateTime, formatEnumLabel, formatKoboAsNaira } from "@/lib/utils/formatters";
+import {
+	formatDateTime,
+	formatDrugLabel,
+	formatEnumLabel,
+	formatKoboAsNaira,
+} from "@/lib/utils/formatters";
+import { EMPTY_DISPLAY_VALUE } from "@/pages/(protected)/dashboard/-components/constants";
 import { EmptyState } from "@/pages/(protected)/dashboard/-components/EmptyState";
 import { DashboardDataTable } from "../-components/DashboardDataTableShared";
 import { Main } from "../-components/Main";
@@ -58,15 +64,15 @@ const activityColumns = activityColumnHelper.columns([
 		header: "Timestamp",
 	}),
 	activityColumnHelper.accessor(
-		(row) => `${row.drug.name} ${row.drug.genericName} ${row.drug.strength}`,
+		(row) => formatDrugLabel(row.drug, { includeGenericName: true }),
 		{
 			cell: ({ row }) => (
 				<div>
 					<p className="font-bold text-black">
-						{row.original.drug.name} {row.original.drug.strength}
+						{formatDrugLabel(row.original.drug)}
 					</p>
 					<p className="mt-0.5 text-[12px] text-vitastock-body-color">
-						{row.original.drug.genericName} / {row.original.drug.unit}
+						{row.original.drug.genericName} / {row.original.drug.unit ?? EMPTY_DISPLAY_VALUE}
 					</p>
 				</div>
 			),
@@ -101,7 +107,7 @@ const activityColumns = activityColumnHelper.columns([
 	activityColumnHelper.accessor("quantity", {
 		cell: ({ getValue, row }) => (
 			<span className="font-bold text-black">
-				{getValue().toLocaleString()} {row.original.drug.unit}
+				{getValue().toLocaleString()} {row.original.drug.unit ?? EMPTY_DISPLAY_VALUE}
 			</span>
 		),
 		enableSorting: false,

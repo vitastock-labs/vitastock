@@ -261,15 +261,22 @@ export const workspaceRoutes = new Hono()
 		authorizeRoleMiddleware(["owner", "admin"]),
 		validateWithZodMiddleware("json", backendApiSchemaRoutes["@patch/workspace/alert-settings"].body),
 		async (ctx) => {
-			const { alertEmail, emailAlertsEnabled, lowStockThreshold, nearExpiryDays } =
-				ctx.req.valid("json");
+			const {
+				alertEmail,
+				emailAlertDeliveryPolicy,
+				emailAlertsEnabled,
+				lowStockThreshold,
+				nearExpiryDays,
+			} = ctx.req.valid("json");
 
 			const currentUser = ctx.get("currentUser");
+			const currentWorkspace = ctx.get("currentWorkspace");
 
 			await db
 				.update(workspaces)
 				.set({
 					alertEmail: emailAlertsEnabled ? alertEmail : null,
+					emailAlertDeliveryPolicy,
 					emailAlertsEnabledAt: emailAlertsEnabled ? new Date() : null,
 					lowStockThreshold,
 					nearExpiryDays,
@@ -281,6 +288,7 @@ export const workspaceRoutes = new Hono()
 			await syncInventoryAlerts({
 				lowStockThreshold,
 				nearExpiryDays,
+				timezone: currentWorkspace.timezone,
 				workspaceId: currentUser.workspaceId,
 			});
 

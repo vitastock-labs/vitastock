@@ -11,6 +11,7 @@ import { NavLinkEphemeral } from "@/components/common/NavLink";
 import { Button } from "@/components/ui";
 import { Form } from "@/components/ui/form";
 import { callBackendApiForQuery } from "@/lib/api/callBackendApi";
+import { InputField } from "@/pages/(home)/-components/FormPartsShared";
 import { Main } from "../-components/Main";
 
 const ResetPasswordSchema = withMatchingPasswordFields({
@@ -62,35 +63,29 @@ function ResetPasswordPage() {
 
 				<Form.Root form={form} onSubmit={(event) => void onSubmit(event)} className="w-full gap-8">
 					<div className="flex flex-col gap-4">
-						<Form.Field control={form.control} name="newPassword">
-							<Form.Label className="text-[14px] font-semibold">Password</Form.Label>
+						<InputField
+							control={form.control}
+							name="newPassword"
+							label="Password"
+							placeholder="New Password"
+							type="password"
+							classNames={{
+								inputGroup: "h-[50px] border-[hsl(231,20%,80%,0.6)] bg-white p-4",
+								label: "text-[14px] font-semibold",
+							}}
+						/>
 
-							<Form.Input
-								placeholder="New Password"
-								type="password"
-								classNames={{
-									inputGroup:
-										"h-[50px] rounded-[8px] border border-[hsl(231,20%,80%,0.6)] bg-white p-4",
-								}}
-							/>
-
-							<Form.ErrorMessage />
-						</Form.Field>
-
-						<Form.Field control={form.control} name="confirmNewPassword">
-							<Form.Label className="text-[14px] font-semibold">Confirm Password</Form.Label>
-
-							<Form.Input
-								placeholder="Confirm New Password"
-								type="password"
-								classNames={{
-									inputGroup:
-										"h-[50px] rounded-[8px] border border-[hsl(231,20%,80%,0.6)] bg-white p-4",
-								}}
-							/>
-
-							<Form.ErrorMessage />
-						</Form.Field>
+						<InputField
+							control={form.control}
+							name="confirmNewPassword"
+							label="Confirm Password"
+							placeholder="Confirm New Password"
+							type="password"
+							classNames={{
+								inputGroup: "h-[50px] border-[hsl(231,20%,80%,0.6)] bg-white p-4",
+								label: "text-[14px] font-semibold",
+							}}
+						/>
 					</div>
 
 					<div className="flex flex-col gap-4">

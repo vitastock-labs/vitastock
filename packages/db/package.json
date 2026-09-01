@@ -24,18 +24,19 @@
 	},
 	"dependencies": {
 		"@faker-js/faker": "^10.6.0",
-		"@node-rs/argon2": "^2.1.0",
+		"@node-rs/argon2": "^2.2.0",
 		"@vitastock/env": "workspace:*",
-		"@zayne-labs/toolkit-type-helpers": "^0.12.58",
+		"@zayne-labs/toolkit-type-helpers": "^0.12.59",
 		"@zayne-labs/tsconfig": "0.13.14",
 		"consola": "3.4.2",
 		"cross-env": "^10.1.0",
+		"date-fns": "4.4.0",
 		"drizzle-kit": "0.31.10",
 		"drizzle-orm": "0.45.2",
 		"drizzle-zod": "^0.8.3",
 		"pg": "8.23.0",
-		"tsx": "4.23.12",
-		"zod": "4.4.1"
+		"tsx": "4.23.13",
+		"zod": "4.5.4"
 	},
 	"devDependencies": {
 		"@total-typescript/ts-reset": "0.6.1",

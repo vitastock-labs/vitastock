@@ -7,11 +7,13 @@ import { secureHeaders } from "hono/secure-headers";
 import { allowedOrigins, corsOptions } from "@/config/corsOptions";
 import { globalRateLimiterOptions } from "@/config/rateLimiterOptions";
 import { secureHeadersOptions } from "@/config/secureHeadersOptions";
+import { appLogger } from "@/lib/logger";
 import type { HonoAppBindings } from "@/lib/types/common";
 import { errorHandler, notFoundHandler } from "@/middleware";
 import { pinoLoggerMiddleware } from "@/middleware/pinoLogger";
+import { mountBullBoard } from "@/services/queues/utils/bullBoard";
 
-const createHonoApp = () => {
+const createHonoApp = async () => {
 	const app = new Hono<HonoAppBindings>({ strict: false });
 
 	/**
@@ -23,6 +25,15 @@ const createHonoApp = () => {
 		await next();
 	});
 	app.use(pinoLoggerMiddleware());
+
+	/**
+	 *  == Infrastructure Routes
+	 */
+	try {
+		await mountBullBoard(app);
+	} catch (error) {
+		appLogger.pretty.error(new Error("Failed to load Bull Board", { cause: error }));
+	}
 
 	/**
 	 *  == Middleware - App Security

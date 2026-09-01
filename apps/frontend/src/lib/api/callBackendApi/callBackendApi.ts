@@ -23,7 +23,7 @@ export const sharedBaseConfig = defineBaseConfig({
 		authErrorRedirectPlugin({
 			redirectDelay: 1500,
 			redirectRoute: "/auth/signin",
-			routesToExemptFromErrorRedirect: ["/", "/library/**", "/daily-tips/**", "/auth/**"],
+			routesToExemptFromErrorRedirect: ["/", "/auth/**"],
 		}),
 		toastPlugin({
 			endpointsToSkip: [

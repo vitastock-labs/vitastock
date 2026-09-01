@@ -2,17 +2,27 @@ import { randomUUID } from "node:crypto";
 import { db } from "@vitastock/db";
 import { users } from "@vitastock/db/schema/auth";
 import { drugs } from "@vitastock/db/schema/inventory";
-import { workspaceMemberships, workspaces } from "@vitastock/db/schema/workspace";
+import {
+	workspaceMemberships,
+	workspaces,
+	type SelectWorkspaceType,
+} from "@vitastock/db/schema/workspace";
 import { eq } from "drizzle-orm";
 
 type InventoryFixtureOptions = {
+	emailAlertDeliveryPolicy?: SelectWorkspaceType["emailAlertDeliveryPolicy"];
 	emailAlertsEnabled?: boolean;
 	lowStockThreshold?: number;
 	nearExpiryDays?: number;
 };
 
 export const createInventoryFixture = async (options: InventoryFixtureOptions = {}) => {
-	const { emailAlertsEnabled = true, lowStockThreshold = 10, nearExpiryDays = 90 } = options;
+	const {
+		emailAlertDeliveryPolicy = "critical_immediate",
+		emailAlertsEnabled = true,
+		lowStockThreshold = 10,
+		nearExpiryDays = 90,
+	} = options;
 	const fixtureId = randomUUID();
 	const email = `inventory-${fixtureId}@vitastock.test`;
 
@@ -21,6 +31,7 @@ export const createInventoryFixture = async (options: InventoryFixtureOptions = 
 			.insert(workspaces)
 			.values({
 				alertEmail: emailAlertsEnabled ? email : null,
+				emailAlertDeliveryPolicy,
 				emailAlertsEnabledAt: emailAlertsEnabled ? new Date() : null,
 				lowStockThreshold,
 				name: `Inventory Test ${fixtureId}`,

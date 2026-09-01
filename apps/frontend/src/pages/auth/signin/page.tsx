@@ -11,6 +11,7 @@ import { Button } from "@/components/ui";
 import { Form } from "@/components/ui/form";
 import { callBackendApiForQuery } from "@/lib/api/callBackendApi";
 import { sessionQuery } from "@/lib/react-query/queryOptions";
+import { InputField } from "@/pages/(home)/-components/FormPartsShared";
 import { Main } from "../-components/Main";
 
 const SignInSchema = backendApiSchemaRoutes["@post/auth/signin"].body;
@@ -65,24 +66,21 @@ function SigninPage() {
 
 				<Form.Root form={form} onSubmit={(event) => void onSubmit(event)} className="w-full gap-8">
 					<div className="flex flex-col gap-4">
-						<Form.Field control={form.control} name="email">
-							<Form.Input
-								placeholder="Email Address"
-								className="h-[50px] rounded-[8px] bg-[hsl(210,9%,96%)] p-4"
-							/>
+						<InputField
+							control={form.control}
+							name="email"
+							placeholder="Email Address"
+							classNames={{ input: "h-[50px] border-0 bg-[hsl(210,9%,96%)] p-4" }}
+						/>
 
-							<Form.ErrorMessage />
-						</Form.Field>
-
-						<Form.Field control={form.control} name="password">
-							<Form.Input
+						<div className="flex flex-col gap-1">
+							<InputField
+								control={form.control}
+								name="password"
 								placeholder="Password"
 								type="password"
-								classNames={{ inputGroup: "h-[50px] rounded-[8px] bg-[hsl(210,9%,96%)] p-4" }}
+								classNames={{ inputGroup: "h-[50px] border-0 bg-[hsl(210,9%,96%)] p-4" }}
 							/>
-
-							<Form.ErrorMessage />
-
 							<NavLink
 								transitionType="regular"
 								to="/auth/forgot-password"
@@ -90,7 +88,7 @@ function SigninPage() {
 							>
 								Forgot password?
 							</NavLink>
-						</Form.Field>
+						</div>
 					</div>
 
 					<Form.Submit asChild={true}>

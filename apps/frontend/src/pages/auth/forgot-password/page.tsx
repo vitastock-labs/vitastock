@@ -8,6 +8,7 @@ import { NavLinkEphemeral } from "@/components/common/NavLink";
 import { Button } from "@/components/ui";
 import { Form } from "@/components/ui/form";
 import { callBackendApiForQuery } from "@/lib/api/callBackendApi";
+import { InputField } from "@/pages/(home)/-components/FormPartsShared";
 import { Main } from "../-components/Main";
 
 const ForgotPasswordSchema = backendApiSchemaRoutes["@post/auth/forgot-password"].body;
@@ -45,17 +46,16 @@ function ForgotPasswordPage() {
 
 				<Form.Root form={form} onSubmit={(event) => void onSubmit(event)} className="w-full gap-8">
 					<div className="flex flex-col gap-4">
-						<Form.Field control={form.control} name="email">
-							<Form.Label className="text-[14px] font-semibold">Email address</Form.Label>
-
-							<Form.Input
-								placeholder="Email Address"
-								className="h-[50px] rounded-[8px] border border-[hsl(231,20%,80%,0.6)] bg-white
-									p-4"
-							/>
-
-							<Form.ErrorMessage />
-						</Form.Field>
+						<InputField
+							control={form.control}
+							name="email"
+							label="Email address"
+							placeholder="Email Address"
+							classNames={{
+								input: "h-[50px] border-[hsl(231,20%,80%,0.6)] bg-white p-4",
+								label: "text-[14px] font-semibold",
+							}}
+						/>
 					</div>
 
 					<div className="flex flex-col gap-4">

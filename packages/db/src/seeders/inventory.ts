@@ -1,8 +1,10 @@
 import { consola } from "consola";
+import { addDays, format } from "date-fns";
 import { and, eq, inArray, notExists, sql } from "drizzle-orm";
 import { db } from "../db";
 import {
 	drugs,
+	inventoryAlertOutbox,
 	stockBatches,
 	stockLogs,
 	stockTransactions,
@@ -65,8 +67,12 @@ const getDrugSeedData = (workspaceId: string) => {
 
 const getDrugIdentityKey = (drug: InsertDrugType) => {
 	return [drug.workspaceId, drug.name, drug.genericName, drug.strength, drug.form, drug.unit]
-		.map((value) => value.trim().toLowerCase())
+		.map((value) => value?.trim().toLowerCase() ?? "")
 		.join("|");
+};
+
+const getSeedExpiryDate = (daysFromToday: number) => {
+	return format(addDays(new Date(), daysFromToday), "yyyy-MM-dd");
 };
 
 const getBatchSeedData = (options: {
@@ -75,9 +81,6 @@ const getBatchSeedData = (options: {
 	workspaceId: string;
 }) => {
 	const { drugByName, userId, workspaceId } = options;
-	const nearExpiryDate = new Date();
-	nearExpiryDate.setUTCDate(nearExpiryDate.getUTCDate() + 14);
-	nearExpiryDate.setUTCHours(0, 0, 0, 0);
 
 	const getDrugId = (name: string) => {
 		const drug = drugByName.get(name);
@@ -93,7 +96,7 @@ const getBatchSeedData = (options: {
 		{
 			batchNumber: `AMX-${workspaceId.slice(0, 8)}`,
 			drugId: getDrugId("Amoxil"),
-			expiryDate: new Date("2027-02-28T00:00:00.000Z"),
+			expiryDate: getSeedExpiryDate(180),
 			quantityAvailable: 1_090,
 			quantityReceived: 1_200,
 			unitCostKobo: 12_500,
@@ -103,7 +106,7 @@ const getBatchSeedData = (options: {
 		{
 			batchNumber: `LIS-${workspaceId.slice(0, 8)}`,
 			drugId: getDrugId("Zestril"),
-			expiryDate: new Date("2026-07-20T00:00:00.000Z"),
+			expiryDate: getSeedExpiryDate(30),
 			quantityAvailable: 440,
 			quantityReceived: 500,
 			unitCostKobo: 8_000,
@@ -113,7 +116,7 @@ const getBatchSeedData = (options: {
 		{
 			batchNumber: `MET-${workspaceId.slice(0, 8)}`,
 			drugId: getDrugId("Glucophage"),
-			expiryDate: new Date("2027-01-31T00:00:00.000Z"),
+			expiryDate: getSeedExpiryDate(365),
 			quantityAvailable: 8,
 			quantityReceived: 120,
 			unitCostKobo: 10_000,
@@ -123,7 +126,7 @@ const getBatchSeedData = (options: {
 		{
 			batchNumber: `ATO-${workspaceId.slice(0, 8)}`,
 			drugId: getDrugId("Lipitor"),
-			expiryDate: new Date("2026-05-01T00:00:00.000Z"),
+			expiryDate: getSeedExpiryDate(-30),
 			quantityAvailable: 35,
 			quantityReceived: 80,
 			unitCostKobo: 15_000,
@@ -133,8 +136,8 @@ const getBatchSeedData = (options: {
 		{
 			batchNumber: `LEV-${workspaceId.slice(0, 8)}`,
 			drugId: getDrugId("Synthroid"),
-			expiryDate: nearExpiryDate,
-			quantityAvailable: 0,
+			expiryDate: getSeedExpiryDate(14),
+			quantityAvailable: 35,
 			quantityReceived: 60,
 			unitCostKobo: 18_000,
 			userId,
@@ -178,6 +181,10 @@ export const seedInventory = async (
 	const allDrugSeeds = seededWorkspaces.flatMap((workspace) => getDrugSeedData(workspace.id));
 	const seededDrugIdentityKeys = new Set(allDrugSeeds.map((drug) => getDrugIdentityKey(drug)));
 	const seededWorkspaceIds = seededWorkspaces.map((workspace) => workspace.id);
+
+	await db
+		.delete(inventoryAlertOutbox)
+		.where(inArray(inventoryAlertOutbox.workspaceId, seededWorkspaceIds));
 
 	await db.insert(drugs).values(allDrugSeeds).onConflictDoNothing();
 

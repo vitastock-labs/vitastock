@@ -4,7 +4,7 @@
 FROM node:24.14.0-slim AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable && corepack prepare pnpm@11.23.0 --activate
+RUN corepack enable && corepack prepare pnpm@11.24.0 --activate
 
 # ================================================================
 # Stage 2: Runner

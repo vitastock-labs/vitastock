@@ -4,8 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { parseAsString, useQueryState } from "nuqs";
 import { useMemo, useState } from "react";
-import { useForm, type UseFormReturn } from "react-hook-form";
-import type { z } from "zod";
+import { useForm, useFormContext, type FieldValues, type UseFormReturn } from "react-hook-form";
 import { useDialogContext } from "@/components/animated/primitives/dialog-radix";
 import { DialogAnimated } from "@/components/animated/ui";
 import { IconBox } from "@/components/common/IconBox";
@@ -32,6 +31,9 @@ import {
 	type InventoryDrugsQueryResultType,
 } from "@/lib/react-query/queryOptions";
 import { cnJoin } from "@/lib/utils/cn";
+import { formatDrugLabel } from "@/lib/utils/formatters";
+import { InputField } from "@/pages/(home)/-components/FormPartsShared";
+import { EMPTY_DISPLAY_VALUE } from "./constants";
 import { DashboardDataTable } from "./DashboardDataTableShared";
 
 type Drug = InventoryDrugsQueryResultType["drugs"][number];
@@ -41,11 +43,6 @@ const drugColumnHelper = createDataTableColumnHelper<Drug>();
 
 const DrugCreateSchema = backendApiSchemaRoutes["@post/inventory/drugs"].body;
 const DrugUpdateSchema = backendApiSchemaRoutes["@patch/inventory/drugs/:drugId"].body.required();
-type DrugFormValues = z.input<typeof DrugCreateSchema>;
-
-const drugFormInputClassName =
-	"h-10 rounded-lg border border-shadcn-border bg-white px-4 focus:border-vitastock-primary-main";
-
 const DRUG_TABLE_QUERY_KEYS = {
 	page: "drugPage",
 	perPage: "drugPageSize",
@@ -72,26 +69,33 @@ export function DrugMasterDialog() {
 	const columns = useMemo(
 		() =>
 			drugColumnHelper.columns([
-				drugColumnHelper.accessor((drug) => `${drug.name} ${drug.genericName} ${drug.strength}`, {
-					cell: ({ row }) => (
-						<div>
-							<p className="font-bold text-black">{row.original.name}</p>
-							<p className="mt-0.5 text-[12px] text-vitastock-body-color">
-								{row.original.genericName} / {row.original.strength}
-							</p>
-						</div>
-					),
-					enableSorting: false,
-					header: ({ column }) => <DataTableColumnHeader column={column}>Drug</DataTableColumnHeader>,
-					id: "name",
-				}),
+				drugColumnHelper.accessor(
+					(drug) => formatDrugLabel(drug, { includeGenericName: true }),
+					{
+						cell: ({ row }) => (
+							<div>
+								<p className="font-bold text-black">{row.original.name}</p>
+								<p className="mt-0.5 text-[12px] text-vitastock-body-color">
+									{row.original.genericName} / {row.original.strength ?? EMPTY_DISPLAY_VALUE}
+								</p>
+							</div>
+						),
+						enableSorting: false,
+						header: ({ column }) => (
+							<DataTableColumnHeader column={column}>Drug</DataTableColumnHeader>
+						),
+						id: "name",
+					}
+				),
 				drugColumnHelper.accessor("form", {
+					cell: ({ getValue }) => getValue() ?? EMPTY_DISPLAY_VALUE,
 					enableSorting: false,
 					header: ({ column }) => (
 						<DataTableColumnHeader column={column}>Dosage Form</DataTableColumnHeader>
 					),
 				}),
 				drugColumnHelper.accessor("unit", {
+					cell: ({ getValue }) => getValue() ?? EMPTY_DISPLAY_VALUE,
 					enableSorting: false,
 					header: ({ column }) => <DataTableColumnHeader column={column}>Unit</DataTableColumnHeader>,
 				}),
@@ -260,11 +264,11 @@ export function EditDrugDialog(props: { drug: Drug; onComplete: () => void }) {
 	const queryClient = useQueryClient();
 	const form = useForm({
 		defaultValues: {
-			form: drug.form,
+			form: drug.form ?? "",
 			genericName: drug.genericName,
 			name: drug.name,
-			strength: drug.strength,
-			unit: drug.unit,
+			strength: drug.strength ?? "",
+			unit: drug.unit ?? "",
 		},
 		resolver: zodResolver(DrugUpdateSchema),
 	});
@@ -300,9 +304,9 @@ export function EditDrugDialog(props: { drug: Drug; onComplete: () => void }) {
 	);
 }
 
-function DrugFormDialog(props: {
+function DrugFormDialog<TFieldValues extends FieldValues, TTransformedValues extends FieldValues>(props: {
 	description: string;
-	form: UseFormReturn<DrugFormValues>;
+	form: UseFormReturn<TFieldValues, unknown, TTransformedValues>;
 	onSubmit: (event?: React.BaseSyntheticEvent) => Promise<void>;
 	submitLabel: string;
 	title: string;
@@ -335,31 +339,7 @@ function DrugFormDialog(props: {
 			</header>
 
 			<Form.Root form={form} onSubmit={(event) => void onSubmit(event)}>
-				<div className="grid gap-4 p-5 sm:grid-cols-2">
-					<Form.Field control={form.control} name="name">
-						<Form.Label>Drug Name</Form.Label>
-						<Form.Input placeholder="e.g. Coartem" className={drugFormInputClassName} />
-					</Form.Field>
-					<Form.Field control={form.control} name="genericName">
-						<Form.Label>Generic Name</Form.Label>
-						<Form.Input
-							placeholder="e.g. Artemether/Lumefantrine"
-							className={drugFormInputClassName}
-						/>
-					</Form.Field>
-					<Form.Field control={form.control} name="strength">
-						<Form.Label>Strength</Form.Label>
-						<Form.Input placeholder="e.g. 20mg/120mg" className={drugFormInputClassName} />
-					</Form.Field>
-					<Form.Field control={form.control} name="form">
-						<Form.Label>Dosage Form</Form.Label>
-						<Form.Input placeholder="e.g. Tablet" className={drugFormInputClassName} />
-					</Form.Field>
-					<Form.Field control={form.control} name="unit">
-						<Form.Label>Unit</Form.Label>
-						<Form.Input placeholder="e.g. Box" className={drugFormInputClassName} />
-					</Form.Field>
-				</div>
+				<DrugFormFields />
 
 				<DialogAnimated.Footer
 					className="flex-row justify-end gap-3 border-t border-shadcn-border/70 bg-shadcn-muted/30
@@ -384,6 +364,42 @@ function DrugFormDialog(props: {
 				</DialogAnimated.Footer>
 			</Form.Root>
 		</DialogAnimated.Content>
+	);
+}
+
+function DrugFormFields() {
+	const form = useFormContext();
+
+	return (
+		<div className="grid gap-4 p-5 sm:grid-cols-2">
+			<InputField
+				control={form.control}
+				name="name"
+				label="Drug Name"
+				placeholder="e.g. Coartem"
+				required={true}
+			/>
+			<InputField
+				control={form.control}
+				name="genericName"
+				label="Generic Name"
+				placeholder="e.g. Artemether/Lumefantrine"
+				required={true}
+			/>
+			<InputField
+				control={form.control}
+				name="strength"
+				label="Strength (Optional)"
+				placeholder="e.g. 20mg/120mg"
+			/>
+			<InputField
+				control={form.control}
+				name="form"
+				label="Dosage Form (Optional)"
+				placeholder="e.g. Tablet"
+			/>
+			<InputField control={form.control} name="unit" label="Unit (Optional)" placeholder="e.g. Box" />
+		</div>
 	);
 }
 

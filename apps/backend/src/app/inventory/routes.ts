@@ -9,16 +9,18 @@ import {
 	getUnreadInventoryAlertCount,
 	syncInventoryAlerts,
 } from "./services/alertLifecycle";
-import { createInventoryBulkImport } from "./services/bulk-import";
+import { createInventoryBulkImport, validateInventoryBulkImportRows } from "./services/bulk-import";
 import { getInventoryActivity } from "./services/data-access/activity";
+import { getWorkspaceDrugBatches } from "./services/data-access/batches";
 import {
 	createDrugForWorkspace,
 	getWorkspaceDrugList,
 	handleDrugAction,
 	updateDrug,
 } from "./services/data-access/drugs";
-import { getDrugForStockMovement, getInventorySummaryRows } from "./services/data-access/summary";
+import { getInventorySummaryRows } from "./services/data-access/summary";
 import { createInventoryStockLog } from "./services/stock-log";
+import { getInventorySummaryStats } from "./services/utils/common";
 
 export const inventoryRoutes = new Hono()
 	.basePath("/inventory")
@@ -119,6 +121,36 @@ export const inventoryRoutes = new Hono()
 	)
 
 	.get(
+		"/drugs/:drugId/batches",
+		validateWithZodMiddleware(
+			"param",
+			backendApiSchemaRoutes["@get/inventory/drugs/:drugId/batches"].params
+		),
+		validateWithZodMiddleware(
+			"query",
+			backendApiSchemaRoutes["@get/inventory/drugs/:drugId/batches"].query
+		),
+		async (ctx) => {
+			const { drugId } = ctx.req.valid("param");
+			const { availability } = ctx.req.valid("query");
+			const currentUser = ctx.get("currentUser");
+			const currentWorkspace = ctx.get("currentWorkspace");
+			const batches = await getWorkspaceDrugBatches({
+				availability,
+				drugId,
+				timezone: currentWorkspace.timezone,
+				workspaceId: currentUser.workspaceId,
+			});
+
+			return AppJsonResponse(ctx, {
+				data: { batches },
+				message: "Drug batches fetched successfully",
+				schema: backendApiSchemaRoutes["@get/inventory/drugs/:drugId/batches"].data,
+			});
+		}
+	)
+
+	.get(
 		"/alerts",
 		validateWithZodMiddleware("query", backendApiSchemaRoutes["@get/inventory/alerts"].query),
 		async (ctx) => {
@@ -195,19 +227,20 @@ export const inventoryRoutes = new Hono()
 
 		const inventorySummaryRows = await getInventorySummaryRows({
 			lowStockThreshold: currentWorkspace.lowStockThreshold,
+			nearExpiryDays: currentWorkspace.nearExpiryDays,
+			timezone: currentWorkspace.timezone,
 			workspaceId: currentUser.workspaceId,
 		});
 
-		const criticalCount = inventorySummaryRows.filter(
-			(row) => row.status === "low_stock" || row.status === "out_of_stock" || row.hasExpiredStock
-		).length;
+		const stats = getInventorySummaryStats(inventorySummaryRows);
 
 		return AppJsonResponse(ctx, {
 			data: {
 				rows: inventorySummaryRows,
 				stats: {
-					criticalCount,
-					stockValueKobo: inventorySummaryRows.reduce((total, row) => total + row.stockValueKobo, 0),
+					criticalCount: stats.criticalCount,
+					stockValueKobo: stats.stockValueKobo,
+					uncostedBatchCount: stats.uncostedBatchCount,
 				},
 			},
 			message: "Inventory summary fetched successfully",
@@ -225,14 +258,10 @@ export const inventoryRoutes = new Hono()
 			const currentUser = ctx.get("currentUser");
 			const currentWorkspace = ctx.get("currentWorkspace");
 
-			await getDrugForStockMovement({
-				drugId: body.drugId,
-				workspaceId: currentUser.workspaceId,
-			});
-
 			await createInventoryStockLog({
 				body,
 				idempotencyKey,
+				timezone: currentWorkspace.timezone,
 				userId: currentUser.id,
 				workspaceId: currentUser.workspaceId,
 			});
@@ -240,6 +269,7 @@ export const inventoryRoutes = new Hono()
 			await syncInventoryAlerts({
 				lowStockThreshold: currentWorkspace.lowStockThreshold,
 				nearExpiryDays: currentWorkspace.nearExpiryDays,
+				timezone: currentWorkspace.timezone,
 				workspaceId: currentUser.workspaceId,
 			});
 
@@ -247,6 +277,28 @@ export const inventoryRoutes = new Hono()
 				data: null,
 				message: "Stock movement recorded successfully",
 				schema: backendApiSchemaRoutes["@post/inventory/stock-log"].data,
+			});
+		}
+	)
+
+	.post(
+		"/bulk-import/validate",
+		validateWithZodMiddleware(
+			"json",
+			backendApiSchemaRoutes["@post/inventory/bulk-import/validate"].body
+		),
+		async (ctx) => {
+			const { rows } = ctx.req.valid("json");
+			const currentUser = ctx.get("currentUser");
+			const issues = await validateInventoryBulkImportRows({
+				rows,
+				workspaceId: currentUser.workspaceId,
+			});
+
+			return AppJsonResponse(ctx, {
+				data: { issues },
+				message: "Bulk import rows validated successfully",
+				schema: backendApiSchemaRoutes["@post/inventory/bulk-import/validate"].data,
 			});
 		}
 	)
@@ -264,6 +316,7 @@ export const inventoryRoutes = new Hono()
 			const { importedCount } = await createInventoryBulkImport({
 				idempotencyKey,
 				rows,
+				timezone: currentWorkspace.timezone,
 				userId: currentUser.id,
 				workspaceId: currentUser.workspaceId,
 			});
@@ -271,6 +324,7 @@ export const inventoryRoutes = new Hono()
 			await syncInventoryAlerts({
 				lowStockThreshold: currentWorkspace.lowStockThreshold,
 				nearExpiryDays: currentWorkspace.nearExpiryDays,
+				timezone: currentWorkspace.timezone,
 				workspaceId: currentUser.workspaceId,
 			});
 

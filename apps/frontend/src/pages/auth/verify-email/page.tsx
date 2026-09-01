@@ -13,6 +13,7 @@ import { Button, InputOTP } from "@/components/ui";
 import { Form } from "@/components/ui/form";
 import { callBackendApiForQuery } from "@/lib/api/callBackendApi";
 import { resendVerificationEmailMutation } from "@/lib/react-query/mutationOptions";
+import { FormField } from "@/pages/(home)/-components/FormPartsShared";
 import { Main } from "../-components/Main";
 
 const VerifyEmailSchema = backendApiSchemaRoutes["@post/auth/verify-email"].body.pick({ code: true });
@@ -79,7 +80,7 @@ function VerifyEmailPage() {
 				</div>
 
 				<Form.Root form={form} onSubmit={(event) => void onSubmit(event)} className="w-full gap-8">
-					<Form.Field control={form.control} name="code" className="items-center">
+					<FormField control={form.control} name="code" classNames={{ base: "items-center" }}>
 						<Form.FieldBoundController
 							render={({ field }) => (
 								<InputOTP.Root
@@ -111,8 +112,7 @@ function VerifyEmailPage() {
 								</InputOTP.Root>
 							)}
 						/>
-						<Form.ErrorMessage />
-					</Form.Field>
+					</FormField>
 
 					<Form.Submit asChild={true}>
 						{(formState) => (

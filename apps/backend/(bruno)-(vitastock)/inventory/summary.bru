@@ -39,7 +39,8 @@ docs {
     "data": {
       "stats": {
         "criticalCount": 2,
-        "stockValueKobo": 18450000
+        "stockValueKobo": 18450000,
+        "uncostedBatchCount": 3
       },
       "rows": [
         {
@@ -55,14 +56,18 @@ docs {
           },
           "totalAvailable": 40,
           "stockValueKobo": 1000000,
-          "status": "normal",
-          "hasExpiredStock": false,
-          "nearestExpiryDate": "2027-12-31T00:00:00.000Z",
+          "uncostedBatchCount": 1,
+          "stockStatus": "normal",
+          "usableBatchCount": 2,
+          "usableExpiryDateCount": 2,
+          "expiredBatchCount": 1,
+          "nearExpiryBatchCount": 1,
+          "nearestExpiryDate": "2027-12-31",
           "nearestBatch": {
             "id": "batch-uuid",
             "batchNumber": "BATCH-001",
             "quantityAvailable": 40,
-            "expiryDate": "2027-12-31T00:00:00.000Z",
+            "expiryDate": "2027-12-31",
             "unitCostKobo": 25000
           }
         }
@@ -77,17 +82,22 @@ docs {
   |-------|---------|
   | `totalAvailable` | Sum of usable quantity remaining across the drug's non-expired batches. |
   | `stockValueKobo` | Sum of each usable batch's available quantity multiplied by its unit cost. |
+  | `uncostedBatchCount` | Positive-quantity usable batches omitted from valuation because no cost is recorded. |
   | `nearestBatch` | Available, non-expired batch with the earliest expiry date. Omitted when no usable batch exists. |
   | `nearestExpiryDate` | Expiry date of `nearestBatch`. Omitted when no usable batch exists. |
-  | `hasExpiredStock` | Whether the drug still has quantity in at least one expired batch. |
-  | `status` | `expired`, `low_stock`, `normal`, or `out_of_stock`, derived from batches and the workspace threshold. |
+  | `stockStatus` | Primary usable-stock state: `normal`, `low_stock`, or `out_of_stock`. |
+  | `usableBatchCount` | Positive-quantity batches whose expiry date is today or later in the workspace timezone. |
+  | `usableExpiryDateCount` | Distinct expiry dates represented by usable batches. Values above one indicate that FEFO physical-batch guidance is relevant. |
+  | `expiredBatchCount` | Positive-quantity batches whose expiry date is before today in the workspace timezone. |
+  | `nearExpiryBatchCount` | Usable batches expiring from today through the configured near-expiry date, inclusively. |
 
-  `criticalCount` includes rows with `expired`, `low_stock`, or `out_of_stock` status.
+  `criticalCount` counts each affected drug once when its stock status needs attention or it has expired or near-expiry batches.
 
   ## Notes
 
-  - Monetary values are integer kobo.
-  - A drug can have usable stock and still have `hasExpiredStock: true` when another batch has expired.
+  - Monetary values are integer kobo. `stockValueKobo` is recorded inventory value, not an estimate for uncosted stock.
+  - Conditions are independent. A drug can be low on usable stock while also having expired and near-expiry batches.
+  - Expiry values are ISO calendar dates (`YYYY-MM-DD`), not timestamps.
   - Workspace isolation is enforced by the authenticated membership.
 
   ## Errors

@@ -35,6 +35,7 @@ export const necessaryWorkspaceDetails = defineEnum([
 	"id",
 	"name",
 	"alertEmail",
+	"emailAlertDeliveryPolicy",
 	"lowStockThreshold",
 	"nearExpiryDays",
 	"timezone",

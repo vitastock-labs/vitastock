@@ -1,8 +1,11 @@
+import { useQuery } from "@tanstack/react-query";
 import { useScrollObserver } from "@zayne-labs/toolkit-react";
 import { ForWithWrapper } from "@zayne-labs/ui-react/common/for";
 import { Logo } from "@/components/common/Logo";
 import { NavLink, NavLinkEphemeral } from "@/components/common/NavLink";
+import { Show } from "@/components/common/show";
 import { Button } from "@/components/ui/button";
+import { sessionQuery } from "@/lib/react-query/queryOptions";
 import { cnJoin, cnMerge } from "@/lib/utils/cn";
 import { navLinkItems } from "../-constants/navLinkItems";
 
@@ -31,9 +34,10 @@ function NavBar() {
 
 function DesktopNavigation(props: { className?: string }) {
 	const { className } = props;
+	const sessionQueryResult = useQuery(sessionQuery());
 
 	return (
-		<section className={cnMerge("flex w-full items-center", className)}>
+		<div className={cnMerge("flex w-full items-center", className)}>
 			<ForWithWrapper
 				as="nav"
 				className="mx-6 flex min-w-fit grow justify-center gap-8 text-[15px] font-semibold text-black"
@@ -51,17 +55,25 @@ function DesktopNavigation(props: { className?: string }) {
 			/>
 
 			<div className="flex min-w-fit items-center gap-3">
-				<NavLinkEphemeral to="/auth/signin">
-					<Button theme="primary-ghost" className="h-10">
-						Sign in
-					</Button>
-				</NavLinkEphemeral>
+				<Show.Root when={sessionQueryResult.data}>
+					<NavLinkEphemeral to="/dashboard">
+						<Button className="h-10">Go to dashboard</Button>
+					</NavLinkEphemeral>
 
-				<NavLinkEphemeral to="/auth/signup">
-					<Button className="h-10">Sign up for free</Button>
-				</NavLinkEphemeral>
+					<Show.Fallback>
+						<NavLinkEphemeral to="/auth/signin">
+							<Button theme="primary-ghost" className="h-10">
+								Sign in
+							</Button>
+						</NavLinkEphemeral>
+
+						<NavLinkEphemeral to="/auth/signup">
+							<Button className="h-10">Sign up for free</Button>
+						</NavLinkEphemeral>
+					</Show.Fallback>
+				</Show.Root>
 			</div>
-		</section>
+		</div>
 	);
 }
 

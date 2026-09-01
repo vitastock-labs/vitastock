@@ -1,4 +1,4 @@
-import { INVENTORY_STATUS } from "@vitastock/db/schema/inventory";
+import { INVENTORY_STOCK_STATUS } from "@vitastock/db/schema/inventory";
 
 type FefoBatch = {
 	id: string;
@@ -25,7 +25,7 @@ export const getFefoStockMovements = <Batch extends FefoBatch>(batches: Batch[],
 	return movements;
 };
 
-type InventoryStatus = (typeof INVENTORY_STATUS)[number];
+type InventoryStatus = (typeof INVENTORY_STOCK_STATUS)[number];
 
 export const getInventoryStatus = (options: {
 	lowStockThreshold: number;
@@ -42,4 +42,42 @@ export const getInventoryStatus = (options: {
 	}
 
 	return "normal";
+};
+
+export const convertNairaToKobo = (amount: number | undefined) => {
+	return amount === undefined ? null : Math.round(amount * 100);
+};
+
+type InventorySummaryStatsRow = {
+	expiredBatchCount: number;
+	nearExpiryBatchCount: number;
+	stockStatus: InventoryStatus;
+	stockValueKobo: number;
+	uncostedBatchCount: number;
+};
+
+export const getInventorySummaryStats = (rows: InventorySummaryStatsRow[]) => {
+	const stats = {
+		criticalCount: 0,
+		expiredCount: 0,
+		expiringSoonCount: 0,
+		lowStockCount: 0,
+		stockValueKobo: 0,
+		uncostedBatchCount: 0,
+	};
+
+	for (const row of rows) {
+		const hasExpiredStock = row.expiredBatchCount > 0;
+		const hasExpiringStock = row.nearExpiryBatchCount > 0;
+		const hasLowStock = row.stockStatus !== "normal";
+
+		stats.expiredCount += Number(hasExpiredStock);
+		stats.expiringSoonCount += Number(hasExpiringStock);
+		stats.lowStockCount += Number(hasLowStock);
+		stats.criticalCount += Number(hasLowStock || hasExpiredStock || hasExpiringStock);
+		stats.stockValueKobo += row.stockValueKobo;
+		stats.uncostedBatchCount += row.uncostedBatchCount;
+	}
+
+	return stats;
 };

@@ -18,7 +18,7 @@ import {
 	type InventoryAlertsQueryResultType,
 } from "@/lib/react-query/queryOptions";
 import { cnJoin } from "@/lib/utils/cn";
-import { formatDate } from "@/lib/utils/formatters";
+import { formatDate, formatDrugLabel } from "@/lib/utils/formatters";
 import { EmptyState } from "@/pages/(protected)/dashboard/-components/EmptyState";
 import { Main } from "../-components/Main";
 
@@ -145,9 +145,9 @@ function AlertsPage() {
 						}}
 					>
 						<TabsAnimated.List
-							className="h-10 gap-1 bg-transparent p-0"
 							classNames={{
 								highlight: "border-vitastock-primary-main bg-vitastock-primary-main shadow-none",
+								list: "h-10 gap-1 bg-transparent p-0",
 							}}
 						>
 							<For
@@ -282,8 +282,7 @@ function AlertsPage() {
 														{filterLabels[alert.type]}
 													</Badge>
 													<span>
-														{alert.drug.name} ({alert.drug.genericName}){" "}
-														{alert.drug.strength} {alert.drug.form}
+														{formatDrugLabel(alert.drug, { includeGenericName: true })}
 													</span>
 													{alert.batchNumber && <span>Batch {alert.batchNumber}</span>}
 												</div>

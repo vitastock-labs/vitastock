@@ -19,7 +19,13 @@ import {
 	type DashboardOverviewQueryResultType,
 } from "@/lib/react-query/queryOptions";
 import { cnJoin } from "@/lib/utils/cn";
-import { formatDate, formatEnumLabel, formatKoboAsNaira } from "@/lib/utils/formatters";
+import {
+	formatDate,
+	formatDrugLabel,
+	formatEnumLabel,
+	formatKoboAsNaira,
+	formatUncostedBatchCount,
+} from "@/lib/utils/formatters";
 import { EmptyState } from "@/pages/(protected)/dashboard/-components/EmptyState";
 import { DashboardDataTable } from "./-components/DashboardDataTableShared";
 import { Main } from "./-components/Main";
@@ -106,9 +112,9 @@ function DashboardStats() {
 		},
 		{
 			color: "text-vitastock-primary-main",
-			desc: "Current inventory total",
+			desc: formatUncostedBatchCount(stats?.uncostedBatchCount ?? 0),
 			icon: "lucide:wallet",
-			title: "Inventory Value",
+			title: "Recorded Inventory Value",
 			value: formatKoboAsNaira(stats?.stockValueKobo ?? 0),
 		},
 	] as const;
@@ -132,7 +138,7 @@ function DashboardStats() {
 							<p
 								className={cnJoin(
 									"max-w-full text-[34px] leading-none font-extrabold tracking-tight text-black",
-									stat.title === "Inventory Value" && "text-[28px] wrap-break-word"
+									stat.title === "Recorded Inventory Value" && "text-[28px] wrap-break-word"
 								)}
 							>
 								{dashboardOverviewQueryResult.isLoading ? "..." : stat.value}
@@ -201,12 +207,12 @@ const stockReductionLogTypes = new Set<string>(StockReductionLogTypeSchema.optio
 
 const dashboardActivityColumns = dashboardActivityColumnHelper.columns([
 	dashboardActivityColumnHelper.accessor(
-		(row) => `${row.drug.name} ${row.drug.genericName} ${row.drug.strength}`,
+		(row) => formatDrugLabel(row.drug, { includeGenericName: true }),
 		{
 			cell: ({ row }) => (
 				<div>
 					<p className="text-[14px] font-medium text-black">
-						{row.original.drug.name} {row.original.drug.strength}
+						{formatDrugLabel(row.original.drug)}
 					</p>
 					<p className="mt-0.5 text-[12px] text-vitastock-body-color">
 						{row.original.drug.genericName}

@@ -6,7 +6,7 @@ import type { ColumnFiltersState } from "@tanstack/react-table";
 import { addYears, endOfYear, startOfYear } from "date-fns";
 import { parseAsString, parseAsStringEnum, useQueryState, useQueryStates } from "nuqs";
 import { useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useFormContext } from "react-hook-form";
 import type { z } from "zod";
 import { DialogAnimated } from "@/components/animated/ui";
 import { For } from "@/components/common/for";
@@ -33,13 +33,22 @@ import {
 	inventoryActivityQuery,
 	inventoryAlertsQuery,
 	inventoryAlertsUnreadCountQuery,
+	inventoryDrugBatchesQuery,
 	inventoryDrugsQuery,
 	inventorySummaryQuery,
 	sessionQuery,
 	type InventorySummaryQueryResultType,
 } from "@/lib/react-query/queryOptions";
 import { cnJoin } from "@/lib/utils/cn";
-import { formatDate, formatEnumLabel, formatKoboAsNaira } from "@/lib/utils/formatters";
+import {
+	formatDate,
+	formatDrugLabel,
+	formatEnumLabel,
+	formatKoboAsNaira,
+	formatUncostedBatchCount,
+} from "@/lib/utils/formatters";
+import { FormField, InputField, SelectField } from "@/pages/(home)/-components/FormPartsShared";
+import { EMPTY_DISPLAY_VALUE } from "@/pages/(protected)/dashboard/-components/constants";
 import { EmptyState } from "@/pages/(protected)/dashboard/-components/EmptyState";
 import { DashboardDataTable } from "../-components/DashboardDataTableShared";
 import { CreateDrugDialog, EditDrugDialog } from "../-components/DrugMasterDialog";
@@ -117,7 +126,7 @@ function InventoryStats() {
 					<Card.Title
 						className="text-[13px] font-bold tracking-widest text-vitastock-body-color uppercase"
 					>
-						Total Inventory Value
+						Recorded Inventory Value
 					</Card.Title>
 					<p
 						className="max-w-full text-[34px] leading-none font-extrabold tracking-tight
@@ -125,6 +134,9 @@ function InventoryStats() {
 					>
 						{formatKoboAsNaira(summary?.stats.stockValueKobo ?? 0)}
 					</p>
+					<Card.Description className="text-[13px] text-vitastock-body-color/70">
+						{formatUncostedBatchCount(summary?.stats.uncostedBatchCount ?? 0)}
+					</Card.Description>
 				</Card.Content>
 
 				<span
@@ -274,6 +286,10 @@ const INVENTORY_FILTER_OPTIONS = [
 	{ label: "All stock", value: "all" },
 	{ label: "Needs attention", value: "attention" },
 	{ label: "In stock", value: "in_stock" },
+	{ label: "Low stock", value: "low_stock" },
+	{ label: "Out of stock", value: "out_of_stock" },
+	{ label: "Expired batches", value: "expired" },
+	{ label: "Expiring soon", value: "expiring_soon" },
 ] as const;
 
 type InventoryFilter = (typeof INVENTORY_FILTER_OPTIONS)[number]["value"];
@@ -286,7 +302,11 @@ const EMPTY_INVENTORY_ROWS: InventoryRow[] = [];
 const inventoryColumnFilters = {
 	all: [],
 	attention: [{ id: "stockState", value: "attention" }],
+	expired: [{ id: "stockState", value: "expired" }],
+	expiring_soon: [{ id: "stockState", value: "expiring_soon" }],
 	in_stock: [{ id: "stockState", value: "in_stock" }],
+	low_stock: [{ id: "stockState", value: "low_stock" }],
+	out_of_stock: [{ id: "stockState", value: "out_of_stock" }],
 } satisfies Record<InventoryFilter, ColumnFiltersState>;
 
 function InventoryTable() {
@@ -304,15 +324,31 @@ function InventoryTable() {
 	const columns = useMemo(
 		() =>
 			inventoryColumnHelper.columns([
-				inventoryColumnHelper.accessor((row) => row.status, {
+				inventoryColumnHelper.accessor((row) => row.stockStatus, {
 					enableSorting: false,
 					filterFn: (row, _columnId, filterValue: InventoryFilter) => {
 						if (filterValue === "attention") {
-							return row.original.hasExpiredStock || row.original.status !== "normal";
+							return (
+								row.original.stockStatus !== "normal"
+								|| row.original.expiredBatchCount > 0
+								|| row.original.nearExpiryBatchCount > 0
+							);
 						}
 
 						if (filterValue === "in_stock") {
 							return row.original.totalAvailable > 0;
+						}
+
+						if (filterValue === "expired") {
+							return row.original.expiredBatchCount > 0;
+						}
+
+						if (filterValue === "expiring_soon") {
+							return row.original.nearExpiryBatchCount > 0;
+						}
+
+						if (filterValue === "low_stock" || filterValue === "out_of_stock") {
+							return row.original.stockStatus === filterValue;
 						}
 
 						return true;
@@ -320,12 +356,12 @@ function InventoryTable() {
 					id: "stockState",
 				}),
 				inventoryColumnHelper.accessor(
-					(row) => `${row.drug.name} ${row.drug.genericName} ${row.drug.strength}`,
+					(row) => formatDrugLabel(row.drug, { includeGenericName: true }),
 					{
 						cell: ({ row }) => (
 							<div>
 								<p className="font-medium text-shadcn-foreground">
-									{row.original.drug.name} {row.original.drug.strength}
+									{formatDrugLabel(row.original.drug)}
 								</p>
 								<p className="mt-0.5 text-[12px] text-vitastock-body-color">
 									{row.original.drug.genericName}
@@ -341,7 +377,7 @@ function InventoryTable() {
 				inventoryColumnHelper.accessor((row) => row.nearestBatch?.batchNumber ?? "", {
 					cell: ({ row }) => (
 						<span className="text-vitastock-body-color">
-							{row.original.nearestBatch?.batchNumber ?? "-"}
+							{row.original.nearestBatch?.batchNumber ?? EMPTY_DISPLAY_VALUE}
 						</span>
 					),
 					header: ({ column }) => (
@@ -349,10 +385,12 @@ function InventoryTable() {
 					),
 					id: "batchNumber",
 				}),
-				inventoryColumnHelper.accessor((row) => row.nearestExpiryDate?.getTime() ?? 0, {
+				inventoryColumnHelper.accessor((row) => row.nearestExpiryDate ?? "", {
 					cell: ({ row }) => (
 						<span className="text-vitastock-body-color">
-							{row.original.nearestExpiryDate ? formatDate(row.original.nearestExpiryDate) : "-"}
+							{row.original.nearestExpiryDate ?
+								formatDate(row.original.nearestExpiryDate)
+							:	EMPTY_DISPLAY_VALUE}
 						</span>
 					),
 					header: ({ column }) => (
@@ -364,14 +402,10 @@ function InventoryTable() {
 					cell: ({ row }) => (
 						<div className="flex flex-col items-start gap-1.5">
 							<span className="font-bold text-shadcn-foreground">
-								{row.original.totalAvailable.toLocaleString()} {row.original.drug.unit}
+								{row.original.totalAvailable.toLocaleString()}{" "}
+								{row.original.drug.unit ?? EMPTY_DISPLAY_VALUE}
 							</span>
-							<StatusBadge status={row.original.status} />
-							{row.original.hasExpiredStock && (
-								<span className="text-[11px] font-semibold text-red-700">
-									Expired stock also present
-								</span>
-							)}
+							<InventoryConditionBadges row={row.original} />
 						</div>
 					),
 					header: ({ column }) => (
@@ -467,8 +501,14 @@ function InventoryTable() {
 						tableRow: ({ row }) =>
 							cnJoin(
 								"border-b border-shadcn-border hover:bg-shadcn-muted/20",
-								row.original.hasExpiredStock && "bg-red-100/30 hover:bg-red-100/50",
-								row.original.status === "low_stock" && "bg-orange-100/30 hover:bg-orange-100/50"
+								row.original.expiredBatchCount > 0 && "bg-red-100/30 hover:bg-red-100/50",
+								row.original.expiredBatchCount === 0
+									&& row.original.nearExpiryBatchCount > 0
+									&& "bg-amber-100/30 hover:bg-amber-100/50",
+								row.original.expiredBatchCount === 0
+									&& row.original.nearExpiryBatchCount === 0
+									&& row.original.stockStatus === "low_stock"
+									&& "bg-orange-100/30 hover:bg-orange-100/50"
 							),
 					}}
 				/>
@@ -500,30 +540,51 @@ function InventoryEditDrugDialog(props: { drug: InventoryRow["drug"] | null; onC
 	);
 }
 
-function StatusBadge(props: { status: InventorySummaryQueryResultType["rows"][number]["status"] }) {
+function StockStatusBadge(props: {
+	status: InventorySummaryQueryResultType["rows"][number]["stockStatus"];
+}) {
 	const { status } = props;
-
-	if (status === "normal") {
-		return null;
-	}
 
 	return (
 		<Badge
 			className={cnJoin(
 				"border-none px-2 py-0.5 text-[11px] font-bold capitalize",
+				status === "normal" && "bg-green-100 text-green-700",
 				status === "low_stock" && "bg-orange-100 text-orange-700",
 				status === "out_of_stock" && "bg-shadcn-muted text-vitastock-body-color"
 			)}
 		>
-			{formatEnumLabel(status)}
+			{status === "normal" ? "In stock" : formatEnumLabel(status)}
 		</Badge>
+	);
+}
+
+function InventoryConditionBadges(props: { row: InventoryRow }) {
+	const { row } = props;
+
+	return (
+		<div className="flex flex-wrap gap-1.5">
+			<StockStatusBadge status={row.stockStatus} />
+			{row.expiredBatchCount > 0 && (
+				<Badge className="border-none bg-red-100 px-2 py-0.5 text-[11px] font-bold text-red-700">
+					Expired ({row.expiredBatchCount})
+				</Badge>
+			)}
+			{row.nearExpiryBatchCount > 0 && (
+				<Badge className="border-none bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-700">
+					Expiring soon ({row.nearExpiryBatchCount})
+				</Badge>
+			)}
+		</div>
 	);
 }
 
 function ProjectedStockOut() {
 	const inventorySummaryQueryResult = useQuery(inventorySummaryQuery());
 	const rows = inventorySummaryQueryResult.data?.rows ?? [];
-	const lowRows = rows.filter((row) => row.status === "low_stock" || row.status === "out_of_stock");
+	const attentionRows = rows.filter(
+		(row) => row.stockStatus !== "normal" || row.expiredBatchCount > 0 || row.nearExpiryBatchCount > 0
+	);
 
 	return (
 		<Card.Root
@@ -533,14 +594,14 @@ function ProjectedStockOut() {
 			<Card.Title className="text-[16px] font-bold text-shadcn-foreground">Needs Attention</Card.Title>
 
 			<Card.Content className="flex flex-col gap-3">
-				{lowRows.length === 0 && (
+				{attentionRows.length === 0 && (
 					<p className="text-[14px] font-medium text-vitastock-body-color">
 						No critical stock items.
 					</p>
 				)}
 
 				<For
-					each={lowRows}
+					each={attentionRows}
 					renderItem={(item) => (
 						<article
 							key={item.drugId}
@@ -548,16 +609,16 @@ function ProjectedStockOut() {
 						>
 							<div className="min-w-0">
 								<p className="truncate text-[14px] font-bold text-shadcn-foreground">
-									{item.drug.name} {item.drug.strength}
+									{formatDrugLabel(item.drug)}
 								</p>
 								<p className="truncate text-[12px] text-vitastock-body-color">
 									{item.drug.genericName}
 								</p>
 								<p className="text-[12px] font-medium text-vitastock-body-color">
-									{item.totalAvailable} {item.drug.unit} left
+									{item.totalAvailable} {item.drug.unit ?? EMPTY_DISPLAY_VALUE} left
 								</p>
 							</div>
-							<StatusBadge status={item.status} />
+							<InventoryConditionBadges row={item} />
 						</article>
 					)}
 				/>
@@ -569,52 +630,250 @@ function ProjectedStockOut() {
 const StockLogSchema = backendApiSchemaRoutes["@post/inventory/stock-log"].body;
 
 type StockMovementType = z.infer<typeof StockMovementLogTypeSchema>;
+type StockOutReason = z.infer<typeof StockOutReasonSchema>;
+type StockLogFormValues = z.input<typeof StockLogSchema>;
 
 const stockOutReasonLabels = {
 	[StockOutReasonSchema.enum.damaged]: "Damaged stock",
 	[StockOutReasonSchema.enum.expired]: "Expired stock",
 	[StockOutReasonSchema.enum.patient]: "Patient dispense",
 	[StockOutReasonSchema.enum.ward]: "Ward dispense",
-} satisfies Record<z.infer<typeof StockOutReasonSchema>, string>;
+} satisfies Record<StockOutReason, string>;
+
+const stockOutReasonOptions = StockOutReasonSchema.options.map((reason) => ({
+	label: stockOutReasonLabels[reason],
+	value: reason,
+}));
+
+function StockOutDetails(props: {
+	drugId: string;
+	quantity: StockLogFormValues["quantity"];
+	reason: StockOutReason;
+}) {
+	const { drugId, quantity, reason } = props;
+	const form = useFormContext<StockLogFormValues>();
+	const inventorySummaryQueryResult = useQuery(inventorySummaryQuery());
+	const inventoryRow = inventorySummaryQueryResult.data?.rows.find((row) => row.drugId === drugId);
+	const isDisposal =
+		reason === StockOutReasonSchema.enum.damaged || reason === StockOutReasonSchema.enum.expired;
+	const availability = reason === StockOutReasonSchema.enum.expired ? "expired" : "usable";
+	const batchesQueryResult = useQuery({
+		...inventoryDrugBatchesQuery({ drugId }, { availability }),
+		enabled: isDisposal && drugId.length > 0,
+	});
+	const batches = batchesQueryResult.data?.batches ?? [];
+	const batchOptions = batches.map((batch) => ({
+		label: `${batch.batchNumber ?? "Unnumbered batch"} - ${formatDate(batch.expiryDate)} - ${batch.quantityAvailable} available`,
+		value: batch.id,
+	}));
+
+	if (!isDisposal) {
+		if (!inventoryRow || inventoryRow.usableBatchCount <= 1 || !inventoryRow.nearestBatch) {
+			return null;
+		}
+
+		const hasDifferentExpiryDates = inventoryRow.usableExpiryDateCount > 1;
+		const spansMultipleBatches = Number(quantity) > inventoryRow.nearestBatch.quantityAvailable;
+
+		return (
+			<aside
+				className={cnJoin(
+					"flex gap-3 rounded-lg border p-3",
+					hasDifferentExpiryDates ?
+						"border-vitastock-primary-main/25 bg-vitastock-primary-main/5"
+					:	"border-shadcn-border bg-shadcn-muted/40"
+				)}
+			>
+				<IconBox
+					icon={hasDifferentExpiryDates ? "lucide:triangle-alert" : "lucide:archive"}
+					className={cnJoin(
+						"mt-0.5 size-4 shrink-0",
+						hasDifferentExpiryDates ? "text-vitastock-primary-main" : "text-vitastock-body-color"
+					)}
+				/>
+				<div className="flex flex-col gap-1 text-[12px] text-vitastock-body-color">
+					<p className="font-bold text-shadcn-foreground">
+						{hasDifferentExpiryDates ? "Use this batch first" : "Multiple batches available"}
+					</p>
+					<p>
+						{inventoryRow.usableBatchCount} usable batches are available
+						{hasDifferentExpiryDates ?
+							` across ${inventoryRow.usableExpiryDateCount} expiry dates.`
+						:	" with the same expiry date."}
+					</p>
+					<p>
+						Select {inventoryRow.nearestBatch.batchNumber ?? "Unnumbered batch"} physically first. It
+						expires {formatDate(inventoryRow.nearestBatch.expiryDate)} and contains{" "}
+						{inventoryRow.nearestBatch.quantityAvailable}{" "}
+						{inventoryRow.drug.unit ?? EMPTY_DISPLAY_VALUE}.
+					</p>
+					<p>VitaStock will deduct from the earliest-expiring batches automatically.</p>
+					{spansMultipleBatches && (
+						<p className="font-semibold text-shadcn-foreground">
+							The entered quantity exceeds this batch, so the remaining quantity will continue from
+							the next eligible batch.
+						</p>
+					)}
+				</div>
+			</aside>
+		);
+	}
+
+	return (
+		<FormField
+			control={form.control}
+			name="batchId"
+			label={reason === StockOutReasonSchema.enum.expired ? "Expired Batch" : "Damaged Batch"}
+		>
+			<Switch.Root>
+				<Switch.Match when={drugId.length === 0}>
+					<p className="text-[12px] text-vitastock-body-color">Select a drug first.</p>
+				</Switch.Match>
+
+				<Switch.Match when={batchesQueryResult.isLoading}>
+					<p className="text-[12px] text-vitastock-body-color">Loading eligible batches...</p>
+				</Switch.Match>
+
+				<Switch.Match when={batchesQueryResult.isError}>
+					<p className="text-[12px] text-shadcn-destructive">Failed to load eligible batches.</p>
+				</Switch.Match>
+
+				<Switch.Match when={batchesQueryResult.isSuccess && batches.length === 0}>
+					<p
+						className="rounded-lg border border-shadcn-border bg-shadcn-muted/40 p-3 text-[12px]
+							text-vitastock-body-color"
+					>
+						No eligible {availability} batch is available for this drug.
+					</p>
+				</Switch.Match>
+
+				<Switch.Default>
+					<Form.FieldBoundController
+						render={({ field, fieldState }) => (
+							<Combobox.Root
+								data={batchOptions}
+								type="batch"
+								value={field.value}
+								onValueChange={field.onChange}
+							>
+								<Combobox.Trigger
+									aria-invalid={fieldState.invalid}
+									className="h-10 w-full justify-between rounded-lg border-shadcn-border
+										bg-shadcn-background px-4 text-left text-[14px] font-normal shadow-none
+										hover:bg-shadcn-background aria-invalid:border-shadcn-destructive
+										aria-invalid:ring-[3px] aria-invalid:ring-shadcn-destructive/20"
+								/>
+								<Combobox.Content
+									className="rounded-lg border-shadcn-border bg-shadcn-background shadow-md"
+									popoverOptions={{ align: "start", sideOffset: 6 }}
+								>
+									<Combobox.Input className="h-10 text-[14px]" />
+									<Combobox.Empty className="p-3 text-[13px]">
+										No matching batch found.
+									</Combobox.Empty>
+									<Combobox.List className="max-h-52 p-1.5">
+										<Combobox.Group className="p-0">
+											<For
+												each={batches}
+												renderItem={(batch) => (
+													<Combobox.Item
+														key={batch.id}
+														value={batch.id}
+														keywords={[
+															batch.batchNumber ?? "Unnumbered batch",
+															batch.expiryDate,
+														]}
+														className="min-h-9 rounded-md px-3 text-[14px]
+															data-[selected=true]:bg-vitastock-primary-main/10
+															data-[selected=true]:text-vitastock-primary-dark"
+													>
+														{batch.batchNumber ?? "Unnumbered batch"} -{" "}
+														{formatDate(batch.expiryDate)} - {batch.quantityAvailable}{" "}
+														available
+													</Combobox.Item>
+												)}
+											/>
+										</Combobox.Group>
+									</Combobox.List>
+								</Combobox.Content>
+							</Combobox.Root>
+						)}
+					/>
+				</Switch.Default>
+			</Switch.Root>
+		</FormField>
+	);
+}
 
 function StockMovementDialog(props: {
 	defaultLogType: StockMovementType;
 	initialBatchId?: string;
 	initialDrugId?: string;
-	initialReason?: z.infer<typeof StockOutReasonSchema>;
+	initialReason?: StockOutReason;
 	onComplete?: () => void;
 }) {
 	const { defaultLogType, initialBatchId, initialDrugId, initialReason, onComplete } = props;
+
 	const isDispense = defaultLogType === "stock_out";
 
 	const inventoryDrugsQueryResult = useQuery(inventoryDrugsQuery());
 	const drugs = inventoryDrugsQueryResult.data?.drugs ?? [];
-	const getDrugLabel = (drug: (typeof drugs)[number]) =>
-		`${drug.name} (${drug.genericName}) ${drug.strength}`;
+	const drugOptions = drugs.map((drug) => ({
+		label: formatDrugLabel(drug, { includeGenericName: true }),
+		value: drug.id,
+	}));
 	const queryClient = useQueryClient();
 	const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
 	const [drugSearch, setDrugSearch] = useState("");
 	const [isCreateDrugOpen, setIsCreateDrugOpen] = useState(false);
 
 	const form = useForm({
-		defaultValues: {
-			batchId: initialBatchId,
-			batchNumber: "",
-			drugId: initialDrugId ?? "",
-			expiryDate: "",
-			logType: defaultLogType,
-			notes: "",
-			quantity: "",
-			reason: initialReason ?? StockOutReasonSchema.enum.patient,
-			unitCostNaira: "",
-		},
+		defaultValues: (() => {
+			if (defaultLogType !== StockMovementLogTypeSchema.enum.stock_out) {
+				return {
+					batchNumber: "",
+					drugId: initialDrugId ?? "",
+					expiryDate: "",
+					logType: defaultLogType,
+					notes: "",
+					quantity: "",
+					unitCostNaira: "",
+				};
+			}
+
+			const reason = initialReason ?? StockOutReasonSchema.enum.patient;
+
+			if (
+				reason === StockOutReasonSchema.enum.damaged
+				|| reason === StockOutReasonSchema.enum.expired
+			) {
+				return {
+					batchId: initialBatchId ?? "",
+					drugId: initialDrugId ?? "",
+					logType: StockMovementLogTypeSchema.enum.stock_out,
+					notes: "",
+					quantity: "",
+					reason,
+				};
+			}
+
+			return {
+				drugId: initialDrugId ?? "",
+				logType: StockMovementLogTypeSchema.enum.stock_out,
+				notes: "",
+				quantity: "",
+				reason,
+			};
+		})() satisfies StockLogFormValues as never,
 		resolver: zodResolver(StockLogSchema),
 	});
 
 	const onSubmit = form.handleSubmit(async (data) => {
 		await callBackendApiForQuery("@post/inventory/stock-log", {
 			body: data,
-			headers: { "x-idempotency-key": idempotencyKey },
+			headers: {
+				"x-idempotency-key": idempotencyKey,
+			},
 			meta: { toast: { success: true } },
 			onSuccess: () => {
 				void queryClient.invalidateQueries(inventorySummaryQuery());
@@ -679,27 +938,28 @@ function StockMovementDialog(props: {
 				<Switch.Default>
 					<Form.Root form={form} onSubmit={(event) => void onSubmit(event)}>
 						<div className="flex flex-col gap-4 border-y border-shadcn-border/70 p-5">
-							<Form.Field control={form.control} name="drugId">
-								<Form.Label>Drug Name</Form.Label>
+							<FormField control={form.control} name="drugId" label="Drug Name">
 								<Form.FieldBoundController
 									render={({ field, fieldState }) => (
 										<Combobox.Root
-											data={drugs.map((drug) => ({
-												label: getDrugLabel(drug),
-												value: drug.id,
-											}))}
+											data={drugOptions}
 											type="drug"
 											value={field.value}
-											onValueChange={field.onChange}
+											onValueChange={(value) => {
+												field.onChange(value);
+												form.setValue("batchId", undefined);
+											}}
 										>
 											<Combobox.Trigger
 												aria-invalid={fieldState.invalid}
-												className="h-10 w-full justify-between rounded-lg border-shadcn-border
+												classNames={{
+													base: `h-10 w-full justify-between rounded-lg border-shadcn-border
 													bg-shadcn-background px-4 text-left text-[14px] font-normal
 													shadow-none hover:bg-shadcn-background
 													aria-invalid:border-shadcn-destructive aria-invalid:ring-[3px]
-													aria-invalid:ring-shadcn-destructive/20"
-												classNames={{ icon: "text-vitastock-body-color/70" }}
+													aria-invalid:ring-shadcn-destructive/20`,
+													icon: "text-vitastock-body-color/70",
+												}}
 											/>
 											<Combobox.Content
 												className="rounded-lg border-shadcn-border bg-shadcn-background
@@ -730,12 +990,12 @@ function StockMovementDialog(props: {
 																<Combobox.Item
 																	key={drug.id}
 																	value={drug.id}
-																	keywords={[getDrugLabel(drug)]}
+																	keywords={[formatDrugLabel(drug, { includeGenericName: true })]}
 																	className="min-h-9 rounded-md px-3 text-[14px]
 																		data-[selected=true]:bg-vitastock-primary-main/10
 																		data-[selected=true]:text-vitastock-primary-dark"
 																>
-																	{getDrugLabel(drug)}
+																	{formatDrugLabel(drug, { includeGenericName: true })}
 																</Combobox.Item>
 															)}
 														/>
@@ -745,22 +1005,19 @@ function StockMovementDialog(props: {
 										</Combobox.Root>
 									)}
 								/>
-							</Form.Field>
+							</FormField>
 
 							<div className={cnJoin("grid gap-4", !isDispense && "grid-cols-2")}>
-								<Form.Field control={form.control} name="quantity">
-									<Form.Label>Quantity</Form.Label>
-									<Form.Input
-										type="number"
-										placeholder={isDispense ? "e.g. 10" : "e.g. 100"}
-										className="h-10 rounded-lg border border-shadcn-border bg-shadcn-background
-											px-4"
-									/>
-								</Form.Field>
+								<InputField
+									control={form.control}
+									name="quantity"
+									type="number"
+									label="Quantity"
+									placeholder={isDispense ? "e.g. 10" : "e.g. 100"}
+								/>
 
 								{!isDispense && (
-									<Form.Field control={form.control} name="expiryDate">
-										<Form.Label>Expiry Date</Form.Label>
+									<FormField control={form.control} name="expiryDate" label="Expiry Date">
 										<Form.FieldBoundController
 											render={({ field }) => (
 												<DateTimePicker
@@ -782,49 +1039,43 @@ function StockMovementDialog(props: {
 												/>
 											)}
 										/>
-									</Form.Field>
+									</FormField>
 								)}
 							</div>
 
 							<Show.Root when={isDispense}>
-								<Form.Field control={form.control} name="reason">
-									<Form.Label>Reason</Form.Label>
-									<Form.FieldBoundController
-										render={({ field }) => (
-											<Select.Root value={field.value} onValueChange={field.onChange}>
-												<Select.Trigger
-													className="h-10 rounded-lg border border-shadcn-border
-														bg-shadcn-background px-4"
-												>
-													<Select.Value placeholder="Select reason" />
-												</Select.Trigger>
-												<Select.Content>
-													<For
-														each={StockOutReasonSchema.options}
-														renderItem={(reason) => (
-															<Select.Item key={reason} value={reason}>
-																{stockOutReasonLabels[reason]}
-															</Select.Item>
-														)}
-													/>
-												</Select.Content>
-											</Select.Root>
-										)}
-									/>
-								</Form.Field>
+								<SelectField
+									control={form.control}
+									name="reason"
+									label="Reason"
+									placeholder="Select reason"
+									options={stockOutReasonOptions}
+									onValueChange={() => form.setValue("batchId", undefined)}
+								/>
+
+								<Form.Watch control={form.control} name={["drugId", "quantity", "reason"]}>
+									{([drugId, quantity, reason]) => (
+										<StockOutDetails
+											drugId={drugId}
+											quantity={quantity}
+											reason={StockOutReasonSchema.parse(reason)}
+										/>
+									)}
+								</Form.Watch>
 
 								<Show.Fallback>
-									<Form.Field control={form.control} name="batchNumber">
-										<Form.Label>Batch Number</Form.Label>
-										<Form.Input
-											placeholder="Optional batch number"
-											className="h-10 rounded-lg border border-shadcn-border
-												bg-shadcn-background px-4"
-										/>
-									</Form.Field>
+									<InputField
+										control={form.control}
+										name="batchNumber"
+										label="Batch Number"
+										placeholder="Optional batch number"
+									/>
 
-									<Form.Field control={form.control} name="unitCostNaira">
-										<Form.Label>Unit Cost</Form.Label>
+									<FormField
+										control={form.control}
+										name="unitCostNaira"
+										label="Unit Cost (Optional)"
+									>
 										<Form.InputGroup
 											className="h-10 rounded-lg border border-shadcn-border
 												bg-shadcn-background px-4"
@@ -840,7 +1091,7 @@ function StockMovementDialog(props: {
 												className="h-full"
 											/>
 										</Form.InputGroup>
-									</Form.Field>
+									</FormField>
 								</Show.Fallback>
 							</Show.Root>
 						</div>
