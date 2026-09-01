@@ -486,10 +486,7 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 			const backendValidation = await callBackendApiForQuery("@post/inventory/bulk-import/validate", {
 				body: { rows: result.validRows.map((row) => row.data) },
 			});
-			const partitionedRows = partitionBulkImportRows(
-				result.validRows,
-				backendValidation.data.issues
-			);
+			const partitionedRows = partitionBulkImportRows(result.validRows, backendValidation.data.issues);
 
 			setState({
 				duplicateRows: result.duplicateRows,

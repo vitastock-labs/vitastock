@@ -990,7 +990,9 @@ function StockMovementDialog(props: {
 																<Combobox.Item
 																	key={drug.id}
 																	value={drug.id}
-																	keywords={[formatDrugLabel(drug, { includeGenericName: true })]}
+																	keywords={[
+																		formatDrugLabel(drug, { includeGenericName: true }),
+																	]}
 																	className="min-h-9 rounded-md px-3 text-[14px]
 																		data-[selected=true]:bg-vitastock-primary-main/10
 																		data-[selected=true]:text-vitastock-primary-dark"

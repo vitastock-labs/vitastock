@@ -69,24 +69,19 @@ export function DrugMasterDialog() {
 	const columns = useMemo(
 		() =>
 			drugColumnHelper.columns([
-				drugColumnHelper.accessor(
-					(drug) => formatDrugLabel(drug, { includeGenericName: true }),
-					{
-						cell: ({ row }) => (
-							<div>
-								<p className="font-bold text-black">{row.original.name}</p>
-								<p className="mt-0.5 text-[12px] text-vitastock-body-color">
-									{row.original.genericName} / {row.original.strength ?? EMPTY_DISPLAY_VALUE}
-								</p>
-							</div>
-						),
-						enableSorting: false,
-						header: ({ column }) => (
-							<DataTableColumnHeader column={column}>Drug</DataTableColumnHeader>
-						),
-						id: "name",
-					}
-				),
+				drugColumnHelper.accessor((drug) => formatDrugLabel(drug, { includeGenericName: true }), {
+					cell: ({ row }) => (
+						<div>
+							<p className="font-bold text-black">{row.original.name}</p>
+							<p className="mt-0.5 text-[12px] text-vitastock-body-color">
+								{row.original.genericName} / {row.original.strength ?? EMPTY_DISPLAY_VALUE}
+							</p>
+						</div>
+					),
+					enableSorting: false,
+					header: ({ column }) => <DataTableColumnHeader column={column}>Drug</DataTableColumnHeader>,
+					id: "name",
+				}),
 				drugColumnHelper.accessor("form", {
 					cell: ({ getValue }) => getValue() ?? EMPTY_DISPLAY_VALUE,
 					enableSorting: false,

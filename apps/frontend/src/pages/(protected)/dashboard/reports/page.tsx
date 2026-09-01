@@ -63,24 +63,19 @@ const activityColumns = activityColumnHelper.columns([
 		enableSorting: false,
 		header: "Timestamp",
 	}),
-	activityColumnHelper.accessor(
-		(row) => formatDrugLabel(row.drug, { includeGenericName: true }),
-		{
-			cell: ({ row }) => (
-				<div>
-					<p className="font-bold text-black">
-						{formatDrugLabel(row.original.drug)}
-					</p>
-					<p className="mt-0.5 text-[12px] text-vitastock-body-color">
-						{row.original.drug.genericName} / {row.original.drug.unit ?? EMPTY_DISPLAY_VALUE}
-					</p>
-				</div>
-			),
-			enableSorting: false,
-			header: "Drug",
-			id: "drug",
-		}
-	),
+	activityColumnHelper.accessor((row) => formatDrugLabel(row.drug, { includeGenericName: true }), {
+		cell: ({ row }) => (
+			<div>
+				<p className="font-bold text-black">{formatDrugLabel(row.original.drug)}</p>
+				<p className="mt-0.5 text-[12px] text-vitastock-body-color">
+					{row.original.drug.genericName} / {row.original.drug.unit ?? EMPTY_DISPLAY_VALUE}
+				</p>
+			</div>
+		),
+		enableSorting: false,
+		header: "Drug",
+		id: "drug",
+	}),
 	activityColumnHelper.accessor("logType", {
 		cell: ({ getValue }) => {
 			const logType = getValue();

@@ -102,11 +102,14 @@ export const createInventoryStockLog = async (options: {
 
 		if (stockTransaction.isReplay) return;
 
-		const batchNumberCondition = normalizedBatchNumber
-			? sql`lower(btrim(${stockBatches.batchNumber})) = ${normalizedBatchNumber.toLowerCase()}`
-			: isNull(stockBatches.batchNumber);
+		const batchNumberCondition =
+			normalizedBatchNumber ?
+				sql`lower(btrim(${stockBatches.batchNumber})) = ${normalizedBatchNumber.toLowerCase()}`
+			:	isNull(stockBatches.batchNumber);
 		const unitCostCondition =
-			unitCostKobo === null ? isNull(stockBatches.unitCostKobo) : eq(stockBatches.unitCostKobo, unitCostKobo);
+			unitCostKobo === null ?
+				isNull(stockBatches.unitCostKobo)
+			:	eq(stockBatches.unitCostKobo, unitCostKobo);
 		const [existingBatch] = await tx
 			.select()
 			.from(stockBatches)

@@ -27,12 +27,12 @@ This file is the handoff context for continuing VitaStock in a new Codex task. R
 
 - VitaStock is a workspace-scoped pharmacy inventory application.
 - The repository is a pnpm/Turbo monorepo:
-  - `apps/frontend`: Vite + React frontend.
-  - `apps/backend`: Hono API and background-process entry points.
-  - `packages/db`: Drizzle PostgreSQL schema and seeders.
-  - `packages/shared`: cross-boundary Zod API contracts and shared validation.
-  - `packages/env`: environment validation.
-  - `packages/transactional`: React Email templates.
+   - `apps/frontend`: Vite + React frontend.
+   - `apps/backend`: Hono API and background-process entry points.
+   - `packages/db`: Drizzle PostgreSQL schema and seeders.
+   - `packages/shared`: cross-boundary Zod API contracts and shared validation.
+   - `packages/env`: environment validation.
+   - `packages/transactional`: React Email templates.
 - The backend supports server and worker entry points. Queue/background code must remain understandable and removable from the web process when hosting changes.
 - Workspace isolation always comes from authenticated request context. Workspace-scoped routes never accept `workspaceId` from frontend input.
 - Frontend API request/response/form types come from `backendApiSchemaRoutes`; database and shared schemas remain the canonical sources for domain shapes and enums.
@@ -56,8 +56,8 @@ This file is the handoff context for continuing VitaStock in a new Codex task. R
 - There is no persisted `inventorySummary` table. Inventory summaries, dashboard totals, filters, and counts are derived from current batches and grouped SQL queries.
 - Expiry is a PostgreSQL calendar `date`, transported as `YYYY-MM-DD`. Stock is usable throughout its expiry date and becomes expired on the following workspace-local calendar day.
 - Inventory condition is multi-dimensional:
-  - primary `stockStatus`: `normal | low_stock | out_of_stock`;
-  - independent usable, expired, and near-expiry batch counts.
+   - primary `stockStatus`: `normal | low_stock | out_of_stock`;
+   - independent usable, expired, and near-expiry batch counts.
 - Never replace Out of stock with Expired. A drug may simultaneously have no usable stock and still have expired physical batches.
 - Unit cost is required for stock creation/import, entered as naira in the frontend, converted to integer kobo before persistence, and formatted back to naira only at presentation boundaries.
 
@@ -121,9 +121,9 @@ This file is the handoff context for continuing VitaStock in a new Codex task. R
 - Tests use Vitest and avoid deeply nested test structure. Test names may begin with the behavior category, for example `FEFO - ...`.
 - Prefer disposable fixtures/builders that own setup and cleanup. Integration tests use the dedicated test database configuration.
 - Run commands from the package being checked:
-  - frontend: `pnpm lint:eslint`, `pnpm lint:type-check`, `pnpm test`;
-  - backend: `pnpm lint:eslint`, `pnpm lint:type-check`, focused Vitest commands;
-  - DB/shared: their package-local scripts.
+   - frontend: `pnpm lint:eslint`, `pnpm lint:type-check`, `pnpm test`;
+   - backend: `pnpm lint:eslint`, `pnpm lint:type-check`, focused Vitest commands;
+   - DB/shared: their package-local scripts.
 - Do not start Docker, the test database, Redis, a dev server, or browser verification without explicit permission.
 - When browser verification is authorized, test the actual interaction, not only rendering: filters, reset, pagination, scrolling, dialogs, combobox search, form errors, FEFO guidance, alert actions, and refresh persistence.
 - Keep pre-existing failures separate from failures introduced by the current change.
