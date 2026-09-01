@@ -121,10 +121,7 @@ test("accepts a file containing only the four required columns", () => {
 
 test("XLSX expiry - converts an Excel date cell to the API calendar-date format", () => {
 	const expiryDate = addDays(new Date(), 180);
-	const result = validateBulkImportSheet([
-		HEADER_ROW,
-		validRow({ "Expiry Date": expiryDate }),
-	]);
+	const result = validateBulkImportSheet([HEADER_ROW, validRow({ "Expiry Date": expiryDate })]);
 
 	expect(result.status).toBe("parsed");
 	if (result.status !== "parsed") return;
