@@ -4,14 +4,14 @@ export const sharedEnvSchema = z.object({
 	BASE_BACKEND_HOST: z
 		.literal([
 			"https://api-vitastock.vercel.app",
-			"https://api-vitastock.onrender.com",
+			"https://api-vitastock-staging-7nm6.onrender.com",
 			"https://api-vitastock-nm82l.ondigitalocean.app",
 		])
 		.default("https://api-vitastock-nm82l.ondigitalocean.app"),
 	BASE_BACKEND_HOST_DEV: z.literal("http://localhost:8000").default("http://localhost:8000"),
 	BASE_BACKEND_HOST_STAGING: z
-		.literal("https://api-vitastock-staging-7nm6.onrender.com")
-		.default("https://api-vitastock-staging-7nm6.onrender.com"),
+		.literal(["https://api-vitastock-nm82l.ondigitalocean.app"])
+		.default("https://api-vitastock-nm82l.ondigitalocean.app"),
 	BASE_FRONTEND_HOST: z.literal("https://vitastock.vercel.app").default("https://vitastock.vercel.app"),
 	BASE_FRONTEND_HOST_DEV: z.literal("http://localhost:5173").default("http://localhost:5173"),
 	BASE_FRONTEND_HOST_STAGING: z
