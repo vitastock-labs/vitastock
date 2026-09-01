@@ -480,6 +480,17 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 				return;
 			}
 
+			if (result.validRows.length === 0) {
+				setState({
+					duplicateRows: result.duplicateRows,
+					idempotencyKey: crypto.randomUUID(),
+					invalidRows: result.invalidRows,
+					stage: "preview",
+					validRows: [],
+				});
+				return;
+			}
+
 			setState({ stage: "processing", step: "preparing-preview" });
 			await yieldToUi();
 

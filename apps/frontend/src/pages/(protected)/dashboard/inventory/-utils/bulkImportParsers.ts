@@ -4,7 +4,7 @@ import {
 	INVENTORY_BULK_IMPORT_MAX_ROWS,
 	InventoryBulkImportHeadersSchema,
 } from "@vitastock/shared/validation/backendApiSchema";
-import { format } from "date-fns";
+import { format, isValid, parse as parseDate } from "date-fns";
 import type { z } from "zod";
 import { backendApiSchemaRoutes } from "@/lib/api/callBackendApi/apiSchema";
 
@@ -14,6 +14,51 @@ export const InventoryBulkImportRowSchema =
 export type InventoryBulkImportRowType = z.infer<typeof InventoryBulkImportRowSchema>;
 
 export const MAX_BULK_IMPORT_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+
+const COMMON_DATE_FORMATS = [
+	"yyyy-MM-dd",
+	"dd-MMM-yyyy",
+	"dd/MMM/yyyy",
+	"dd-MMMM-yyyy",
+	"MM/dd/yyyy",
+	"dd/MM/yyyy",
+	"MM-dd-yyyy",
+	"dd-MM-yyyy",
+	"yyyy/MM/dd",
+	"MMM dd, yyyy",
+	"MMMM dd, yyyy",
+	"dd MMM yyyy",
+	"dd MMMM yyyy",
+];
+
+const normalizeToIsoDate = (cell: unknown): string => {
+	if (cell instanceof Date) {
+		return format(cell, "yyyy-MM-dd");
+	}
+
+	const raw = cellToString(cell).trim();
+
+	if (raw === "") {
+		return "";
+	}
+
+	const referenceDate = new Date(0);
+
+	const titleCased = raw.replaceAll(
+		/\p{L}+/gu,
+		(word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+	);
+
+	for (const dateFormat of COMMON_DATE_FORMATS) {
+		const parsed = parseDate(titleCased, dateFormat, referenceDate);
+
+		if (!isValid(parsed)) continue;
+
+		return format(parsed, "yyyy-MM-dd");
+	}
+
+	return raw;
+};
 
 const cellToString = (cell: unknown): string => {
 	if (cell === null || cell === undefined) {
@@ -39,7 +84,14 @@ const mapSpreadsheetRowToInventoryFields = (headerRow: string[], row: unknown[])
 
 		if (!inventoryField) continue;
 
-		inventoryFields[inventoryField] = row[columnIndex];
+		const cell = row[columnIndex];
+
+		if (cell === null) {
+			inventoryFields[inventoryField] = undefined;
+			continue;
+		}
+
+		inventoryFields[inventoryField] = inventoryField === "expiryDate" ? normalizeToIsoDate(cell) : cell;
 	}
 
 	return inventoryFields;
@@ -88,6 +140,10 @@ export type BulkImportParseResult =
 
 const isRowEmpty = (row: unknown[]) => {
 	return row.every((cell) => cellToString(cell).trim() === "");
+};
+
+const BULK_IMPORT_ERROR_MESSAGES: Record<string, string> = {
+	"Invalid ISO date": "Invalid date — check the day exists for the given month",
 };
 
 export const validateBulkImportSheet = (
@@ -143,7 +199,7 @@ export const validateBulkImportSheet = (
 			invalidRows.push({
 				errors: parsedRows.error.issues.map((issue) => ({
 					field: (issue.path[0] as keyof InventoryBulkImportRowType | undefined) ?? "root",
-					message: issue.message,
+					message: BULK_IMPORT_ERROR_MESSAGES[issue.message] ?? issue.message,
 				})),
 				rawRow,
 				rowNumber,

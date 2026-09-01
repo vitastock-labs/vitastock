@@ -31,7 +31,7 @@ const validRow = (overrides: Partial<Record<string, unknown>> = {}) => {
 		"Unit Cost (₦)": "12.50",
 	};
 
-	return HEADER_ROW.map((column) => overrides[column] ?? base[column]);
+	return HEADER_ROW.map((column) => (column in overrides ? overrides[column] : base[column]));
 };
 
 test("accepts columns regardless of order", () => {
@@ -92,6 +92,23 @@ test("accepts blank optional metadata and cost without coercing them", () => {
 	});
 });
 
+test("XLSX optional fields - treats blank Excel cells as missing values", () => {
+	const result = validateBulkImportSheet([
+		HEADER_ROW,
+		validRow({ "Dosage Form": null, Strength: null, Unit: null, "Unit Cost (₦)": null }),
+	]);
+
+	expect(result.status).toBe("parsed");
+	if (result.status !== "parsed") return;
+	expect(result.invalidRows).toHaveLength(0);
+	expect(result.validRows[0]?.data).toMatchObject({
+		form: undefined,
+		strength: undefined,
+		unit: undefined,
+		unitCostNaira: undefined,
+	});
+});
+
 test("accepts a file containing only the four required columns", () => {
 	const headers = ["Drug Name", "Generic Name", "Quantity", "Expiry Date"];
 	const result = validateBulkImportSheet([headers, ["Paracetamol", "Paracetamol", "100", futureDate]]);
@@ -100,6 +117,18 @@ test("accepts a file containing only the four required columns", () => {
 	if (result.status !== "parsed") return;
 	expect(result.validRows).toHaveLength(1);
 	expect(result.validRows[0]?.data.unitCostNaira).toBeUndefined();
+});
+
+test("XLSX expiry - converts an Excel date cell to the API calendar-date format", () => {
+	const expiryDate = addDays(new Date(), 180);
+	const result = validateBulkImportSheet([
+		HEADER_ROW,
+		validRow({ "Expiry Date": expiryDate }),
+	]);
+
+	expect(result.status).toBe("parsed");
+	if (result.status !== "parsed") return;
+	expect(result.validRows[0]?.data.expiryDate).toBe(format(expiryDate, "yyyy-MM-dd"));
 });
 
 test("ignores completely empty rows", () => {
