@@ -20,6 +20,29 @@ type SeededUsers = Awaited<ReturnType<typeof seedUsers>>;
 type SeededMemberships = Awaited<ReturnType<typeof seedWorkspaceMemberships>>;
 type SeededWorkspaces = Awaited<ReturnType<typeof seedWorkspaces>>;
 
+const BATCH_SEED_IDS_BY_WORKSPACE = {
+	"CityCare Pharmacy": {
+		Amoxil: "20000000-0000-4000-8000-000000000001",
+		Glucophage: "20000000-0000-4000-8000-000000000003",
+		Lipitor: "20000000-0000-4000-8000-000000000004",
+		Synthroid: "20000000-0000-4000-8000-000000000005",
+		Zestril: "20000000-0000-4000-8000-000000000002",
+	},
+	"Greenleaf Pharmacy": {
+		Amoxil: "10000000-0000-4000-8000-000000000001",
+		Glucophage: "10000000-0000-4000-8000-000000000003",
+		Lipitor: "10000000-0000-4000-8000-000000000004",
+		Synthroid: "10000000-0000-4000-8000-000000000005",
+		Zestril: "10000000-0000-4000-8000-000000000002",
+	},
+} as const;
+
+const isSeedWorkspaceName = (
+	workspaceName: string
+): workspaceName is keyof typeof BATCH_SEED_IDS_BY_WORKSPACE => {
+	return workspaceName in BATCH_SEED_IDS_BY_WORKSPACE;
+};
+
 const getDrugSeedData = (workspaceId: string) => {
 	return [
 		{
@@ -79,8 +102,10 @@ const getBatchSeedData = (options: {
 	drugByName: Map<string, InsertDrugType & { id: string }>;
 	userId: string;
 	workspaceId: string;
+	workspaceName: keyof typeof BATCH_SEED_IDS_BY_WORKSPACE;
 }) => {
-	const { drugByName, userId, workspaceId } = options;
+	const { drugByName, userId, workspaceId, workspaceName } = options;
+	const batchIds = BATCH_SEED_IDS_BY_WORKSPACE[workspaceName];
 
 	const getDrugId = (name: string) => {
 		const drug = drugByName.get(name);
@@ -97,6 +122,7 @@ const getBatchSeedData = (options: {
 			batchNumber: `AMX-${workspaceId.slice(0, 8)}`,
 			drugId: getDrugId("Amoxil"),
 			expiryDate: getSeedExpiryDate(180),
+			id: batchIds.Amoxil,
 			quantityAvailable: 1_090,
 			quantityReceived: 1_200,
 			unitCostKobo: 12_500,
@@ -107,6 +133,7 @@ const getBatchSeedData = (options: {
 			batchNumber: `LIS-${workspaceId.slice(0, 8)}`,
 			drugId: getDrugId("Zestril"),
 			expiryDate: getSeedExpiryDate(30),
+			id: batchIds.Zestril,
 			quantityAvailable: 440,
 			quantityReceived: 500,
 			unitCostKobo: 8_000,
@@ -117,6 +144,7 @@ const getBatchSeedData = (options: {
 			batchNumber: `MET-${workspaceId.slice(0, 8)}`,
 			drugId: getDrugId("Glucophage"),
 			expiryDate: getSeedExpiryDate(365),
+			id: batchIds.Glucophage,
 			quantityAvailable: 8,
 			quantityReceived: 120,
 			unitCostKobo: 10_000,
@@ -127,6 +155,7 @@ const getBatchSeedData = (options: {
 			batchNumber: `ATO-${workspaceId.slice(0, 8)}`,
 			drugId: getDrugId("Lipitor"),
 			expiryDate: getSeedExpiryDate(-30),
+			id: batchIds.Lipitor,
 			quantityAvailable: 35,
 			quantityReceived: 80,
 			unitCostKobo: 15_000,
@@ -137,6 +166,7 @@ const getBatchSeedData = (options: {
 			batchNumber: `LEV-${workspaceId.slice(0, 8)}`,
 			drugId: getDrugId("Synthroid"),
 			expiryDate: getSeedExpiryDate(14),
+			id: batchIds.Synthroid,
 			quantityAvailable: 35,
 			quantityReceived: 60,
 			unitCostKobo: 18_000,
@@ -202,6 +232,10 @@ export const seedInventory = async (
 		.returning();
 
 	const allBatchSeeds = seededWorkspaces.flatMap((workspace) => {
+		if (!isSeedWorkspaceName(workspace.name)) {
+			throw new Error(`Missing batch seed IDs for ${workspace.name}`);
+		}
+
 		const actor = getWorkspaceOwnerUser({
 			seededMemberships,
 			seededUsers,
@@ -217,6 +251,7 @@ export const seedInventory = async (
 			drugByName: workspaceDrugByName,
 			userId: actor.id,
 			workspaceId: workspace.id,
+			workspaceName: workspace.name,
 		});
 	});
 
@@ -231,7 +266,7 @@ export const seedInventory = async (
 				quantityReceived: sql`excluded.quantity_received`,
 				unitCostKobo: sql`excluded.unit_cost_kobo`,
 			},
-			target: [stockBatches.workspaceId, stockBatches.drugId, stockBatches.batchNumber],
+			target: stockBatches.id,
 		})
 		.returning();
 

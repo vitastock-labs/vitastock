@@ -13,7 +13,7 @@ import { For } from "@/components/common/for";
 import { IconBox } from "@/components/common/IconBox";
 import { Show } from "@/components/common/show";
 import { Switch } from "@/components/common/switch";
-import { Badge, Card, Combobox, Select } from "@/components/ui";
+import { Badge, Card, Combobox, ScrollArea, Select } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import {
 	createDataTableColumnHelper,
@@ -48,7 +48,10 @@ import {
 	formatUncostedBatchCount,
 } from "@/lib/utils/formatters";
 import { FormField, InputField, SelectField } from "@/pages/(home)/-components/FormPartsShared";
-import { EMPTY_DISPLAY_VALUE } from "@/pages/(protected)/dashboard/-components/constants";
+import {
+	EMPTY_DISPLAY_VALUE,
+	LOADING_DISPLAY_VALUE,
+} from "@/pages/(protected)/dashboard/-components/constants";
 import { EmptyState } from "@/pages/(protected)/dashboard/-components/EmptyState";
 import { DashboardDataTable } from "../-components/DashboardDataTableShared";
 import { CreateDrugDialog, EditDrugDialog } from "../-components/DrugMasterDialog";
@@ -90,7 +93,7 @@ function InventoryPage() {
 					<InventoryStats />
 					<InventoryActions />
 
-					<section className="flex flex-col gap-6 lg:flex-row">
+					<section className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
 						<InventoryTable />
 						<ProjectedStockOut />
 					</section>
@@ -115,6 +118,7 @@ function InventoryHeader() {
 function InventoryStats() {
 	const inventorySummaryQueryResult = useQuery(inventorySummaryQuery());
 	const summary = inventorySummaryQueryResult.data;
+	const stats = summary?.stats;
 
 	return (
 		<section className="grid gap-6 lg:grid-cols-2" aria-label="Inventory summary">
@@ -132,10 +136,10 @@ function InventoryStats() {
 						className="max-w-full text-[34px] leading-none font-extrabold tracking-tight
 							wrap-break-word text-shadcn-foreground"
 					>
-						{formatKoboAsNaira(summary?.stats.stockValueKobo ?? 0)}
+						{stats ? formatKoboAsNaira(stats.stockValueKobo) : LOADING_DISPLAY_VALUE}
 					</p>
 					<Card.Description className="text-[13px] text-vitastock-body-color/70">
-						{formatUncostedBatchCount(summary?.stats.uncostedBatchCount ?? 0)}
+						{stats ? formatUncostedBatchCount(stats.uncostedBatchCount) : LOADING_DISPLAY_VALUE}
 					</Card.Description>
 				</Card.Content>
 
@@ -156,7 +160,7 @@ function InventoryStats() {
 						Critical Supply Alerts
 					</Card.Title>
 					<p className="text-[34px] leading-none font-extrabold tracking-tight text-red-700">
-						{summary?.stats.criticalCount ?? 0}
+						{stats?.criticalCount ?? LOADING_DISPLAY_VALUE}
 					</p>
 					<Card.Description className="text-[13px] font-medium text-red-700/90">
 						Requires immediate review
@@ -472,7 +476,7 @@ function InventoryTable() {
 							void setActiveFilter(value as InventoryFilter);
 						}}
 					>
-						<Select.Trigger className="h-9 w-36 rounded-lg border-shadcn-border px-3 text-[13px]">
+						<Select.Trigger className="h-9 w-36 rounded-lg px-3 text-[13px]">
 							<IconBox icon="lucide:filter" className="size-4" />
 							<Select.Value />
 						</Select.Trigger>
@@ -497,7 +501,9 @@ function InventoryTable() {
 					errorMessage="Failed to load inventory."
 					classNames={{
 						tableCell: "px-5",
+						tableContainer: "max-w-full",
 						tableHead: "px-5",
+						tableRoot: "min-w-[760px]",
 						tableRow: ({ row }) =>
 							cnJoin(
 								"border-b border-shadcn-border hover:bg-shadcn-muted/20",
@@ -588,41 +594,52 @@ function ProjectedStockOut() {
 
 	return (
 		<Card.Root
-			className="flex w-full max-w-90 flex-col gap-5 rounded-lg border-shadcn-border
-				bg-shadcn-background p-5"
+			className="flex min-h-0 min-w-0 flex-col gap-5 overflow-hidden rounded-lg border-shadcn-border
+				bg-shadcn-background p-5 lg:h-[920px] lg:self-start"
 		>
-			<Card.Title className="text-[16px] font-bold text-shadcn-foreground">Needs Attention</Card.Title>
-
-			<Card.Content className="flex flex-col gap-3">
-				{attentionRows.length === 0 && (
-					<p className="text-[14px] font-medium text-vitastock-body-color">
-						No critical stock items.
-					</p>
+			<div className="flex items-center justify-between gap-4">
+				<Card.Title className="text-[16px] font-bold text-shadcn-foreground">
+					Needs Attention
+				</Card.Title>
+				{attentionRows.length > 0 && (
+					<Badge className="border-none bg-shadcn-muted px-2 text-vitastock-body-color">
+						{attentionRows.length}
+					</Badge>
 				)}
+			</div>
 
-				<For
-					each={attentionRows}
-					renderItem={(item) => (
-						<article
-							key={item.drugId}
-							className="flex items-center justify-between rounded-lg bg-shadcn-muted/40 p-3"
-						>
-							<div className="min-w-0">
-								<p className="truncate text-[14px] font-bold text-shadcn-foreground">
-									{formatDrugLabel(item.drug)}
-								</p>
-								<p className="truncate text-[12px] text-vitastock-body-color">
-									{item.drug.genericName}
-								</p>
-								<p className="text-[12px] font-medium text-vitastock-body-color">
-									{item.totalAvailable} {item.drug.unit ?? EMPTY_DISPLAY_VALUE} left
-								</p>
-							</div>
-							<InventoryConditionBadges row={item} />
-						</article>
+			<ScrollArea.Root type="always" className="min-h-0 flex-1">
+				<Card.Content className="flex flex-col gap-3 pr-3">
+					{attentionRows.length === 0 && (
+						<p className="text-[14px] font-medium text-vitastock-body-color">
+							No critical stock items.
+						</p>
 					)}
-				/>
-			</Card.Content>
+
+					<For
+						each={attentionRows}
+						renderItem={(item) => (
+							<article
+								key={item.drugId}
+								className="flex flex-col items-start gap-2.5 rounded-lg bg-shadcn-muted/40 p-3"
+							>
+								<div className="min-w-0 self-stretch">
+									<p className="truncate text-[14px] font-bold text-shadcn-foreground">
+										{formatDrugLabel(item.drug)}
+									</p>
+									<p className="truncate text-[12px] text-vitastock-body-color">
+										{item.drug.genericName}
+									</p>
+									<p className="text-[12px] font-medium text-vitastock-body-color">
+										{item.totalAvailable} {item.drug.unit ?? EMPTY_DISPLAY_VALUE} left
+									</p>
+								</div>
+								<InventoryConditionBadges row={item} />
+							</article>
+						)}
+					/>
+				</Card.Content>
+			</ScrollArea.Root>
 		</Card.Root>
 	);
 }
@@ -764,7 +781,7 @@ function StockOutDetails(props: {
 										aria-invalid:ring-[3px] aria-invalid:ring-shadcn-destructive/20"
 								/>
 								<Combobox.Content
-									className="rounded-lg border-shadcn-border bg-shadcn-background shadow-md"
+									className="rounded-lg bg-shadcn-background"
 									popoverOptions={{ align: "start", sideOffset: 6 }}
 								>
 									<Combobox.Input className="h-10 text-[14px]" />
@@ -962,8 +979,7 @@ function StockMovementDialog(props: {
 												}}
 											/>
 											<Combobox.Content
-												className="rounded-lg border-shadcn-border bg-shadcn-background
-													shadow-md"
+												className="rounded-lg bg-shadcn-background"
 												popoverOptions={{ align: "start", sideOffset: 6 }}
 											>
 												<Combobox.Input

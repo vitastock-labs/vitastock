@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { cnMerge } from "@/lib/utils/cn";
 import type { DataTableInstance } from "./data-table-types";
 
-const pageSizeOptions = [10, 12, 20, 25, 50] as const;
+const DEFAULT_PAGE_SIZE_OPTIONS = [10, 12, 20, 25, 50] as const;
 
 export type DataTablePaginationVariant = "default" | "numbered";
 
@@ -24,6 +24,7 @@ export function DataTablePagination<TData extends RowData>(
 			root?: string;
 		};
 		countLabelVariant?: "count" | "range";
+		pageSizeOptions?: readonly number[];
 		paginationVariant?: DataTablePaginationVariant;
 		table: DataTableInstance<TData>;
 		totalRows?: number;
@@ -33,12 +34,16 @@ export function DataTablePagination<TData extends RowData>(
 		className,
 		classNames,
 		countLabelVariant = "range",
+		pageSizeOptions = DEFAULT_PAGE_SIZE_OPTIONS,
 		paginationVariant = "default",
 		table,
 		totalRows,
 		...restOfProps
 	} = props;
 	const pagination = table.state.pagination;
+	const resolvedPageSizeOptions = [...new Set([...pageSizeOptions, pagination.pageSize])].toSorted(
+		(firstPageSize, secondPageSize) => firstPageSize - secondPageSize
+	);
 	const rowCount = totalRows ?? table.getFilteredRowModel().rows.length;
 	const firstVisibleRow = rowCount === 0 ? 0 : pagination.pageIndex * pagination.pageSize + 1;
 	const lastVisibleRow = Math.min((pagination.pageIndex + 1) * pagination.pageSize, rowCount);
@@ -66,24 +71,27 @@ export function DataTablePagination<TData extends RowData>(
 		return (
 			<div
 				className={cnMerge(
-					`flex flex-col gap-4 border-t border-shadcn-border/60 px-5 py-3 sm:flex-row sm:items-center
-					sm:justify-between`,
+					`flex flex-col gap-4 border-t border-shadcn-border/60 px-5 py-3 sm:grid
+					sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center`,
 					className
 				)}
 				{...restOfProps}
 			>
-				{countLabel}
+				<div className="flex flex-wrap items-center justify-between gap-3">
+					{countLabel}
+					<PageSizeSelect options={resolvedPageSizeOptions} table={table} />
+				</div>
 
 				<Pagination.Root
 					count={rowCount}
 					page={pagination.pageIndex + 1}
 					pageSize={pagination.pageSize}
-					boundaryCount={2}
-					siblingCount={1}
+					boundaryCount={1}
+					siblingCount={0}
 					onPageChange={(details) => table.setPageIndex(details.page - 1)}
-					className={cnMerge("max-w-full overflow-x-auto", classNames?.root)}
+					className={cnMerge("max-w-full self-center sm:self-auto", classNames?.root)}
 				>
-					<div className={cnMerge("flex min-w-max items-center gap-2 sm:gap-4", classNames?.base)}>
+					<div className={cnMerge("flex items-center gap-2 sm:gap-3", classNames?.base)}>
 						<Pagination.PrevTrigger
 							className={cnMerge(
 								`inline-flex size-8 items-center justify-center gap-2 text-[13px] font-semibold
@@ -108,6 +116,7 @@ export function DataTablePagination<TData extends RowData>(
 													text-shadcn-muted-foreground transition-colors
 													hover:text-shadcn-foreground data-selected:bg-shadcn-primary
 													data-selected:text-shadcn-primary-foreground`,
+												page.value !== pagination.pageIndex + 1 && "max-sm:hidden",
 												classNames?.item
 											)}
 										>
@@ -118,7 +127,7 @@ export function DataTablePagination<TData extends RowData>(
 											index={index}
 											className={cnMerge(
 												`grid size-8 place-items-center text-[13px] font-semibold
-													text-shadcn-muted-foreground`,
+													text-shadcn-muted-foreground max-sm:hidden`,
 												classNames?.ellipsis
 											)}
 										>
@@ -156,21 +165,7 @@ export function DataTablePagination<TData extends RowData>(
 			{countLabel}
 
 			<div className="flex items-center gap-3">
-				<Select.Root
-					value={String(pagination.pageSize)}
-					onValueChange={(value) => table.setPageSize(Number(value))}
-				>
-					<Select.Trigger className="h-8 w-20 rounded-lg px-2 text-[12px]">
-						<Select.Value />
-					</Select.Trigger>
-					<Select.Content>
-						{pageSizeOptions.map((pageSize) => (
-							<Select.Item key={pageSize} value={String(pageSize)}>
-								{pageSize}
-							</Select.Item>
-						))}
-					</Select.Content>
-				</Select.Root>
+				<PageSizeSelect options={resolvedPageSizeOptions} table={table} />
 
 				<div className="flex items-center gap-1">
 					<Button
@@ -201,5 +196,33 @@ export function DataTablePagination<TData extends RowData>(
 				</div>
 			</div>
 		</div>
+	);
+}
+
+function PageSizeSelect<TData extends RowData>(props: {
+	options: readonly number[];
+	table: DataTableInstance<TData>;
+}) {
+	const { options, table } = props;
+
+	return (
+		<label className="flex items-center gap-2 text-[12px] font-medium text-shadcn-muted-foreground">
+			Rows per page
+			<Select.Root
+				value={String(table.state.pagination.pageSize)}
+				onValueChange={(value) => table.setPageSize(Number(value))}
+			>
+				<Select.Trigger className="h-8 w-18 rounded-lg px-2 text-[12px]">
+					<Select.Value />
+				</Select.Trigger>
+				<Select.Content>
+					{options.map((pageSize) => (
+						<Select.Item key={pageSize} value={String(pageSize)}>
+							{pageSize}
+						</Select.Item>
+					))}
+				</Select.Content>
+			</Select.Root>
+		</label>
 	);
 }

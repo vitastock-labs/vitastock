@@ -15,6 +15,7 @@
 		"dev:nitro": "vite dev",
 		"dev:nitro:prod": "cross-env NODE_ENV=production vite dev",
 		"dev:prod": "cross-env NODE_ENV=production pnpm dev:watch",
+		"dev:staging": "cross-env NODE_ENV=staging pnpm dev:watch",
 		"dev:watch": "tsx watch src/server.ts --clear-screen=false",
 		"dev:worker": "cross-env NODE_ENV=development PROCESS_TYPE=worker tsx watch src/worker.ts --clear-screen=false",
 		"lint:eslint": "eslint . --max-warnings=0",

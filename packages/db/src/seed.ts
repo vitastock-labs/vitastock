@@ -1,3 +1,4 @@
+import { getDatabaseSeedEnv } from "@vitastock/env/backend";
 import { consola } from "consola";
 import { closeDatabaseConnection } from "./db";
 import {
@@ -8,10 +9,16 @@ import {
 	seedWorkspaces,
 } from "./seeders";
 
-const runSeeders = async () => {
-	consola.info("Seeding started...");
+const ENVIRONMENT = getDatabaseSeedEnv();
 
+const runSeeders = async () => {
 	try {
+		if (ENVIRONMENT.NODE_ENV === "production") {
+			throw new Error("Demo seed data cannot be inserted into the production database");
+		}
+
+		consola.info("Seeding started...");
+
 		const seededWorkspaces = await seedWorkspaces();
 		const seededUsers = await seedUsers(seededWorkspaces);
 		const seededMemberships = await seedWorkspaceMemberships(seededUsers, seededWorkspaces);

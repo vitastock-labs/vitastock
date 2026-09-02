@@ -15,6 +15,7 @@ import { IconBox } from "@/components/common/IconBox";
 import { Show } from "@/components/common/show";
 import { Switch } from "@/components/common/switch";
 import { SpinnerIcon } from "@/components/icons/SpinnerIcon";
+import { ScrollArea } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import { createDataTableColumnHelper, useDataTable } from "@/components/ui/data-table";
 import { callBackendApiForQuery } from "@/lib/api/callBackendApi";
@@ -578,7 +579,7 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 			className={cnJoin(
 				`flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-400px)] flex-col gap-0 overflow-hidden rounded-lg
 				border-shadcn-border bg-shadcn-background p-0`,
-				previewState ? "max-w-none" : "max-w-175"
+				previewState ? "h-[calc(100dvh-2rem)] max-w-none" : "max-w-175"
 			)}
 		>
 			<Switch.Root>
@@ -609,131 +610,139 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 
 						<Switch.Root>
 							<Switch.Match when={state.stage === "upload"}>
-								<div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto p-7">
-									<DropZoneInput.Root
-										allowedFileTypes={[".csv", ".xlsx"]}
-										maxFileCount={1}
-										maxFileSize={{ mb: MAX_BULK_IMPORT_FILE_SIZE_BYTES / (1024 * 1024) }}
-										onChange={(file) => setState({ file, stage: "upload" })}
-									>
-										<DropZoneInput.Area
-											classNames={{
-												container: `grid min-h-54 cursor-pointer place-items-center rounded-lg
-												border border-dashed border-vitastock-primary-light bg-shadcn-muted/40
-												transition-colors hover:border-vitastock-primary-main
-												data-[drag-over=true]:border-vitastock-primary-main
-												data-[drag-over=true]:bg-vitastock-primary-main/5`,
-											}}
-											unstyled={true}
+								<ScrollArea.Root className="min-h-0 flex-1">
+									<div className="flex flex-col gap-6 p-7">
+										<DropZoneInput.Root
+											allowedFileTypes={[".csv", ".xlsx"]}
+											maxFileCount={1}
+											maxFileSize={{ mb: MAX_BULK_IMPORT_FILE_SIZE_BYTES / (1024 * 1024) }}
+											onChange={(file) => setState({ file, stage: "upload" })}
 										>
-											<article className="flex w-full flex-col items-center gap-1 text-center">
-												<span
-													className="grid size-14 place-items-center rounded-lg
-														bg-vitastock-primary-main/15 text-vitastock-primary-main"
-												>
-													<IconBox icon="lucide:file-down" className="size-7" />
-												</span>
-
-												<p className="mt-4 text-[16px] font-bold text-shadcn-foreground">
-													Drag and drop your file here or click to browse
-												</p>
-												<p className="text-[13px] font-medium text-vitastock-body-color">
-													CSV or Excel files only (max 10MB)
-												</p>
-
-												<Button className="mt-4 h-9 px-4" type="button">
-													Browse Files
-												</Button>
-											</article>
-										</DropZoneInput.Area>
-
-										<DropZoneInput.ImagePreview
-											classNames={{
-												listContainer: "mt-4 w-full max-w-110",
-												listItem: "min-h-16",
-												preview: `grid size-10 place-items-center rounded-lg
-												bg-vitastock-primary-main/10 text-vitastock-primary-main`,
-											}}
-										/>
-									</DropZoneInput.Root>
-
-									{state.stage === "upload" && state.error && (
-										<p className="rounded-lg bg-red-50 p-3 text-[13px] font-medium text-red-700">
-											{state.error}
-										</p>
-									)}
-
-									<article className="flex flex-col gap-5 rounded-lg bg-shadcn-muted/70 p-5">
-										<header className="flex items-center justify-between gap-4">
-											<h4
-												className="flex items-center gap-2 text-[14px] font-bold
-													text-shadcn-foreground"
+											<DropZoneInput.Area
+												classNames={{
+													container: `grid min-h-54 cursor-pointer place-items-center
+													rounded-lg border border-dashed border-vitastock-primary-light
+													bg-shadcn-muted/40 transition-colors
+													hover:border-vitastock-primary-main
+													data-[drag-over=true]:border-vitastock-primary-main
+													data-[drag-over=true]:bg-vitastock-primary-main/5`,
+												}}
+												unstyled={true}
 											>
-												<IconBox
-													icon="lucide:circle"
-													className="size-4 rounded-full text-vitastock-primary-main"
-												/>
-												File Requirements
-											</h4>
+												<article
+													className="flex w-full flex-col items-center gap-1 text-center"
+												>
+													<span
+														className="grid size-14 place-items-center rounded-lg
+															bg-vitastock-primary-main/15 text-vitastock-primary-main"
+													>
+														<IconBox icon="lucide:file-down" className="size-7" />
+													</span>
 
-											<a
-												href="/templates/bulk-import-template.xlsx"
-												download={true}
-												className="flex items-center gap-1.5 text-[13px] font-bold
-													text-vitastock-primary-main hover:underline"
+													<p className="mt-4 text-[16px] font-bold text-shadcn-foreground">
+														Drag and drop your file here or click to browse
+													</p>
+													<p className="text-[13px] font-medium text-vitastock-body-color">
+														CSV or Excel files only (max 10MB)
+													</p>
+
+													<Button className="mt-4 h-9 px-4" type="button">
+														Browse Files
+													</Button>
+												</article>
+											</DropZoneInput.Area>
+
+											<DropZoneInput.ImagePreview
+												classNames={{
+													listContainer: "mt-4 w-full max-w-110",
+													listItem: "min-h-16",
+													preview: `grid size-10 place-items-center rounded-lg
+													bg-vitastock-primary-main/10 text-vitastock-primary-main`,
+												}}
+											/>
+										</DropZoneInput.Root>
+
+										{state.stage === "upload" && state.error && (
+											<p
+												className="rounded-lg bg-red-50 p-3 text-[13px] font-medium
+													text-red-700"
 											>
-												<IconBox icon="lucide:download" className="size-4" />
-												Download Sample Template
-											</a>
-										</header>
+												{state.error}
+											</p>
+										)}
 
-										<div className="grid gap-6 md:grid-cols-2">
-											<div className="flex flex-col gap-2">
-												<p
-													className="text-[11px] font-bold tracking-wider
-														text-vitastock-body-color uppercase"
+										<article className="flex flex-col gap-5 rounded-lg bg-shadcn-muted/70 p-5">
+											<header className="flex items-center justify-between gap-4">
+												<h4
+													className="flex items-center gap-2 text-[14px] font-bold
+														text-shadcn-foreground"
 												>
-													Required Fields
-												</p>
-												<ul
-													className="space-y-1.5 text-[13px] font-medium
-														text-vitastock-body-color"
-												>
-													<li className="flex items-center gap-2">
-														<span className="size-1.5 rounded-full bg-shadcn-destructive" />
-														Drug Name and Generic Name
-													</li>
-													<li className="flex items-center gap-2">
-														<span className="size-1.5 rounded-full bg-shadcn-destructive" />
-														Quantity
-													</li>
-													<li className="flex items-center gap-2">
-														<span className="size-1.5 rounded-full bg-shadcn-destructive" />
-														Expiry Date (must be a future date)
-													</li>
-												</ul>
-											</div>
+													<IconBox
+														icon="lucide:circle"
+														className="size-4 rounded-full text-vitastock-primary-main"
+													/>
+													File Requirements
+												</h4>
 
-											<div className="flex flex-col gap-2">
-												<p
-													className="text-[11px] font-bold tracking-wider
-														text-vitastock-body-color uppercase"
+												<a
+													href="/templates/bulk-import-template.xlsx"
+													download={true}
+													className="flex items-center gap-1.5 text-[13px] font-bold
+														text-vitastock-primary-main hover:underline"
 												>
-													Optional Fields
-												</p>
-												<ul
-													className="space-y-1.5 text-[13px] font-medium
-														text-vitastock-body-color"
-												>
-													<li className="flex items-center gap-2">
-														<span className="size-1.5 rounded-full bg-shadcn-border" />
-														Strength, Dosage Form, Unit, Unit Cost (₦)
-													</li>
-												</ul>
+													<IconBox icon="lucide:download" className="size-4" />
+													Download Sample Template
+												</a>
+											</header>
+
+											<div className="grid gap-6 md:grid-cols-2">
+												<div className="flex flex-col gap-2">
+													<p
+														className="text-[11px] font-bold tracking-wider
+															text-vitastock-body-color uppercase"
+													>
+														Required Fields
+													</p>
+													<ul
+														className="space-y-1.5 text-[13px] font-medium
+															text-vitastock-body-color"
+													>
+														<li className="flex items-center gap-2">
+															<span className="size-1.5 rounded-full bg-shadcn-destructive" />
+															Drug Name and Generic Name
+														</li>
+														<li className="flex items-center gap-2">
+															<span className="size-1.5 rounded-full bg-shadcn-destructive" />
+															Quantity
+														</li>
+														<li className="flex items-center gap-2">
+															<span className="size-1.5 rounded-full bg-shadcn-destructive" />
+															Expiry Date (must be a future date)
+														</li>
+													</ul>
+												</div>
+
+												<div className="flex flex-col gap-2">
+													<p
+														className="text-[11px] font-bold tracking-wider
+															text-vitastock-body-color uppercase"
+													>
+														Optional Fields
+													</p>
+													<ul
+														className="space-y-1.5 text-[13px] font-medium
+															text-vitastock-body-color"
+													>
+														<li className="flex items-center gap-2">
+															<span className="size-1.5 rounded-full bg-shadcn-border" />
+															Strength, Dosage Form, Unit, Unit Cost (₦)
+														</li>
+													</ul>
+												</div>
 											</div>
-										</div>
-									</article>
-								</div>
+										</article>
+									</div>
+								</ScrollArea.Root>
 							</Switch.Match>
 
 							<Switch.Match when={previewState !== undefined}>
@@ -793,20 +802,16 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 											</span>
 										</aside>
 
-										<div
-											className="min-h-70 grow overflow-auto rounded-lg border
-												border-shadcn-border"
-										>
-											<DashboardDataTable
-												table={previewTable}
-												emptyMessage="No rows detected in this file."
-												classNames={{
-													tableContainer: "overflow-visible",
-													tableHead: "sticky top-0 z-1 bg-shadcn-muted",
-													tableRoot: "min-w-250",
-												}}
-											/>
-										</div>
+										<DashboardDataTable
+											table={previewTable}
+											emptyMessage="No rows detected in this file."
+											classNames={{
+												base: "min-h-70 grow",
+												tableContainer: "min-h-0 grow rounded-lg border border-shadcn-border",
+												tableHead: "sticky top-0 z-1 bg-shadcn-muted",
+												tableRoot: "min-w-250",
+											}}
+										/>
 									</div>
 								)}
 							</Switch.Match>

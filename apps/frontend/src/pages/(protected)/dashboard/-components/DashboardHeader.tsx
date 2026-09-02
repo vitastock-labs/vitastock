@@ -130,7 +130,7 @@ function ProfileDropdown() {
 				</AvatarGroupAnimated.Root>
 			</DropdownMenu.Trigger>
 
-			<DropdownMenu.Content align="end" sideOffset={10} className="w-72 rounded-xl p-2 shadow-xl">
+			<DropdownMenu.Content align="end" sideOffset={10} className="w-72 rounded-xl p-2">
 				<DropdownMenu.Label className="flex min-w-0 items-center gap-3 px-3 py-2">
 					<Avatar.Root
 						className="size-11 bg-vitastock-primary-darker text-white ring-1 ring-shadcn-border"

@@ -23,6 +23,7 @@ type DataTableClassNames<TData extends RowData = RowData> = {
 	tableHeader?: string;
 	tableRoot?: string;
 	tableRow?: string | ((props: { index: number; row: DataTableRow<TData> }) => string | undefined);
+	tableScrollAreaThumb?: string;
 };
 
 export function DataTable<TData extends RowData>(
@@ -33,6 +34,7 @@ export function DataTable<TData extends RowData>(
 		errorMessage?: string;
 		isError?: boolean;
 		isLoading?: boolean;
+		pageSizeOptions?: readonly number[];
 		paginationVariant?: DataTablePaginationVariant;
 		showPagination?: boolean;
 		table: DataTableInstance<TData>;
@@ -48,6 +50,7 @@ export function DataTable<TData extends RowData>(
 		errorMessage = "Failed to load data.",
 		isError = false,
 		isLoading = false,
+		pageSizeOptions,
 		paginationVariant,
 		showPagination = true,
 		table,
@@ -123,6 +126,7 @@ export function DataTable<TData extends RowData>(
 			<Table.Root
 				classNames={{
 					container: classNames?.tableContainer,
+					scrollAreaThumb: classNames?.tableScrollAreaThumb,
 					table: classNames?.tableRoot,
 				}}
 			>
@@ -159,9 +163,10 @@ export function DataTable<TData extends RowData>(
 					table={table}
 					totalRows={totalRows}
 					countLabelVariant={countLabelVariant}
+					pageSizeOptions={pageSizeOptions}
 					paginationVariant={paginationVariant}
 					classNames={{
-						base: cnMerge(classNames?.pagination, classNames?.paginationBase),
+						base: classNames?.paginationBase,
 						countLabel: classNames?.paginationCountLabel,
 						ellipsis: classNames?.paginationEllipsis,
 						item: classNames?.paginationItem,
@@ -169,6 +174,7 @@ export function DataTable<TData extends RowData>(
 						previousTrigger: classNames?.paginationPreviousTrigger,
 						root: classNames?.paginationRoot,
 					}}
+					className={classNames?.pagination}
 				/>
 			)}
 		</div>

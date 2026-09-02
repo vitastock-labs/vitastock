@@ -1,12 +1,5 @@
 import type { ColumnFiltersState, PaginationState, Updater } from "@tanstack/react-table";
-import {
-	parseAsInteger,
-	useQueryState,
-	useQueryStates,
-	type ParserMap,
-	type UrlKeys,
-	type Values,
-} from "nuqs";
+import { parseAsInteger, useQueryStates, type ParserMap, type UrlKeys, type Values } from "nuqs";
 import { useCallback, useMemo } from "react";
 import type { DataTableQueryKeys } from "./data-table-types";
 
@@ -18,11 +11,17 @@ const useDataTableQueryState = <TFilters extends ParserMap>(options: {
 }) => {
 	const { filterParsers, filterUrlKeys, initialPageSize = 10, queryKeys } = options;
 
-	const [page, setPage] = useQueryState(queryKeys.page, parseAsInteger.withDefault(1));
-
-	const [pageSize, setPageSize] = useQueryState(
-		queryKeys.perPage,
-		parseAsInteger.withDefault(initialPageSize)
+	const [{ page, pageSize }, setPagination] = useQueryStates(
+		{
+			page: parseAsInteger.withDefault(1),
+			pageSize: parseAsInteger.withDefault(initialPageSize),
+		},
+		{
+			urlKeys: {
+				page: queryKeys.page,
+				pageSize: queryKeys.perPage,
+			},
+		}
 	);
 
 	const pagination = useMemo<PaginationState>(
@@ -34,10 +33,12 @@ const useDataTableQueryState = <TFilters extends ParserMap>(options: {
 		(updater: Updater<PaginationState>) => {
 			const nextPagination = typeof updater === "function" ? updater(pagination) : updater;
 
-			void setPage(nextPagination.pageIndex + 1);
-			void setPageSize(nextPagination.pageSize);
+			void setPagination({
+				page: nextPagination.pageIndex + 1,
+				pageSize: nextPagination.pageSize,
+			});
 		},
-		[pagination, setPage, setPageSize]
+		[pagination, setPagination]
 	);
 
 	const [filterValues, setFilterValues] = useQueryStates(filterParsers ?? ({} as TFilters), {
@@ -63,15 +64,15 @@ const useDataTableQueryState = <TFilters extends ParserMap>(options: {
 			) as Partial<Values<TFilters>>;
 
 			void setFilterValues(nextFilterValues);
-			void setPage(1);
+			void setPagination({ page: 1 });
 		},
-		[columnFilters, filterValues, setFilterValues, setPage]
+		[columnFilters, filterValues, setFilterValues, setPagination]
 	);
 
 	const resetFilters = useCallback(() => {
 		void setFilterValues(null);
-		void setPage(1);
-	}, [setFilterValues, setPage]);
+		void setPagination({ page: 1 });
+	}, [setFilterValues, setPagination]);
 
 	return {
 		columnFilters,

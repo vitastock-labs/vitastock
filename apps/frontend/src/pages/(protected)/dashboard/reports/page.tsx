@@ -32,7 +32,10 @@ import {
 	formatEnumLabel,
 	formatKoboAsNaira,
 } from "@/lib/utils/formatters";
-import { EMPTY_DISPLAY_VALUE } from "@/pages/(protected)/dashboard/-components/constants";
+import {
+	EMPTY_DISPLAY_VALUE,
+	LOADING_DISPLAY_VALUE,
+} from "@/pages/(protected)/dashboard/-components/constants";
 import { EmptyState } from "@/pages/(protected)/dashboard/-components/EmptyState";
 import { DashboardDataTable } from "../-components/DashboardDataTableShared";
 import { Main } from "../-components/Main";
@@ -217,6 +220,7 @@ function ReportsPage() {
 						>
 							<DataTableQueryToolbar
 								table={table}
+								isSearching={inventoryActivityQueryResult.isFetching && Boolean(search)}
 								searchPlaceholder="Search drug or person..."
 								selectLabel="All movements"
 								selectOptions={STOCK_LOG_TYPE_FILTER_OPTIONS}
@@ -293,7 +297,7 @@ function ReportsStats(props: {
 						</div>
 						<div>
 							<p className="text-[34px] leading-none font-extrabold tracking-tight text-black">
-								{isLoading ? "..." : item.value}
+								{isLoading ? LOADING_DISPLAY_VALUE : item.value}
 							</p>
 							<p className="mt-2 text-[13px] font-medium text-vitastock-body-color">
 								{item.description}

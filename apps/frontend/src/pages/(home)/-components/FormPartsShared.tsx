@@ -180,9 +180,9 @@ export function SelectField<TFieldValues extends FieldValues, TTransformedValues
 						<Select.Trigger
 							aria-invalid={fieldState.invalid}
 							className={cnMerge(
-								`h-10 rounded-lg border border-shadcn-border bg-shadcn-background px-4 text-[14px]
-								text-shadcn-foreground aria-invalid:border-shadcn-destructive
-								aria-invalid:ring-[3px] aria-invalid:ring-shadcn-destructive/20`,
+								`h-10 rounded-lg px-4 text-[14px] text-shadcn-foreground
+								aria-invalid:border-shadcn-destructive aria-invalid:ring-[3px]
+								aria-invalid:ring-shadcn-destructive/20`,
 								classNames?.trigger
 							)}
 						>

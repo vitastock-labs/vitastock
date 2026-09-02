@@ -12,7 +12,6 @@
 		"db:migrate": "cross-env DB_MIGRATING=true drizzle-kit migrate",
 		"db:push": "drizzle-kit push",
 		"db:push-seed": "pnpm db:push && pnpm db:seed",
-		"db:push-seed:prod": "cross-env NODE_ENV=production pnpm db:push-seed",
 		"db:push-seed:staging": "cross-env NODE_ENV=staging pnpm db:push-seed",
 		"db:push:prod": "cross-env NODE_ENV=production pnpm db:push",
 		"db:seed": "cross-env DB_SEEDING=true tsx src/seed.ts",

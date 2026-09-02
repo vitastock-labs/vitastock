@@ -5,6 +5,7 @@ import {
 	createPaginatedRowModel,
 	createSortedRowModel,
 	filterFn_equalsString,
+	globalFilteringFeature,
 	metaHelper,
 	rowPaginationFeature,
 	rowSelectionFeature,
@@ -54,6 +55,7 @@ export const dataTableFeatures = tableFeatures({
 	filterFns: {
 		equalsString: filterFn_equalsString,
 	},
+	globalFilteringFeature,
 	paginatedRowModel: createPaginatedRowModel(),
 	rowPaginationFeature,
 	rowSelectionFeature,

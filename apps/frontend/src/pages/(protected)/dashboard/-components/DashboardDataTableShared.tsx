@@ -43,7 +43,7 @@ function DashboardDataTable<TData extends RowData>(props: DashboardDataTableProp
 					classNames?.paginationPreviousTrigger
 				),
 				tableCell: cnMerge("px-6 py-4 text-[14px]", classNames?.tableCell),
-				tableContainer: cnMerge("overflow-x-auto", classNames?.tableContainer),
+				tableContainer: cnMerge("w-full", classNames?.tableContainer),
 				tableHead: cnMerge(
 					`h-12 bg-shadcn-muted px-6 text-[12px] font-bold tracking-wider text-vitastock-body-color/75
 					uppercase`,
@@ -56,6 +56,7 @@ function DashboardDataTable<TData extends RowData>(props: DashboardDataTableProp
 						isFunction(classNames?.tableRow) ? classNames.tableRow(rowProps) : classNames?.tableRow
 					);
 				},
+				tableScrollAreaThumb: classNames?.tableScrollAreaThumb,
 			}}
 		/>
 	);

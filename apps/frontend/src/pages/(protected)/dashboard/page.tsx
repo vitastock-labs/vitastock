@@ -26,6 +26,7 @@ import {
 	formatKoboAsNaira,
 	formatUncostedBatchCount,
 } from "@/lib/utils/formatters";
+import { LOADING_DISPLAY_VALUE } from "@/pages/(protected)/dashboard/-components/constants";
 import { EmptyState } from "@/pages/(protected)/dashboard/-components/EmptyState";
 import { DashboardDataTable } from "./-components/DashboardDataTableShared";
 import { Main } from "./-components/Main";
@@ -94,28 +95,28 @@ function DashboardStats() {
 			desc: "Items below threshold",
 			icon: "lucide:archive",
 			title: "Low Stock",
-			value: String(stats?.lowStockCount ?? 0),
+			value: stats ? String(stats.lowStockCount) : LOADING_DISPLAY_VALUE,
 		},
 		{
 			color: "text-red-600",
 			desc: "Near expiry window",
 			icon: "lucide:calendar-x",
 			title: "Expiring Soon",
-			value: String(stats?.expiringSoonCount ?? 0),
+			value: stats ? String(stats.expiringSoonCount) : LOADING_DISPLAY_VALUE,
 		},
 		{
 			color: "text-red-600",
 			desc: "Require disposal",
 			icon: "lucide:triangle-alert",
 			title: "Expired",
-			value: String(stats?.expiredCount ?? 0),
+			value: stats ? String(stats.expiredCount) : LOADING_DISPLAY_VALUE,
 		},
 		{
 			color: "text-vitastock-primary-main",
-			desc: formatUncostedBatchCount(stats?.uncostedBatchCount ?? 0),
+			desc: stats ? formatUncostedBatchCount(stats.uncostedBatchCount) : LOADING_DISPLAY_VALUE,
 			icon: "lucide:wallet",
 			title: "Recorded Inventory Value",
-			value: formatKoboAsNaira(stats?.stockValueKobo ?? 0),
+			value: stats ? formatKoboAsNaira(stats.stockValueKobo) : LOADING_DISPLAY_VALUE,
 		},
 	] as const;
 
@@ -141,7 +142,7 @@ function DashboardStats() {
 									stat.title === "Recorded Inventory Value" && "text-[28px] wrap-break-word"
 								)}
 							>
-								{dashboardOverviewQueryResult.isLoading ? "..." : stat.value}
+								{stat.value}
 							</p>
 							<Card.Description className="text-[13px] text-vitastock-body-color/70">
 								{stat.desc}

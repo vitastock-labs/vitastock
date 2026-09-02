@@ -4,6 +4,7 @@ import type { RowData } from "@tanstack/react-table";
 import { useDebouncedFn } from "@zayne-labs/toolkit-react";
 import { parseAsString, useQueryState } from "nuqs";
 import { IconBox } from "@/components/common/IconBox";
+import { SpinnerIcon } from "@/components/icons/SpinnerIcon";
 import { Select } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
@@ -149,14 +150,11 @@ function DataTableToolbarSelectFilter<TData extends RowData>(props: {
 			}}
 		>
 			<Select.Trigger
-				className={cnMerge(
-					"h-10 w-[140px] rounded-lg border-shadcn-border px-3.5 text-[14px] font-medium",
-					className
-				)}
+				className={cnMerge("h-10 w-[140px] rounded-lg px-3.5 text-[14px] font-medium", className)}
 			>
 				<Select.Value placeholder={allLabel} />
 			</Select.Trigger>
-			<Select.Content className="rounded-xl border border-shadcn-border/80 bg-white p-1.5 shadow-xl">
+			<Select.Content className="rounded-xl bg-white p-1.5">
 				<Select.Item value="all">{allLabel}</Select.Item>
 				{options.map((option) => (
 					<Select.Item key={option.value} value={option.value}>
@@ -171,6 +169,7 @@ function DataTableToolbarSelectFilter<TData extends RowData>(props: {
 function DataTableQueryToolbar<TData extends RowData>(
 	props: React.ComponentProps<"div"> & {
 		actions?: React.ReactNode;
+		isSearching?: boolean;
 		searchPlaceholder?: string;
 		selectLabel?: string;
 		selectOptions?: ReadonlyArray<{ label: string; value: string }>;
@@ -180,6 +179,7 @@ function DataTableQueryToolbar<TData extends RowData>(
 	const {
 		actions,
 		className,
+		isSearching = false,
 		searchPlaceholder = "Search...",
 		selectLabel = "All",
 		selectOptions,
@@ -219,13 +219,18 @@ function DataTableQueryToolbar<TData extends RowData>(
 						<IconBox icon="lucide:search" className="size-4.5" />
 					</Form.InputGroupAddon>
 					<Form.InputPrimitive
-						key={search}
 						type="search"
 						defaultValue={search}
 						placeholder={searchPlaceholder}
 						className="h-full placeholder:text-[14px]"
 						onChange={(event) => setSearchDebounced(event.target.value)}
 					/>
+					{isSearching && (
+						<Form.InputGroupAddon aria-live="polite">
+							<SpinnerIcon className="size-4 text-vitastock-primary-main" />
+							<span className="sr-only">Searching</span>
+						</Form.InputGroupAddon>
+					)}
 				</Form.InputGroup>
 
 				{selectOptions && (

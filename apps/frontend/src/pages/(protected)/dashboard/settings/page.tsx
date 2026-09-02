@@ -452,7 +452,7 @@ function ManagePeopleDialog() {
 					errorMessage="Failed to load members. Please try again later."
 					classNames={{
 						base: "min-h-0 grow overflow-hidden text-[14px] font-medium",
-						tableContainer: "min-h-0 grow overflow-auto",
+						tableContainer: "min-h-0 grow",
 					}}
 				>
 					<DataTableToolbar
@@ -583,11 +583,7 @@ function MemberActionsDropdown(props: MemberActionsDropdownProps) {
 					<IconBox icon="lucide:ellipsis" className="size-4.5" />
 				</DropdownMenu.Trigger>
 
-				<DropdownMenu.Content
-					align="end"
-					className="w-58 rounded-xl border border-shadcn-border/80 bg-white p-1.5 shadow-xl
-						shadow-black/10"
-				>
+				<DropdownMenu.Content align="end" className="w-58 rounded-xl bg-white p-1.5">
 					<DropdownMenu.Item asChild={true}>
 						<MemberActionMenuButton icon="lucide:eye" onClick={() => setIsDetailsDialogOpen(true)}>
 							View details
@@ -600,10 +596,7 @@ function MemberActionsDropdown(props: MemberActionsDropdownProps) {
 								<MemberActionMenuButton icon="lucide:user-cog">Change role</MemberActionMenuButton>
 							</DropdownMenu.SubTrigger>
 
-							<DropdownMenu.SubContent
-								className="w-54 rounded-xl border border-shadcn-border/80 bg-white p-1.5 shadow-xl
-									shadow-black/10"
-							>
+							<DropdownMenu.SubContent className="w-54 rounded-xl bg-white p-1.5">
 								{member.role === "pharmacist" && (
 									<DropdownMenu.Item onSelect={(event) => event.preventDefault()} asChild={true}>
 										<MemberActionMenuButton

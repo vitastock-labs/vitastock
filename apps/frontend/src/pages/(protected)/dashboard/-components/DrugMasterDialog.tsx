@@ -178,11 +178,13 @@ export function DrugMasterDialog() {
 					errorMessage="Failed to load Drug Master records."
 					totalRows={result?.pagination?.total}
 					classNames={{
-						base: "min-h-0 grow overflow-auto",
+						base: "min-h-0 grow",
+						tableContainer: "min-h-0 grow",
 					}}
 				>
 					<DataTableQueryToolbar
 						table={table}
+						isSearching={inventoryDrugsQueryResult.isFetching && Boolean(search)}
 						searchPlaceholder="Search drugs..."
 						actions={
 							<DialogAnimated.Root>
