@@ -122,10 +122,6 @@ const getBulkImportPreviewFieldValue = (result: BulkImportRowResult, field: Bulk
 			return formatDate(String(value));
 		}
 
-		if (typeof value === "number" && field === "unitCostNaira") {
-			return `₦${value.toFixed(2)}`;
-		}
-
 		return String(value);
 	}
 
@@ -383,12 +379,6 @@ const bulkImportPreviewColumns = bulkImportPreviewColumnHelper.columns([
 		meta: { classNames: { column: "min-w-24" } },
 	}),
 	bulkImportPreviewColumnHelper.display({
-		cell: ({ row }) => <BulkImportPreviewCell field="unitCostNaira" result={row.original} />,
-		header: () => "Unit Cost",
-		id: "unitCostNaira",
-		meta: { classNames: { column: "min-w-32" } },
-	}),
-	bulkImportPreviewColumnHelper.display({
 		cell: ({ row }) => <BulkImportPreviewCell field="expiryDate" result={row.original} />,
 		header: () => "Expiry Date",
 		id: "expiryDate",
@@ -532,8 +522,12 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 
 		try {
 			await callBackendApiForQuery("@post/inventory/bulk-import", {
-				body: { rows: validRows.map((row) => row.data) },
-				headers: { "x-idempotency-key": idempotencyKey },
+				body: {
+					rows: validRows.map((row) => row.data),
+				},
+				headers: {
+					"x-idempotency-key": idempotencyKey,
+				},
 				meta: { toast: { success: true } },
 				onSuccess: () => {
 					void queryClient.invalidateQueries(inventorySummaryQuery());
@@ -735,7 +729,7 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 													>
 														<li className="flex items-center gap-2">
 															<span className="size-1.5 rounded-full bg-shadcn-border" />
-															Strength, Dosage Form, Unit, Unit Cost (₦)
+															Strength, Dosage Form, Unit
 														</li>
 													</ul>
 												</div>

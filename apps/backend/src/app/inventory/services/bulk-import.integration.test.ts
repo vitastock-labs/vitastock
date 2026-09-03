@@ -27,7 +27,6 @@ const buildRow = (
 		quantity: 100,
 		strength: "400mg",
 		unit: "Tablets",
-		unitCostNaira: 15.5,
 		...overrides,
 	};
 };
@@ -79,26 +78,40 @@ test("Bulk import integration - creates a drug, batch, and opening-stock log per
 	expect(logs[0]?.quantity).toBe(100);
 });
 
-test("Bulk import integration - converts naira to kobo by rounding", async () => {
+test("Bulk import integration - concurrent manual and imported receipts preserve all quantities", async () => {
 	await using fixture = await createInventoryFixture();
-
-	await createInventoryBulkImport({
-		idempotencyKey: randomUUID(),
-		rows: [buildRow({ unitCostNaira: 12.345 })],
+	const expiryDate = getDateFromToday(180);
+	const options = {
 		timezone: fixture.workspace.timezone,
 		userId: fixture.user.id,
 		workspaceId: fixture.workspace.id,
-	});
+	};
+	const results = await Promise.allSettled([
+		createInventoryStockLog({
+			...options,
+			body: { drugId: fixture.drug.id, expiryDate, logType: "stock_in", quantity: 10 },
+			idempotencyKey: randomUUID(),
+		}),
+		createInventoryBulkImport({
+			...options,
+			idempotencyKey: randomUUID(),
+			rows: [
+				{ expiryDate, genericName: fixture.drug.genericName, name: fixture.drug.name, quantity: 5 },
+			],
+		}),
+	]);
 
-	const [batch] = await db
-		.select()
-		.from(stockBatches)
-		.where(eq(stockBatches.workspaceId, fixture.workspace.id));
+	expect(results.every((result) => result.status === "fulfilled")).toBe(true);
+	const batches = await db.select().from(stockBatches).where(eq(stockBatches.drugId, fixture.drug.id));
+	const logs = await db.select().from(stockLogs).where(eq(stockLogs.drugId, fixture.drug.id));
 
-	expect(batch?.unitCostKobo).toBe(Math.round(12.345 * 100));
+	expect(batches).toHaveLength(1);
+	expect(batches[0]).toMatchObject({ quantityAvailable: 15, quantityReceived: 15 });
+	expect(logs).toHaveLength(2);
+	expect(logs.reduce((total, log) => total + log.quantity, 0)).toBe(15);
 });
 
-test("Bulk import integration - preserves missing metadata and cost as null", async () => {
+test("Bulk import integration - preserves missing metadata as null", async () => {
 	await using fixture = await createInventoryFixture();
 
 	await createInventoryBulkImport({
@@ -121,8 +134,8 @@ test("Bulk import integration - preserves missing metadata and cost as null", as
 	const [log] = await db.select().from(stockLogs).where(eq(stockLogs.drugId, drug.id));
 
 	expect(drug).toMatchObject({ form: null, strength: null, unit: null });
-	expect(batch?.unitCostKobo).toBeNull();
-	expect(log?.unitCostKobo).toBeNull();
+	expect(batch?.quantityAvailable).toBe(25);
+	expect(log?.quantity).toBe(25);
 });
 
 test("Bulk import validation - reports ambiguous incomplete drug identities", async () => {
@@ -248,7 +261,7 @@ test("Bulk import integration - creates separate batches for the same drug with 
 	expect(batches.map((batch) => batch.quantityAvailable).toSorted()).toEqual([50, 75]);
 });
 
-test("Bulk import integration - allows the same drug with a different quantity as a separate batch", async () => {
+test("Bulk import integration - combines quantities for the same drug and expiry", async () => {
 	await using fixture = await createInventoryFixture();
 	const row = buildRow();
 
@@ -264,7 +277,8 @@ test("Bulk import integration - allows the same drug with a different quantity a
 
 	const batches = await db.select().from(stockBatches).where(eq(stockBatches.drugId, drug.id));
 
-	expect(batches).toHaveLength(2);
+	expect(batches).toHaveLength(1);
+	expect(batches[0]).toMatchObject({ quantityAvailable: 201, quantityReceived: 201 });
 });
 
 test("Bulk import integration - retrying with the same idempotency key does not create duplicates", async () => {
@@ -327,7 +341,6 @@ test("Bulk import integration - rejects an idempotency key already used by a sto
 			expiryDate: getDateFromToday(90),
 			logType: "stock_in",
 			quantity: 10,
-			unitCostNaira: 10,
 		},
 		idempotencyKey,
 		timezone: fixture.workspace.timezone,

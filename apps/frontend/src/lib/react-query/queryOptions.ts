@@ -42,10 +42,13 @@ export type DashboardOverviewQueryResultType = Awaited<
 	ReturnType<NonNullable<ReturnType<typeof dashboardOverviewQuery>["select"]>>
 >;
 
-export const inventorySummaryQuery = () => {
+export const inventorySummaryQuery = (
+	query?: z.infer<NonNullable<BackendApiRoutes["@get/inventory/summary"]["query"]>>
+) => {
 	return queryOptions({
-		queryFn: () => callBackendApiForQuery("@get/inventory/summary"),
-		queryKey: ["inventory", "summary"],
+		placeholderData: query ? keepPreviousData : undefined,
+		queryFn: () => callBackendApiForQuery("@get/inventory/summary", query ? { query } : undefined),
+		queryKey: query ? ["inventory", "summary", query] : ["inventory", "summary"],
 		select: (data) => data.data,
 	});
 };

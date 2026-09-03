@@ -91,14 +91,14 @@ const getAndVerifyUserFromToken = async (options: VerifyOptions) => {
 			requestUserAgent: requestContextValue.honoCtx.req.header("user-agent") ?? "unknown",
 		});
 
+		deleteCookie(requestContextValue.honoCtx, "vitastockRefreshToken");
+		deleteCookie(requestContextValue.honoCtx, "vitastockAccessToken");
+
 		await Promise.all([
 			db.update(users).set({ refreshTokenArray: [] }).where(eq(users.id, baseUser.id)),
 			removeFromCache(`user:${baseUser.id}`),
 			removeFromCache(`workspace-membership:${baseUser.id}`),
 		]);
-
-		deleteCookie(requestContextValue.honoCtx, "vitaStockRefreshToken");
-		deleteCookie(requestContextValue.honoCtx, "vitaStockAccessToken");
 
 		throw new AppError({
 			appCode: AUTH_ERRORS.INVALID_SESSION.appCode,

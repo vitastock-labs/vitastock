@@ -12,7 +12,6 @@ const HEADER_ROW = [
 	"Dosage Form",
 	"Unit",
 	"Quantity",
-	"Unit Cost (₦)",
 	"Expiry Date",
 ];
 
@@ -28,7 +27,6 @@ const validRow = (overrides: Partial<Record<string, unknown>> = {}) => {
 		Quantity: "100",
 		Strength: "500mg",
 		Unit: "Tablets",
-		"Unit Cost (₦)": "12.50",
 	};
 
 	return HEADER_ROW.map((column) => (column in overrides ? overrides[column] : base[column]));
@@ -75,10 +73,10 @@ test("rejects a duplicated column", () => {
 	expect(result.issues).toContain("Duplicate columns: Drug Name");
 });
 
-test("accepts blank optional metadata and cost without coercing them", () => {
+test("accepts blank optional metadata without coercing them", () => {
 	const result = validateBulkImportSheet([
 		HEADER_ROW,
-		validRow({ "Dosage Form": "", Strength: "", Unit: "", "Unit Cost (₦)": "" }),
+		validRow({ "Dosage Form": "", Strength: "", Unit: "" }),
 	]);
 
 	expect(result.status).toBe("parsed");
@@ -88,14 +86,13 @@ test("accepts blank optional metadata and cost without coercing them", () => {
 		form: undefined,
 		strength: undefined,
 		unit: undefined,
-		unitCostNaira: undefined,
 	});
 });
 
 test("XLSX optional fields - treats blank Excel cells as missing values", () => {
 	const result = validateBulkImportSheet([
 		HEADER_ROW,
-		validRow({ "Dosage Form": null, Strength: null, Unit: null, "Unit Cost (₦)": null }),
+		validRow({ "Dosage Form": null, Strength: null, Unit: null }),
 	]);
 
 	expect(result.status).toBe("parsed");
@@ -105,7 +102,6 @@ test("XLSX optional fields - treats blank Excel cells as missing values", () => 
 		form: undefined,
 		strength: undefined,
 		unit: undefined,
-		unitCostNaira: undefined,
 	});
 });
 
@@ -116,7 +112,6 @@ test("accepts a file containing only the four required columns", () => {
 	expect(result.status).toBe("parsed");
 	if (result.status !== "parsed") return;
 	expect(result.validRows).toHaveLength(1);
-	expect(result.validRows[0]?.data.unitCostNaira).toBeUndefined();
 });
 
 test("XLSX expiry - converts an Excel date cell to the API calendar-date format", () => {
@@ -166,22 +161,6 @@ test("rejects a non-positive quantity", () => {
 
 test("rejects a non-integer quantity", () => {
 	const result = validateBulkImportSheet([HEADER_ROW, validRow({ Quantity: "10.5" })]);
-
-	expect(result.status).toBe("parsed");
-	if (result.status !== "parsed") return;
-	expect(result.invalidRows).toHaveLength(1);
-});
-
-test("rejects a negative unit cost", () => {
-	const result = validateBulkImportSheet([HEADER_ROW, validRow({ "Unit Cost (₦)": "-5" })]);
-
-	expect(result.status).toBe("parsed");
-	if (result.status !== "parsed") return;
-	expect(result.invalidRows).toHaveLength(1);
-});
-
-test("rejects a unit cost with more than two decimal places", () => {
-	const result = validateBulkImportSheet([HEADER_ROW, validRow({ "Unit Cost (₦)": "12.345" })]);
 
 	expect(result.status).toBe("parsed");
 	if (result.status !== "parsed") return;
@@ -247,7 +226,7 @@ test("rejects one row over the maximum allowed row count", () => {
 test("parses a csv file into a valid, ready-to-import row", async () => {
 	const csvText = [
 		HEADER_ROW.join(","),
-		["Paracetamol", "Paracetamol", "500mg", "Tablet", "Tablets", "100", "12.50", futureDate].join(","),
+		["Paracetamol", "Paracetamol", "500mg", "Tablet", "Tablets", "100", futureDate].join(","),
 	].join("\n");
 
 	const file = new File([csvText], "import.csv", { type: "text/csv" });

@@ -73,11 +73,11 @@ docs {
 
   ## Cookies Set
 
-  - `vitaStockAccessToken`: Short-lived JWT
-  - `vitaStockRefreshToken`: Long-lived JWT
+  - `vitastockAccessToken`: Short-lived JWT
+  - `vitastockRefreshToken`: Long-lived JWT
 
   **Note**:
-  - Sets `vitaStockAccessToken` and `vitaStockRefreshToken` cookies
+  - Sets `vitastockAccessToken` and `vitastockRefreshToken` cookies
   - Resets login retry count to 0
   - Adds new refresh token to user's token array
   - If `mustChangePassword` is true, the frontend should show the forced password-change modal before routing to workspace screens

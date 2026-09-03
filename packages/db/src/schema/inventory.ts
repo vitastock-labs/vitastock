@@ -58,7 +58,6 @@ export const stockBatches = pg.pgTable(
 		id: pg.uuid().defaultRandom().primaryKey(),
 		quantityAvailable: pg.integer().notNull(),
 		quantityReceived: pg.integer().notNull(),
-		unitCostKobo: pg.integer(),
 		updatedAt: pg
 			.timestamp({ withTimezone: true })
 			.notNull()
@@ -77,13 +76,12 @@ export const stockBatches = pg.pgTable(
 		pg.index("stock_batch_drug_index").on(table.drugId),
 		pg.index("stock_batch_workspace_expiry_index").on(table.workspaceId, table.expiryDate),
 		pg
-			.uniqueIndex("stock_batch_receipt_layer_index")
+			.uniqueIndex("stock_batch_identity_index")
 			.on(
 				table.workspaceId,
 				table.drugId,
 				sql`coalesce(lower(btrim(${table.batchNumber})), '')`,
-				table.expiryDate,
-				sql`coalesce(${table.unitCostKobo}, -1)`
+				table.expiryDate
 			),
 		pg.check("stock_batch_quantity_available_check", sql`${table.quantityAvailable} >= 0`),
 		pg.check("stock_batch_quantity_received_check", sql`${table.quantityReceived} > 0`),
@@ -91,7 +89,6 @@ export const stockBatches = pg.pgTable(
 			"stock_batch_available_lte_received_check",
 			sql`${table.quantityAvailable} <= ${table.quantityReceived}`
 		),
-		pg.check("stock_batch_unit_cost_non_negative_check", sql`${table.unitCostKobo} >= 0`),
 	]
 );
 
@@ -158,7 +155,6 @@ export const stockLogs = pg.pgTable(
 			.uuid()
 			.notNull()
 			.references(() => stockTransactions.id, { onDelete: "restrict" }),
-		unitCostKobo: pg.integer(),
 		workspaceId: pg
 			.uuid()
 			.notNull()
@@ -169,7 +165,6 @@ export const stockLogs = pg.pgTable(
 		pg.index("stock_log_workspace_created_index").on(table.workspaceId, table.createdAt),
 		pg.index("stock_log_transaction_index").on(table.stockTransactionId),
 		pg.check("stock_log_quantity_positive_check", sql`${table.quantity} > 0`),
-		pg.check("stock_log_unit_cost_non_negative_check", sql`${table.unitCostKobo} >= 0`),
 	]
 );
 

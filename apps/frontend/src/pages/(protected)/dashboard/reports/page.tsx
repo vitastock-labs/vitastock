@@ -26,12 +26,7 @@ import {
 	type InventoryActivityQueryResultType,
 } from "@/lib/react-query/queryOptions";
 import { cnJoin } from "@/lib/utils/cn";
-import {
-	formatDateTime,
-	formatDrugLabel,
-	formatEnumLabel,
-	formatKoboAsNaira,
-} from "@/lib/utils/formatters";
+import { formatDateTime, formatDrugLabel, formatEnumLabel } from "@/lib/utils/formatters";
 import {
 	EMPTY_DISPLAY_VALUE,
 	LOADING_DISPLAY_VALUE,
@@ -265,12 +260,6 @@ function ReportsStats(props: {
 			label: "Expiry Loss",
 			value: (stats?.expiredLossQuantity ?? 0).toLocaleString(),
 		},
-		{
-			description: "Cost value of expired stock removed in 30 days",
-			icon: "lucide:circle-dollar-sign",
-			label: "Expiry Loss Value",
-			value: formatKoboAsNaira(stats?.expiredLossValueKobo ?? 0),
-		},
 	] as const;
 
 	return (
@@ -284,7 +273,7 @@ function ReportsStats(props: {
 
 			<ForWithWrapper
 				each={statItems}
-				className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3"
+				className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4"
 				renderItem={(item) => (
 					<li
 						key={item.label}

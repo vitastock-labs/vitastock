@@ -149,9 +149,6 @@ export const getInventoryActivity = async (options: {
 		db
 			.select({
 				expiredLossQuantity: sql<number>`coalesce(sum(${stockLogs.quantity}), 0)`.mapWith(Number),
-				expiredLossValueKobo: sql<number>`
-					coalesce(sum(${stockLogs.quantity} * ${stockLogs.unitCostKobo}), 0)
-				`.mapWith(Number),
 			})
 			.from(stockLogs)
 			.where(
@@ -176,7 +173,6 @@ export const getInventoryActivity = async (options: {
 		rows,
 		stats: {
 			expiredLossQuantity: expiryLoss?.expiredLossQuantity ?? 0,
-			expiredLossValueKobo: expiryLoss?.expiredLossValueKobo ?? 0,
 			weeklyMovementCount: weeklyStats?.weeklyMovementCount ?? 0,
 			weeklyStockInQuantity: weeklyStats?.weeklyStockInQuantity ?? 0,
 			weeklyStockOutQuantity: weeklyStats?.weeklyStockOutQuantity ?? 0,

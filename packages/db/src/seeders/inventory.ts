@@ -125,7 +125,6 @@ const getBatchSeedData = (options: {
 			id: batchIds.Amoxil,
 			quantityAvailable: 1_090,
 			quantityReceived: 1_200,
-			unitCostKobo: 12_500,
 			userId,
 			workspaceId,
 		},
@@ -136,7 +135,6 @@ const getBatchSeedData = (options: {
 			id: batchIds.Zestril,
 			quantityAvailable: 440,
 			quantityReceived: 500,
-			unitCostKobo: 8_000,
 			userId,
 			workspaceId,
 		},
@@ -147,7 +145,6 @@ const getBatchSeedData = (options: {
 			id: batchIds.Glucophage,
 			quantityAvailable: 8,
 			quantityReceived: 120,
-			unitCostKobo: 10_000,
 			userId,
 			workspaceId,
 		},
@@ -158,7 +155,6 @@ const getBatchSeedData = (options: {
 			id: batchIds.Lipitor,
 			quantityAvailable: 35,
 			quantityReceived: 80,
-			unitCostKobo: 15_000,
 			userId,
 			workspaceId,
 		},
@@ -169,7 +165,6 @@ const getBatchSeedData = (options: {
 			id: batchIds.Synthroid,
 			quantityAvailable: 35,
 			quantityReceived: 60,
-			unitCostKobo: 18_000,
 			userId,
 			workspaceId,
 		},
@@ -264,7 +259,6 @@ export const seedInventory = async (
 				expiryDate: sql`excluded.expiry_date`,
 				quantityAvailable: sql`excluded.quantity_available`,
 				quantityReceived: sql`excluded.quantity_received`,
-				unitCostKobo: sql`excluded.unit_cost_kobo`,
 			},
 			target: stockBatches.id,
 		})
@@ -312,7 +306,6 @@ export const seedInventory = async (
 					performedByUserId: actor.id,
 					quantity: batch.quantityReceived,
 					stockTransactionId: crypto.randomUUID(),
-					unitCostKobo: batch.unitCostKobo,
 					workspaceId: workspace.id,
 				},
 			];
@@ -327,7 +320,6 @@ export const seedInventory = async (
 					quantity: batch.quantityReceived - batch.quantityAvailable,
 					reason: "patient",
 					stockTransactionId: crypto.randomUUID(),
-					unitCostKobo: batch.unitCostKobo,
 					workspaceId: workspace.id,
 				});
 			}

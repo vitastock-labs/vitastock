@@ -19,3 +19,4 @@ export * as Sidebar from "./sidebar";
 export { Skeleton } from "./skeleton";
 export * as Table from "./table";
 export * as Tabs from "./tabs";
+export * as Tooltip from "./tooltip";

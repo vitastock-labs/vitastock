@@ -33,7 +33,7 @@
 		"start:worker:built": "cross-env NODE_ENV=production PROCESS_TYPE=worker node dist/worker.js",
 		"start:worker:built:staging": "cross-env NODE_ENV=staging PROCESS_TYPE=worker node dist/worker.js",
 		"test": "vitest run",
-		"test:integration": "cross-env NODE_ENV=development LOG_LEVEL=silent DATABASE_URL_DEV=postgresql://postgres:postgres@localhost:5434/vitastock_test vitest run --config vitest.integration.config.ts",
+		"test:integration": "cross-env NODE_ENV=development LOG_LEVEL=silent vitest run --config vitest.integration.config.ts",
 		"test:watch": "vitest"
 	},
 	"dependencies": {

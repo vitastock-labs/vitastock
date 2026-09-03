@@ -221,32 +221,37 @@ export const inventoryRoutes = new Hono()
 		}
 	)
 
-	.get("/summary", async (ctx) => {
-		const currentUser = ctx.get("currentUser");
-		const currentWorkspace = ctx.get("currentWorkspace");
+	.get(
+		"/summary",
+		validateWithZodMiddleware("query", backendApiSchemaRoutes["@get/inventory/summary"].query),
+		async (ctx) => {
+			const currentUser = ctx.get("currentUser");
+			const currentWorkspace = ctx.get("currentWorkspace");
+			const query = ctx.req.valid("query");
 
-		const inventorySummaryRows = await getInventorySummaryRows({
-			lowStockThreshold: currentWorkspace.lowStockThreshold,
-			nearExpiryDays: currentWorkspace.nearExpiryDays,
-			timezone: currentWorkspace.timezone,
-			workspaceId: currentUser.workspaceId,
-		});
+			const inventorySummaryRows = await getInventorySummaryRows({
+				lowStockThreshold: currentWorkspace.lowStockThreshold,
+				nearExpiryDays: currentWorkspace.nearExpiryDays,
+				search: query?.search,
+				timezone: currentWorkspace.timezone,
+				workspaceId: currentUser.workspaceId,
+			});
 
-		const stats = getInventorySummaryStats(inventorySummaryRows);
+			const stats = getInventorySummaryStats(inventorySummaryRows);
 
-		return AppJsonResponse(ctx, {
-			data: {
-				rows: inventorySummaryRows,
-				stats: {
-					criticalCount: stats.criticalCount,
-					stockValueKobo: stats.stockValueKobo,
-					uncostedBatchCount: stats.uncostedBatchCount,
+			return AppJsonResponse(ctx, {
+				data: {
+					rows: inventorySummaryRows,
+					stats: {
+						criticalCount: stats.criticalCount,
+						drugsInStockCount: stats.drugsInStockCount,
+					},
 				},
-			},
-			message: "Inventory summary fetched successfully",
-			schema: backendApiSchemaRoutes["@get/inventory/summary"].data,
-		});
-	})
+				message: "Inventory summary fetched successfully",
+				schema: backendApiSchemaRoutes["@get/inventory/summary"].data,
+			});
+		}
+	)
 
 	.post(
 		"/stock-log",

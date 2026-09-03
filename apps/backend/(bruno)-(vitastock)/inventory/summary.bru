@@ -26,7 +26,7 @@ docs {
 
   ## Request
 
-  No path parameters, query parameters, or request body.
+  Optional `search` query searches brand, generic name, strength, form, and unit. No request body.
 
   ## Success Response
 
@@ -39,8 +39,7 @@ docs {
     "data": {
       "stats": {
         "criticalCount": 2,
-        "stockValueKobo": 18450000,
-        "uncostedBatchCount": 3
+        "drugsInStockCount": 12
       },
       "rows": [
         {
@@ -55,8 +54,6 @@ docs {
             "isActive": true
           },
           "totalAvailable": 40,
-          "stockValueKobo": 1000000,
-          "uncostedBatchCount": 1,
           "stockStatus": "normal",
           "usableBatchCount": 2,
           "usableExpiryDateCount": 2,
@@ -67,8 +64,7 @@ docs {
             "id": "batch-uuid",
             "batchNumber": "BATCH-001",
             "quantityAvailable": 40,
-            "expiryDate": "2027-12-31",
-            "unitCostKobo": 25000
+            "expiryDate": "2027-12-31"
           }
         }
       ]
@@ -76,13 +72,13 @@ docs {
   }
   ```
 
+  `stats.drugsInStockCount` counts distinct drugs with usable stock greater than zero; units from different medicines are never summed.
+
   ## Derived Fields
 
   | Field | Meaning |
   |-------|---------|
   | `totalAvailable` | Sum of usable quantity remaining across the drug's non-expired batches. |
-  | `stockValueKobo` | Sum of each usable batch's available quantity multiplied by its unit cost. |
-  | `uncostedBatchCount` | Positive-quantity usable batches omitted from valuation because no cost is recorded. |
   | `nearestBatch` | Available, non-expired batch with the earliest expiry date. Omitted when no usable batch exists. |
   | `nearestExpiryDate` | Expiry date of `nearestBatch`. Omitted when no usable batch exists. |
   | `stockStatus` | Primary usable-stock state: `normal`, `low_stock`, or `out_of_stock`. |
@@ -95,7 +91,6 @@ docs {
 
   ## Notes
 
-  - Monetary values are integer kobo. `stockValueKobo` is recorded inventory value, not an estimate for uncosted stock.
   - Conditions are independent. A drug can be low on usable stock while also having expired and near-expiry batches.
   - Expiry values are ISO calendar dates (`YYYY-MM-DD`), not timestamps.
   - Workspace isolation is enforced by the authenticated membership.

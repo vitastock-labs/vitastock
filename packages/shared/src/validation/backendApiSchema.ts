@@ -33,7 +33,6 @@ export const INVENTORY_BULK_IMPORT_COLUMNS = {
 	Quantity: "quantity",
 	Strength: "strength",
 	Unit: "unit",
-	"Unit Cost (₦)": "unitCostNaira",
 } as const;
 
 export const INVENTORY_BULK_IMPORT_REQUIRED_HEADERS = [
@@ -95,7 +94,6 @@ type InventoryBulkImportRowIdentity = {
 	quantity: number;
 	strength?: string;
 	unit?: string;
-	unitCostNaira?: number;
 };
 
 export const createInventoryBulkImportRowKey = (row: InventoryBulkImportRowIdentity) => {
@@ -103,9 +101,7 @@ export const createInventoryBulkImportRowKey = (row: InventoryBulkImportRowIdent
 		.map((value) => value?.trim().toLowerCase() ?? "")
 		.join("|");
 
-	const unitCostKobo = row.unitCostNaira === undefined ? "" : Math.round(row.unitCostNaira * 100);
-
-	return `${drugIdentity}|${row.expiryDate}|${row.quantity}|${unitCostKobo}`;
+	return `${drugIdentity}|${row.expiryDate}|${row.quantity}`;
 };
 
 const BaseSuccessResponseSchema = z.object({
@@ -203,16 +199,11 @@ type InventorySummaryRowType = {
 	drug: DrugDetailsType;
 	drugId: SelectDrugType["id"];
 	expiredBatchCount: number;
-	nearestBatch?: Pick<
-		SelectStockBatchType,
-		"batchNumber" | "expiryDate" | "id" | "quantityAvailable" | "unitCostKobo"
-	>;
+	nearestBatch?: Pick<SelectStockBatchType, "batchNumber" | "expiryDate" | "id" | "quantityAvailable">;
 	nearestExpiryDate?: SelectStockBatchType["expiryDate"];
 	nearExpiryBatchCount: number;
 	stockStatus: typeof INVENTORY_STOCK_STATUS.$inferUnion;
-	stockValueKobo: number;
 	totalAvailable: number;
-	uncostedBatchCount: number;
 	usableBatchCount: number;
 	usableExpiryDateCount: number;
 };
@@ -239,15 +230,6 @@ const nullableTrimmedStringSchema = z.preprocess(
 	(value) => (typeof value === "string" && value.trim() === "" ? null : value),
 	z.string().trim().min(1).nullable()
 );
-
-const optionalStringWithNumberValidation = <TNumberSchema extends z.ZodNumber>(
-	numberSchema: TNumberSchema
-) => {
-	return z.preprocess(
-		(value) => (value === "" || value === null || value === undefined ? undefined : Number(value)),
-		numberSchema.optional()
-	);
-};
 
 const TokenObjectSchema = z.object({
 	expiresAt: stringWithDateValidation(),
@@ -570,36 +552,38 @@ const inventoryRoutes = () => {
 		drugId: z.uuid("Invalid drug ID"),
 	});
 
-	const StockQuantitySchema = stringWithNumberValidation(z.number().positive());
+	const StockQuantitySchema = stringWithNumberValidation(
+		z
+			.number({ error: "Enter a quantity greater than zero." })
+			.positive("Enter a quantity greater than zero.")
+	);
 	const StockAdditionBodySchema = z.object({
 		batchNumber: z.string().optional(),
-		drugId: z.uuid(),
+		drugId: z.uuid({ error: "Select a drug." }),
 		expiryDate: IsoDateSchema,
 		logType: StockAdditionLogTypeSchema,
 		notes: z.string().optional(),
 		quantity: StockQuantitySchema,
-		unitCostNaira: optionalStringWithNumberValidation(z.number().min(0).multipleOf(0.01)),
 	});
 
 	const StockOutBodySchema = z.object({
-		drugId: z.uuid(),
+		drugId: z.uuid({ error: "Select a drug." }),
 		logType: StockOutLogTypeSchema,
 		notes: z.string().optional(),
 		quantity: StockQuantitySchema,
 	});
 	const FEFOStockOutBodySchema = StockOutBodySchema.extend({
-		batchId: z.never().optional(),
+		batchId: z.never({ error: "Batch selection is automatic for dispensing." }).optional(),
 		reason: z.enum([STOCK_OUT_REASONS[2], STOCK_OUT_REASONS[3]]),
 	});
 	const DisposalStockOutBodySchema = StockOutBodySchema.extend({
-		batchId: z.uuid(),
+		batchId: z.uuid({ error: "Select a batch to remove stock from." }),
 		reason: z.enum([STOCK_OUT_REASONS[0], STOCK_OUT_REASONS[1]]),
 	});
 
 	const InventoryBulkImportRowSchema = DrugCreateSchema.extend({
 		expiryDate: IsoDateSchema,
 		quantity: stringWithNumberValidation(z.number().positive().int()),
-		unitCostNaira: optionalStringWithNumberValidation(z.number().min(0).multipleOf(0.01)),
 	});
 
 	const InventoryBulkImportRowsSchema = InventoryBulkImportRowSchema.array()
@@ -637,15 +621,12 @@ const inventoryRoutes = () => {
 					expiryDate: IsoDateSchema,
 					id: z.uuid(),
 					quantityAvailable: z.number(),
-					unitCostKobo: z.number().nullable(),
 				})
 				.optional(),
 			nearestExpiryDate: IsoDateSchema.optional(),
 			nearExpiryBatchCount: z.number(),
 			stockStatus: z.enum(INVENTORY_STOCK_STATUS),
-			stockValueKobo: z.number(),
 			totalAvailable: z.number(),
-			uncostedBatchCount: z.number(),
 			usableBatchCount: z.number(),
 			usableExpiryDateCount: z.number(),
 		})
@@ -715,7 +696,6 @@ const inventoryRoutes = () => {
 					rows: z.array(InventoryActivityRowSchema),
 					stats: z.object({
 						expiredLossQuantity: z.number(),
-						expiredLossValueKobo: z.number(),
 						weeklyMovementCount: z.number(),
 						weeklyStockInQuantity: z.number(),
 						weeklyStockOutQuantity: z.number(),
@@ -779,11 +759,11 @@ const inventoryRoutes = () => {
 					rows: z.array(InventorySummaryRowSchema),
 					stats: z.object({
 						criticalCount: z.number(),
-						stockValueKobo: z.number(),
-						uncostedBatchCount: z.number(),
+						drugsInStockCount: z.number(),
 					}),
 				})
 			),
+			query: z.object({ search: z.string().trim().min(1).optional() }).optional(),
 		},
 
 		"@patch/inventory/drugs/:drugId": {
@@ -851,7 +831,12 @@ const inventoryRoutes = () => {
 		},
 
 		"@post/inventory/stock-log": {
-			body: z.union([StockAdditionBodySchema, FEFOStockOutBodySchema, DisposalStockOutBodySchema]),
+			body: z.discriminatedUnion("logType", [
+				StockAdditionBodySchema,
+				z.discriminatedUnion("reason", [FEFOStockOutBodySchema, DisposalStockOutBodySchema], {
+					error: "Select a reason for this stock movement.",
+				}),
+			]),
 			data: NullSuccessResponseSchema,
 			headers: z.object({
 				"x-idempotency-key": z.uuid(),
@@ -885,11 +870,10 @@ const dashboardRoutes = () => {
 				z.object({
 					recentActivity: z.array(RecentStockActivitySchema),
 					stats: z.object({
+						drugsInStockCount: z.number(),
 						expiredCount: z.preprocess((value) => Number(value), z.number()),
 						expiringSoonCount: z.preprocess((value) => Number(value), z.number()),
 						lowStockCount: z.number(),
-						stockValueKobo: z.number(),
-						uncostedBatchCount: z.number(),
 					}),
 				})
 			),

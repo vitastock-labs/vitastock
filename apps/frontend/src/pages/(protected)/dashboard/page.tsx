@@ -19,13 +19,7 @@ import {
 	type DashboardOverviewQueryResultType,
 } from "@/lib/react-query/queryOptions";
 import { cnJoin } from "@/lib/utils/cn";
-import {
-	formatDate,
-	formatDrugLabel,
-	formatEnumLabel,
-	formatKoboAsNaira,
-	formatUncostedBatchCount,
-} from "@/lib/utils/formatters";
+import { formatDate, formatDrugLabel, formatEnumLabel } from "@/lib/utils/formatters";
 import { LOADING_DISPLAY_VALUE } from "@/pages/(protected)/dashboard/-components/constants";
 import { EmptyState } from "@/pages/(protected)/dashboard/-components/EmptyState";
 import { DashboardDataTable } from "./-components/DashboardDataTableShared";
@@ -38,7 +32,7 @@ function DashboardPage() {
 	const hasNoInventory =
 		dashboardOverviewQueryResult.isSuccess
 		&& overview?.recentActivity.length === 0
-		&& overview.stats.stockValueKobo === 0;
+		&& overview.stats.drugsInStockCount === 0;
 
 	return (
 		<Main className="gap-10 px-12 pt-12">
@@ -113,10 +107,10 @@ function DashboardStats() {
 		},
 		{
 			color: "text-vitastock-primary-main",
-			desc: stats ? formatUncostedBatchCount(stats.uncostedBatchCount) : LOADING_DISPLAY_VALUE,
-			icon: "lucide:wallet",
-			title: "Recorded Inventory Value",
-			value: stats ? formatKoboAsNaira(stats.stockValueKobo) : LOADING_DISPLAY_VALUE,
+			desc: "Available to dispense",
+			icon: "lucide:archive",
+			title: "Drugs in Stock",
+			value: stats ? stats.drugsInStockCount.toLocaleString() : LOADING_DISPLAY_VALUE,
 		},
 	] as const;
 
@@ -137,10 +131,8 @@ function DashboardStats() {
 
 						<Card.Content className="flex min-w-0 grow flex-col justify-between gap-2">
 							<p
-								className={cnJoin(
-									"max-w-full text-[34px] leading-none font-extrabold tracking-tight text-black",
-									stat.title === "Recorded Inventory Value" && "text-[28px] wrap-break-word"
-								)}
+								className="max-w-full text-[34px] leading-none font-extrabold wrap-break-word
+									text-black"
 							>
 								{stat.value}
 							</p>

@@ -19,9 +19,7 @@ export const backendEnvSchema = z.object({
 	DATABASE_URL_DEV: z
 		.literal([
 			"postgresql://postgres:postgres@localhost:5433/vitastock",
-			"postgresql://postgres:postgres@localhost:5434/vitastock_test",
 			"postgresql://postgres:postgres@vitastock-postgres-db:5432/vitastock",
-			"postgresql://postgres:postgres@vitastock-postgres-test-db:5432/vitastock_test",
 		])
 		.default("postgresql://postgres:postgres@localhost:5433/vitastock"),
 	DATABASE_URL_STAGING: z.string(),

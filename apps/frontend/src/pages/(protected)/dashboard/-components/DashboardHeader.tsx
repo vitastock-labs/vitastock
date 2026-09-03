@@ -1,73 +1,53 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useLocation, useNavigate } from "react-router";
+import { useNavigate } from "react-router";
 import { AvatarGroupAnimated } from "@/components/animated/ui";
 import { IconBox } from "@/components/common/IconBox";
 import { NavLink, NavLinkEphemeral } from "@/components/common/NavLink";
 import { Button, DropdownMenu } from "@/components/ui";
 import * as Avatar from "@/components/ui/avatar";
-import { Form } from "@/components/ui/form";
 import { signoutMutation } from "@/lib/react-query/mutationOptions";
 import { inventoryAlertsUnreadCountQuery, sessionQuery } from "@/lib/react-query/queryOptions";
 import { getNameInitials } from "@/lib/utils/common";
-
-const searchPlaceholderByPath = new Map([
-	["/dashboard", "Search inventory..."],
-	["/dashboard/alerts", "Search alerts..."],
-	["/dashboard/inventory", "Search inventory..."],
-	["/dashboard/reports", "Search reports..."],
-	["/dashboard/settings", "Search settings..."],
-]);
+import { LOADING_DISPLAY_VALUE } from "./constants";
 
 function DashboardHeader() {
-	const pathname = useLocation().pathname;
+	const sessionQueryResult = useQuery(sessionQuery());
 	const inventoryAlertsUnreadCountQueryResult = useQuery(inventoryAlertsUnreadCountQuery());
 	const unreadAlertCount = inventoryAlertsUnreadCountQueryResult.data?.count ?? 0;
 
-	const placeholder = searchPlaceholderByPath.get(pathname);
-
 	return (
-		<header className="flex justify-between gap-10 border-b border-[hsl(231,20%,80%,0.15)] px-6 py-7">
-			<span className="invisible w-[28px]" />
-
-			<Form.InputGroup
-				className="h-10 w-full max-w-[576px] gap-3.5 justify-self-center rounded-[12px] border
-					border-[hsl(231,20%,80%,0.3)] bg-white px-4 py-1 text-[14px]"
-			>
-				<Form.InputGroupAddon>
-					<IconBox icon="lucide:search" />
-				</Form.InputGroupAddon>
-
-				{placeholder && (
-					<Form.InputPrimitive
-						type="search"
-						placeholder={placeholder}
-						className="h-full placeholder:text-[14px]"
-					/>
-				)}
-			</Form.InputGroup>
-
-			<div className="flex items-center gap-6">
-				<NavLinkEphemeral to="/dashboard/alerts">
-					<Button
-						unstyled={true}
-						className="relative hover:text-vitastock-primary-main"
-						aria-label={`Inventory alerts, ${unreadAlertCount} unread`}
-					>
-						<IconBox icon="lucide:bell" className="size-5" />
-						{unreadAlertCount > 0 && (
-							<span
-								className="absolute -top-1 -right-1 grid min-w-4 place-items-center rounded-full
-									bg-shadcn-destructive px-1 py-0.5 text-[9px] leading-none font-bold text-white
-									ring-2 ring-white"
-							>
-								{unreadAlertCount > 99 ? "99+" : unreadAlertCount}
-							</span>
-						)}
-					</Button>
-				</NavLinkEphemeral>
-
-				<ProfileDropdown />
+		<header
+			className="flex min-w-0 items-center gap-4 border-b border-shadcn-border/40 px-4 py-5 sm:gap-6
+				sm:px-6"
+		>
+			<div className="flex min-w-0 flex-1 flex-col gap-1">
+				<p className="text-[15px] font-semibold wrap-anywhere text-shadcn-foreground sm:text-[18px]">
+					{sessionQueryResult.data?.workspace.name ?? LOADING_DISPLAY_VALUE}
+				</p>
+				<p className="text-[12px] text-vitastock-body-color/70">Inventory workspace</p>
 			</div>
+			<NavLinkEphemeral to="/dashboard/alerts">
+				<Button
+					unstyled={true}
+					className="relative grid size-10 shrink-0 place-items-center rounded-lg
+						hover:bg-vitastock-primary-main/5 hover:text-vitastock-primary-main
+						focus-visible:outline-2 focus-visible:outline-vitastock-primary-main"
+					aria-label={`Inventory alerts, ${unreadAlertCount} unread`}
+				>
+					<IconBox icon="lucide:bell" className="size-5" />
+					{unreadAlertCount > 0 && (
+						<span
+							className="absolute -top-1 -right-1 grid min-w-4 place-items-center rounded-full
+								bg-shadcn-destructive px-1 py-0.5 text-[9px] leading-none font-bold text-white
+								ring-2 ring-white"
+						>
+							{unreadAlertCount > 99 ? "99+" : unreadAlertCount}
+						</span>
+					)}
+				</Button>
+			</NavLinkEphemeral>
+
+			<ProfileDropdown />
 		</header>
 	);
 }

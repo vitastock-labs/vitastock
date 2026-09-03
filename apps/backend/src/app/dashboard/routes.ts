@@ -29,11 +29,10 @@ export const dashboardRoutes = new Hono()
 			data: {
 				recentActivity,
 				stats: {
+					drugsInStockCount: stats.drugsInStockCount,
 					expiredCount: stats.expiredCount,
 					expiringSoonCount: stats.expiringSoonCount,
 					lowStockCount: stats.lowStockCount,
-					stockValueKobo: stats.stockValueKobo,
-					uncostedBatchCount: stats.uncostedBatchCount,
 				},
 			},
 			message: "Dashboard overview fetched successfully",

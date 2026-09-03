@@ -3,7 +3,7 @@ import * as cookieHelpers from "hono/cookie";
 import type { CookieOptions } from "hono/utils/cookie";
 import { ENVIRONMENT } from "@/config/env";
 
-type VitaStockCookieNames = "vitaStockAccessToken" | "vitaStockRefreshToken";
+type VitaStockCookieNames = "vitastockAccessToken" | "vitastockRefreshToken";
 
 type GoogleCookieNames = "google_code_verifier" | "google_oauth_state";
 

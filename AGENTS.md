@@ -94,12 +94,11 @@ Apply these conventions to all repository changes unless a more specific `AGENTS
 - Use `NavLinkEphemeral` for declarative action navigation instead of button-driven `navigate` calls.
 - Reset actions must clear both table state and corresponding URL state.
 
-## Dates And Money
+## Dates And Inventory
 
 - Use `date-fns` for all date parsing, comparison, manipulation, and formatting on frontend and backend.
 - Do not mutate `Date` objects manually.
-- Store and return monetary values as integer kobo.
-- Accept naira in user-facing inputs, multiply by 100 before persistence, and divide by 100 at the presentation boundary.
+- Inventory tracks quantities, batches, and expiry dates, not prices or costs. Do not add monetary inputs, valuation, or financial loss calculations.
 - Reuse shared formatter utilities rather than creating `Intl` formatters in individual files.
 
 ## Tables

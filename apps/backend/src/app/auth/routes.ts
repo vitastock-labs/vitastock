@@ -203,7 +203,7 @@ const authRoutes = new Hono()
 
 			const updatedTokenArray = getUpdatedTokenResultArray({
 				currentUser: sessionUser,
-				refreshToken: getCookie(ctx, "vitaStockRefreshToken"),
+				refreshToken: getCookie(ctx, "vitastockRefreshToken"),
 			});
 
 			const [updatedUser] = await db
@@ -235,12 +235,12 @@ const authRoutes = new Hono()
 
 			setCookie(ctx, {
 				expires: newAccessTokenResult.expiresAt,
-				name: "vitaStockAccessToken",
+				name: "vitastockAccessToken",
 				value: newAccessTokenResult.token,
 			});
 			setCookie(ctx, {
 				expires: newRefreshTokenResult.expiresAt,
-				name: "vitaStockRefreshToken",
+				name: "vitastockRefreshToken",
 				value: newRefreshTokenResult.token,
 			});
 
@@ -567,7 +567,7 @@ const authRoutes = new Hono()
 
 		const updatedTokenArray = getUpdatedTokenResultArray({
 			currentUser,
-			refreshToken: getCookie(ctx, "vitaStockRefreshToken"),
+			refreshToken: getCookie(ctx, "vitastockRefreshToken"),
 		});
 
 		await Promise.all([
@@ -578,8 +578,8 @@ const authRoutes = new Hono()
 			removeFromCache(`user:${currentUser.id}`),
 		]);
 
-		deleteCookie(ctx, "vitaStockAccessToken");
-		deleteCookie(ctx, "vitaStockRefreshToken");
+		deleteCookie(ctx, "vitastockAccessToken");
+		deleteCookie(ctx, "vitastockRefreshToken");
 
 		emitAppEvent(
 			"auth.userSignedOut",
@@ -601,8 +601,8 @@ const authRoutes = new Hono()
 			removeFromCache(`user:${currentUser.id}`),
 		]);
 
-		deleteCookie(ctx, "vitaStockAccessToken");
-		deleteCookie(ctx, "vitaStockRefreshToken");
+		deleteCookie(ctx, "vitastockAccessToken");
+		deleteCookie(ctx, "vitastockRefreshToken");
 
 		emitAppEvent(
 			"auth.userSignedOut",
@@ -657,7 +657,7 @@ const authRoutes = new Hono()
 
 			const updatedTokenArray = getUpdatedTokenResultArray({
 				currentUser,
-				refreshToken: getCookie(ctx, "vitaStockRefreshToken"),
+				refreshToken: getCookie(ctx, "vitastockRefreshToken"),
 				variant: "keep-current",
 			});
 

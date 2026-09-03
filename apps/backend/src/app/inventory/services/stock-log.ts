@@ -7,14 +7,15 @@ import {
 	stockLogs,
 } from "@vitastock/db/schema/inventory";
 import type { backendApiSchemaRoutes } from "@vitastock/shared/validation/backendApiSchema";
-import { and, asc, eq, gt, gte, isNull, lt, sql } from "drizzle-orm";
+import { and, asc, eq, gt, gte, lt } from "drizzle-orm";
 import type { z } from "zod";
 import { AppError } from "@/lib/utils";
+import { receiveStockBatch } from "./data-access/stock-batches";
 import {
 	claimStockTransaction,
 	createStockTransactionRequestHash,
 } from "./data-access/stock-transactions";
-import { convertNairaToKobo, getFefoStockMovements } from "./utils/common";
+import { getFefoStockMovements } from "./utils/common";
 import { getWorkspaceToday } from "./utils/date";
 
 type StockLogBody = z.infer<(typeof backendApiSchemaRoutes)["@post/inventory/stock-log"]["body"]>;
@@ -72,20 +73,8 @@ export const createInventoryStockLog = async (options: {
 	}
 
 	await db.transaction(async (tx) => {
-		const { batchNumber, expiryDate, unitCostNaira } = body;
-		const normalizedBatchNumber = (() => {
-			const value = batchNumber?.trim();
-
-			if (!value) {
-				return null;
-			}
-
-			return value;
-		})();
-		const unitCostKobo = convertNairaToKobo(unitCostNaira);
+		const { batchNumber, expiryDate } = body;
 		const today = getWorkspaceToday(timezone);
-
-		await getActiveDrugForUpdate({ drugId, tx, workspaceId });
 
 		if (expiryDate < today) {
 			throw new AppError({ code: 400, message: "Expiry date cannot be before today" });
@@ -102,62 +91,17 @@ export const createInventoryStockLog = async (options: {
 
 		if (stockTransaction.isReplay) return;
 
-		const batchNumberCondition =
-			normalizedBatchNumber ?
-				sql`lower(btrim(${stockBatches.batchNumber})) = ${normalizedBatchNumber.toLowerCase()}`
-			:	isNull(stockBatches.batchNumber);
-		const unitCostCondition =
-			unitCostKobo === null ?
-				isNull(stockBatches.unitCostKobo)
-			:	eq(stockBatches.unitCostKobo, unitCostKobo);
-		const [existingBatch] = await tx
-			.select()
-			.from(stockBatches)
-			.where(
-				and(
-					eq(stockBatches.workspaceId, workspaceId),
-					eq(stockBatches.drugId, drugId),
-					batchNumberCondition,
-					eq(stockBatches.expiryDate, expiryDate),
-					unitCostCondition
-				)
-			)
-			.limit(1)
-			.for("update");
+		await getActiveDrugForUpdate({ drugId, tx, workspaceId });
 
-		const [batch] = await (async () => {
-			if (existingBatch) {
-				return tx
-					.update(stockBatches)
-					.set({
-						quantityAvailable: existingBatch.quantityAvailable + quantity,
-						quantityReceived: existingBatch.quantityReceived + quantity,
-					})
-					.where(eq(stockBatches.id, existingBatch.id))
-					.returning();
-			}
-
-			return tx
-				.insert(stockBatches)
-				.values({
-					batchNumber: normalizedBatchNumber,
-					drugId,
-					expiryDate,
-					quantityAvailable: quantity,
-					quantityReceived: quantity,
-					unitCostKobo,
-					userId,
-					workspaceId,
-				})
-				.returning();
-		})();
-
-		if (!batch) {
-			throw new AppError({
-				code: 500,
-				message: "Failed to create or update stock batch",
-			});
-		}
+		const batch = await receiveStockBatch({
+			batchNumber,
+			drugId,
+			expiryDate,
+			quantity,
+			tx,
+			userId,
+			workspaceId,
+		});
 
 		await tx.insert(stockLogs).values({
 			batchId: batch.id,
@@ -167,7 +111,6 @@ export const createInventoryStockLog = async (options: {
 			performedByUserId: userId,
 			quantity,
 			stockTransactionId: stockTransaction.id,
-			unitCostKobo,
 			workspaceId,
 		});
 	});
@@ -199,8 +142,6 @@ const createStockOutLog = async (options: {
 	} = options;
 
 	await db.transaction(async (tx) => {
-		await getActiveDrugForUpdate({ drugId, tx, workspaceId });
-
 		const stockTransaction = await claimStockTransaction({
 			idempotencyKey,
 			operation: "stock_log",
@@ -211,6 +152,8 @@ const createStockOutLog = async (options: {
 		});
 
 		if (stockTransaction.isReplay) return;
+
+		await getActiveDrugForUpdate({ drugId, tx, workspaceId });
 
 		const isExpiredStockRemoval = reason === STOCK_OUT_REASONS[1];
 		const today = getWorkspaceToday(timezone);
@@ -266,7 +209,6 @@ const createStockOutLog = async (options: {
 				quantity: movement.quantity,
 				reason,
 				stockTransactionId: stockTransaction.id,
-				unitCostKobo: movement.batch.unitCostKobo,
 				workspaceId,
 			}))
 		);

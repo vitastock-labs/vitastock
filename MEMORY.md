@@ -50,7 +50,7 @@ This file is the handoff context for continuing VitaStock in a new Codex task. R
 ### Inventory Model
 
 - `drugs` is the workspace-scoped drug master. Drug name, generic name, strength, dosage form, and inventory unit are distinct fields.
-- `stockBatches` stores physical stock by drug, quantity, expiry date, batch number, and unit cost in kobo.
+- `stockBatches` stores physical stock by drug, quantity, expiry date, and batch number. Matching batches share workspace, drug, normalized batch number, and expiry date.
 - `stockTransactions` identifies one logical stock operation and supplies idempotency scope.
 - `stockLogs` is the immutable batch-level audit ledger. A logical movement can produce several log rows when FEFO spans batches.
 - There is no persisted `inventorySummary` table. Inventory summaries, dashboard totals, filters, and counts are derived from current batches and grouped SQL queries.
@@ -59,7 +59,7 @@ This file is the handoff context for continuing VitaStock in a new Codex task. R
    - primary `stockStatus`: `normal | low_stock | out_of_stock`;
    - independent usable, expired, and near-expiry batch counts.
 - Never replace Out of stock with Expired. A drug may simultaneously have no usable stock and still have expired physical batches.
-- Unit cost is required for stock creation/import, entered as naira in the frontend, converted to integer kobo before persistence, and formatted back to naira only at presentation boundaries.
+- Inventory does not track prices, costs, valuation, or financial loss. Stock creation and import record quantities and expiry without monetary fields.
 
 ### Stock Movement And FEFO
 
@@ -85,7 +85,7 @@ This file is the handoff context for continuing VitaStock in a new Codex task. R
 
 - Bulk import accepts the VitaStock template and validates before submission; invalid files cannot be imported.
 - File parsing stays in frontend parser modules. Cross-boundary row/header rules belong in shared Zod where they can be reused consistently.
-- The backend revalidates and imports transactionally. Imported stock follows the same drug, batch, cost, expiry, idempotency, alert, and workspace rules as manual stock entry.
+- The backend revalidates and imports transactionally. Imported stock follows the same drug, batch, expiry, idempotency, alert, and workspace rules as manual stock entry.
 - Keep bulk-import dialog state and implementation in its route-local component rather than overloading the main inventory page.
 
 ## Frontend Architecture And Corrections

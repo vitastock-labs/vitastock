@@ -21,7 +21,6 @@ body:json {
     "quantity": "100",
     "expiryDate": "2027-12-31",
     "batchNumber": "BATCH-001",
-    "unitCostNaira": "250",
     "notes": "Supplier delivery"
   }
 }
@@ -57,17 +56,14 @@ docs {
   | `quantity` | numeric string | Yes | Must be greater than `0`. |
   | `expiryDate` | calendar-date string | Yes | `YYYY-MM-DD`; today or a future date in the workspace timezone. |
   | `batchNumber` | string or null | No | Supplier/manufacturer batch identifier. |
-  | `unitCostNaira` | numeric string | No | Non-negative cost per unit in naira, with at most two decimal places. |
   | `notes` | string or null | No | Operational context for the movement. |
 
   ## Batch Matching
 
   - When `batchNumber` is supplied and that number already exists for the same workspace and drug, the existing batch is locked and incremented.
   - An existing batch number must keep its original expiry date; a different expiry is rejected.
-  - A supplied `unitCostNaira` is converted to kobo and replaces the existing batch's unit cost.
-  - If cost is omitted, a new batch is stored with unknown cost. Restocking an existing costed batch without cost preserves its recorded batch cost.
   - When no matching batch number exists, a new batch is created.
-  - When `batchNumber` is omitted, a new batch is created rather than inferred from expiry or cost.
+  - Receipts match on drug, normalized batch number (including no number), and expiry date. Matching receipts add quantity; different expiry dates or batch numbers remain separate.
 
   ## Success Response
 

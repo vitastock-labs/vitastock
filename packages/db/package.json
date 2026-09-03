@@ -14,6 +14,7 @@
 		"db:push-seed": "pnpm db:push && pnpm db:seed",
 		"db:push-seed:staging": "cross-env NODE_ENV=staging pnpm db:push-seed",
 		"db:push:prod": "cross-env NODE_ENV=production pnpm db:push",
+		"db:push:staging": "cross-env NODE_ENV=staging pnpm db:push",
 		"db:seed": "cross-env DB_SEEDING=true tsx src/seed.ts",
 		"db:studio": "drizzle-kit studio",
 		"dev": "tsx watch src/db.ts",

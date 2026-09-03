@@ -41,7 +41,7 @@ docs {
         "lowStockCount": 3,
         "expiringSoonCount": 2,
         "expiredCount": 1,
-        "stockValueKobo": 18450000
+        "drugsInStockCount": 12
       },
       "recentActivity": [
         {
@@ -69,12 +69,11 @@ docs {
   | `lowStockCount` | Number of drug summary rows whose derived status is `low_stock` or `out_of_stock`, using the workspace's `lowStockThreshold`. |
   | `expiringSoonCount` | Distinct drugs with an available batch expiring from the start of today through the end of `nearExpiryDays`. |
   | `expiredCount` | Distinct drugs with an available batch whose expiry date is before the start of today. |
-  | `stockValueKobo` | Sum of the current available batch quantities multiplied by their unit costs. |
+  | `drugsInStockCount` | Distinct drugs with positive usable quantity, including low-stock drugs. |
   | `recentActivity` | Latest eight stock logs, newest first, joined with the drug and member who performed the action. |
 
   ## Notes
 
-  - Monetary values are integer kobo. Divide by `100` only for display in naira.
   - Expiry counts are distinct drug counts, not batch counts.
   - Expired quantities are excluded from usable available stock calculations.
   - The response is computed from persisted inventory tables and is not dashboard-only seed data.

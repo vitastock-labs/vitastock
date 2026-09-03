@@ -1,15 +1,15 @@
 import { db } from "@vitastock/db";
-import { drugs, stockBatches, stockLogs } from "@vitastock/db/schema/inventory";
+import { drugs, stockLogs } from "@vitastock/db/schema/inventory";
 import type { backendApiSchemaRoutes } from "@vitastock/shared/validation/backendApiSchema";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import type { z } from "zod";
 import { appLogger } from "@/lib/logger";
 import { AppError } from "@/lib/utils";
+import { receiveStockBatch } from "./data-access/stock-batches";
 import {
 	claimStockTransaction,
 	createStockTransactionRequestHash,
 } from "./data-access/stock-transactions";
-import { convertNairaToKobo } from "./utils/common";
 import { getWorkspaceToday } from "./utils/date";
 
 type BulkImportTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -235,10 +235,7 @@ export const createInventoryBulkImport = async (options: {
 			});
 		}
 
-		const receiptLayers = new Map<
-			string,
-			{ drugId: string; expiryDate: string; quantity: number; unitCostKobo: number | null }
-		>();
+		const receipts = new Map<string, { drugId: string; expiryDate: string; quantity: number }>();
 
 		for (const [rowIndex, row] of rows.entries()) {
 			const drugId = drugIdByRowIndex.get(rowIndex);
@@ -249,90 +246,42 @@ export const createInventoryBulkImport = async (options: {
 					message: `Failed to resolve drug for row: ${row.name}`,
 				});
 			}
+			const receiptKey = `${drugId}|${row.expiryDate}`;
+			const existingReceipt = receipts.get(receiptKey);
 
-			const unitCostKobo = convertNairaToKobo(row.unitCostNaira);
-			const layerKey = `${drugId}|${row.expiryDate}|${unitCostKobo ?? "uncosted"}`;
-			const existingLayer = receiptLayers.get(layerKey);
-
-			if (existingLayer) {
-				existingLayer.quantity += row.quantity;
+			if (existingReceipt) {
+				existingReceipt.quantity += row.quantity;
 				continue;
 			}
 
-			receiptLayers.set(layerKey, {
+			receipts.set(receiptKey, {
 				drugId,
 				expiryDate: row.expiryDate,
 				quantity: row.quantity,
-				unitCostKobo,
 			});
 		}
 
-		const existingBatches = await tx
-			.select()
-			.from(stockBatches)
-			.where(and(eq(stockBatches.workspaceId, workspaceId), inArray(stockBatches.drugId, drugIds)))
-			.for("update");
-		const existingBatchByLayerKey = new Map<string, (typeof existingBatches)[number]>();
-
-		for (const batch of existingBatches) {
-			if (batch.batchNumber !== null) continue;
-
-			existingBatchByLayerKey.set(
-				`${batch.drugId}|${batch.expiryDate}|${batch.unitCostKobo ?? "uncosted"}`,
-				batch
-			);
-		}
 		const importedBatches = await Promise.all(
-			[...receiptLayers.entries()].map(async ([layerKey, layer]) => {
-				const existingBatch = existingBatchByLayerKey.get(layerKey);
+			[...receipts.values()].map(async (receipt) => {
+				const batch = await receiveStockBatch({
+					...receipt,
+					tx,
+					userId,
+					workspaceId,
+				});
 
-				if (existingBatch) {
-					const [batch] = await tx
-						.update(stockBatches)
-						.set({
-							quantityAvailable: existingBatch.quantityAvailable + layer.quantity,
-							quantityReceived: existingBatch.quantityReceived + layer.quantity,
-						})
-						.where(eq(stockBatches.id, existingBatch.id))
-						.returning();
-
-					if (!batch) {
-						throw new AppError({ code: 500, message: "Failed to update stock batch" });
-					}
-
-					return { batch, quantity: layer.quantity };
-				}
-
-				const [batch] = await tx
-					.insert(stockBatches)
-					.values({
-						drugId: layer.drugId,
-						expiryDate: layer.expiryDate,
-						quantityAvailable: layer.quantity,
-						quantityReceived: layer.quantity,
-						unitCostKobo: layer.unitCostKobo,
-						userId,
-						workspaceId,
-					})
-					.returning();
-
-				if (!batch) {
-					throw new AppError({ code: 500, message: "Failed to create stock batch" });
-				}
-
-				return { batch, quantity: layer.quantity };
+				return { batchId: batch.id, drugId: receipt.drugId, quantity: receipt.quantity };
 			})
 		);
 
 		await tx.insert(stockLogs).values(
-			importedBatches.map(({ batch, quantity }) => ({
-				batchId: batch.id,
-				drugId: batch.drugId,
+			importedBatches.map(({ batchId, drugId, quantity }) => ({
+				batchId,
+				drugId,
 				logType: "opening_stock" as const,
 				performedByUserId: userId,
 				quantity,
 				stockTransactionId: stockTransaction.id,
-				unitCostKobo: batch.unitCostKobo,
 				workspaceId,
 			}))
 		);
