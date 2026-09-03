@@ -414,7 +414,7 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 			return EMPTY_BULK_IMPORT_PREVIEW_ROWS;
 		}
 
-		return [...source.validRows, ...source.invalidRows, ...source.duplicateRows].toSorted(
+		return [...source.validRows, ...source.invalidRows, ...source.duplicateRows].sort(
 			(a, b) => a.rowNumber - b.rowNumber
 		);
 	}, [previewState, importingState]);

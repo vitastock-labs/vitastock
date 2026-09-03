@@ -164,11 +164,11 @@ const resolveOrder = (
 
 	switch (selectedOrder) {
 		case "ascending": {
-			return selectedRange.toSorted((a, b) => a - b);
+			return [...selectedRange].sort((a, b) => a - b);
 		}
 
 		case "descending": {
-			return selectedRange.toSorted((a, b) => b - a);
+			return [...selectedRange].sort((a, b) => b - a);
 		}
 
 		case "preserve": {

@@ -41,7 +41,7 @@ export function DataTablePagination<TData extends RowData>(
 		...restOfProps
 	} = props;
 	const pagination = table.state.pagination;
-	const resolvedPageSizeOptions = [...new Set([...pageSizeOptions, pagination.pageSize])].toSorted(
+	const resolvedPageSizeOptions = [...new Set([...pageSizeOptions, pagination.pageSize])].sort(
 		(firstPageSize, secondPageSize) => firstPageSize - secondPageSize
 	);
 	const rowCount = totalRows ?? table.getFilteredRowModel().rows.length;

@@ -35,6 +35,20 @@ export default zayne(
 	// 	},
 	// },
 	{
+		files: ["apps/frontend/src/**/*.{ts,tsx}"],
+		rules: {
+			"no-restricted-properties": [
+				"error",
+				{
+					property: "toSorted",
+					message:
+						"Some pharmacy are using older browsers that <= Chrome v109 lack toSorted(). Use .sort() on a fresh array instead.",
+				},
+			],
+			"unicorn/no-array-sort": "off",
+		},
+	},
+	{
 		files: [
 			"apps/backend/**/*.{ts,tsx}",
 			"apps/frontend/src/pages/**/*.{ts,tsx}",
