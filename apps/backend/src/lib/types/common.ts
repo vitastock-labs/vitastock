@@ -10,7 +10,7 @@ export type HonoAppBindings = {
 		currentMembership: SessionMembershipType;
 		currentUser: SessionUserType;
 		currentWorkspace: SessionWorkspaceType;
-		logger: PinoLogger;
+		logger: PinoLogger | undefined;
 		requestId: string;
 		requestStartedAt: number;
 	};

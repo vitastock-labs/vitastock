@@ -57,6 +57,13 @@ const createEmailWorker = () => {
 	const worker = new Worker<EmailJobOptions>(
 		emailQueueName,
 		async (job) => {
+			const jobLogger = appLogger.child({ jobId: job.id, jobType: job.name, queue: emailQueueName });
+
+			jobLogger.info(
+				{ emailType: job.data.type, recipient: job.data.data.to.email },
+				`Processing ${job.data.type} email to ${job.data.data.to.email}`
+			);
+
 			const result = await sendEmail(job.data);
 
 			emitAppEvent("email.sent", {
@@ -64,6 +71,11 @@ const createEmailWorker = () => {
 				recipient: job.data.data.to.email,
 				...result,
 			});
+
+			jobLogger.info(
+				{ messageId: result.messageId, recipient: job.data.data.to.email },
+				`Successfully sent ${job.data.type} email to ${job.data.data.to.email}`
+			);
 		},
 		{
 			connection: redisQueueClient,
@@ -90,7 +102,8 @@ const createEmailWorker = () => {
 	});
 
 	worker.on("stalled", (jobId) => {
-		appLogger.pretty.warn(`Job ''${jobId}'' stalled - will be retried by another worker`);
+		const jobLogger = appLogger.child({ jobId, queue: emailQueueName });
+		jobLogger.warn("Email job stalled - another worker will retry");
 	});
 
 	return worker;
@@ -100,15 +113,18 @@ const createEmailQueueEvents = () => {
 	const queueEvents = new QueueEvents<unknown>(emailQueueName, { connection: redisQueueClient });
 
 	queueEvents.on("failed", ({ failedReason, jobId }) => {
-		appLogger.pretty.error(`Job '${jobId}' failed with error ${failedReason}`, { failedReason });
+		const jobLogger = appLogger.child({ jobId, queue: emailQueueName });
+		jobLogger.error({ failedReason }, `Email job failed: ${failedReason}`);
 	});
 
 	queueEvents.on("waiting", ({ jobId }) => {
-		appLogger.pretty.info(`Job '${jobId}' is waiting`);
+		const jobLogger = appLogger.child({ jobId, queue: emailQueueName });
+		jobLogger.info("Email job waiting in queue");
 	});
 
 	queueEvents.on("completed", ({ jobId, returnvalue }) => {
-		appLogger.pretty.info(`Job '${jobId}' completed`, { returnvalue });
+		const jobLogger = appLogger.child({ jobId, queue: emailQueueName });
+		jobLogger.info({ returnvalue }, "Email job completed successfully");
 	});
 
 	queueEvents.on("retries-exhausted", ({ attemptsMade, jobId }) => {

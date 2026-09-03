@@ -48,6 +48,14 @@ const createInventoryAlertWorker = () => {
 	const worker = new Worker<Record<string, never>>(
 		inventoryAlertQueueName,
 		async (job) => {
+			const jobLogger = appLogger.child({
+				jobId: job.id,
+				jobName: job.name,
+				queue: inventoryAlertQueueName,
+			});
+
+			jobLogger.info(`Processing inventory alert job: ${job.name}`);
+
 			const jobDefinition = inventoryAlertJobDefinitions.find(({ name }) => name === job.name);
 
 			if (!jobDefinition) {
@@ -55,6 +63,8 @@ const createInventoryAlertWorker = () => {
 			}
 
 			await jobDefinition.run();
+
+			jobLogger.info(`Inventory alert job ${job.name} completed successfully`);
 		},
 		{
 			concurrency: 1,
@@ -70,15 +80,17 @@ const createInventoryAlertWorker = () => {
 	});
 
 	worker.on("failed", (job, error) => {
-		const message = `Inventory alert job '${job?.name ?? "unknown"}' failed`;
-		const logInfo = {
+		const jobLogger = appLogger.child({
 			attemptsMade: job?.attemptsMade,
-			err: error,
 			jobId: job?.id,
-		};
+			jobName: job?.name ?? "unknown",
+			queue: "inventoryAlertQueue",
+		});
 
-		appLogger.structured.error(logInfo, message);
-		appLogger.pretty.error(message, logInfo);
+		jobLogger.error(
+			{ err: error },
+			`Inventory alert job ${job?.name ?? "unknown"} failed after ${job?.attemptsMade ?? 0} attempts`
+		);
 	});
 
 	return worker;
