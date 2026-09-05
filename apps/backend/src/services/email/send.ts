@@ -2,11 +2,11 @@ import type { BrevoClient } from "@getbrevo/brevo";
 import { TEMPLATE_LOOKUP, type EmailJobOptions } from "@vitastock/transactional/emails";
 import type { CallbackFn } from "@zayne-labs/toolkit-type-helpers";
 import type * as nodemailer from "nodemailer";
-import type { Options as SmtpTransportOptions } from "nodemailer/lib/smtp-transport";
+import type { SMTPTransportOptions } from "nodemailer/lib/smtp-transport";
 import { ENVIRONMENT } from "@/config/env";
 import { appLogger } from "@/lib/logger";
 
-// const getProductionTransporterOptions = (): SmtpTransportOptions => ({
+// const getProductionTransporterOptions = (): SMTPTransportOptions => ({
 // 	auth: {
 // 		pass: ENVIRONMENT.EMAIL_APP_PASSWORD,
 // 		// clientId: ENVIRONMENT.GOOGLE_CLIENT_ID,
@@ -18,7 +18,7 @@ import { appLogger } from "@/lib/logger";
 // 	service: "gmail",
 // });
 
-const getDevTransporterOptions = (): SmtpTransportOptions => ({
+const getDevTransporterOptions = (): SMTPTransportOptions => ({
 	auth: {
 		pass: ENVIRONMENT.EMAIL_APP_PASSWORD_DEV,
 		user: ENVIRONMENT.EMAIL_USER_DEV,
@@ -29,7 +29,7 @@ const getDevTransporterOptions = (): SmtpTransportOptions => ({
 
 let brevo: BrevoClient | null = null;
 
-let devTransporter: ReturnType<typeof nodemailer.createTransport> | null = null;
+let devTransporter: nodemailer.Mail | null = null;
 
 export const sendEmail = async (options: EmailJobOptions) => {
 	const { data, type } = options;

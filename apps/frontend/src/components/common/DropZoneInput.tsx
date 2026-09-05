@@ -123,7 +123,6 @@ function DropZoneInputImagePreview(props: ImagePreviewProps) {
 
 export const Root = DropZoneInputRoot;
 
-// eslint-disable-next-line react-refresh/only-export-components
 export const Area = DropZone.Area;
 
 export const ImagePreview = DropZoneInputImagePreview;

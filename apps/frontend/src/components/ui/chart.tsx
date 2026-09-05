@@ -391,11 +391,9 @@ const getConfigItemFromPayload = (config: ChartConfig, payload: unknown, key: st
 
 export {
 	ChartContainer as Container,
-	// eslint-disable-next-line react-refresh/only-export-components
 	ChartLegend as Legend,
 	ChartLegendContent as LegendContent,
 	ChartStyle as Style,
-	// eslint-disable-next-line react-refresh/only-export-components
 	ChartTooltip as Tooltip,
 	ChartTooltipContent as TooltipContent,
 };

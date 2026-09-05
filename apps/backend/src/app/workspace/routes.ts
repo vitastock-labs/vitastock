@@ -39,47 +39,47 @@ export const workspaceRoutes = new Hono()
 
 			const tokenHash = hashToken(token);
 
-			const [invitationResult] = await db
-				.select(
-					pickKeys(workspaceInvitations, [
-						"acceptedAt",
-						"defaultPasswordHash",
-						"expiresAt",
-						"id",
-						"inviteeEmail",
-						"inviteeName",
-						"role",
-						"workspaceId",
-					])
-				)
-				.from(workspaceInvitations)
-				.innerJoin(workspaces, eq(workspaceInvitations.workspaceId, workspaces.id))
-				.where(eq(workspaceInvitations.tokenHash, tokenHash))
-				.limit(1);
-
-			if (!invitationResult || invitationResult.acceptedAt) {
-				throw new AppError({
-					code: 400,
-					message: "Invalid invitation",
-				});
-			}
-
-			if (isPast(invitationResult.expiresAt)) {
-				await db.delete(workspaceInvitations).where(eq(workspaceInvitations.id, invitationResult.id));
-
-				throw new AppError({
-					code: 400,
-					message: "Invalid or expired invitation",
-				});
-			}
-
-			const [existingUser] = await db
-				.select(pickKeys(users, ["id"]))
-				.from(users)
-				.where(eq(users.email, invitationResult.inviteeEmail))
-				.limit(1);
-
 			const acceptedInvitation = await db.transaction(async (tx) => {
+				const [invitationResult] = await tx
+					.select(
+						pickKeys(workspaceInvitations, [
+							"acceptedAt",
+							"defaultPasswordHash",
+							"expiresAt",
+							"id",
+							"inviteeEmail",
+							"inviteeName",
+							"role",
+							"workspaceId",
+						])
+					)
+					.from(workspaceInvitations)
+					.innerJoin(workspaces, eq(workspaceInvitations.workspaceId, workspaces.id))
+					.where(eq(workspaceInvitations.tokenHash, tokenHash))
+					.limit(1)
+					.for("update");
+
+				if (!invitationResult || invitationResult.acceptedAt) {
+					throw new AppError({
+						code: 400,
+						message: "Invalid invitation",
+					});
+				}
+
+				if (isPast(invitationResult.expiresAt)) {
+					await tx
+						.delete(workspaceInvitations)
+						.where(eq(workspaceInvitations.id, invitationResult.id));
+
+					return null;
+				}
+
+				const [existingUser] = await tx
+					.select(pickKeys(users, ["id"]))
+					.from(users)
+					.where(eq(users.email, invitationResult.inviteeEmail))
+					.limit(1);
+
 				const [user] = await (async () => {
 					if (existingUser) {
 						return tx
@@ -132,6 +132,13 @@ export const workspaceRoutes = new Hono()
 
 				return { insertedMembership, user };
 			});
+
+			if (!acceptedInvitation) {
+				throw new AppError({
+					code: 400,
+					message: "Invalid or expired invitation",
+				});
+			}
 
 			const { currentUser, currentWorkspace } = await getCurrentSessionState({
 				existingMembership: acceptedInvitation.insertedMembership,

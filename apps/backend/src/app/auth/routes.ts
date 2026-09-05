@@ -459,45 +459,37 @@ const authRoutes = new Hono()
 			});
 
 			const hashedIncomingToken = hashToken(decodedPayload.token);
-
-			const [result] = await db
-				.select({
-					membership: {
-						id: workspaceMemberships.id,
-						role: workspaceMemberships.role,
-						suspendedAt: workspaceMemberships.suspendedAt,
-						workspaceId: workspaceMemberships.workspaceId,
-					},
-					token: pickKeys(passwordResetTokens, ["expiresAt", "id"]),
-					user: pickKeys(users, ["email", "fullName", "id"]),
-				})
-				.from(passwordResetTokens)
-				.innerJoin(users, eq(passwordResetTokens.userId, users.id))
-				.innerJoin(workspaceMemberships, eq(workspaceMemberships.userId, users.id))
-				.where(eq(passwordResetTokens.tokenHash, hashedIncomingToken))
-				.limit(1);
-
-			if (!result?.token || result.membership.suspendedAt) {
-				throw new AppError({
-					code: 400,
-					message: "Invalid or expired reset token",
-					realReason: "No user or reset token found",
-				});
-			}
-
-			if (isPast(result.token.expiresAt)) {
-				await db.delete(passwordResetTokens).where(eq(passwordResetTokens.id, result.token.id));
-
-				throw new AppError({
-					code: 400,
-					message: "Invalid or expired reset token",
-					realReason: "Reset token has expired",
-				});
-			}
-
 			const newPasswordHash = await hashValue(newPassword);
 
-			const { updatedMembership, updatedUser } = await db.transaction(async (tx) => {
+			const resetResult = await db.transaction(async (tx) => {
+				const [result] = await tx
+					.select({
+						membership: {
+							id: workspaceMemberships.id,
+							role: workspaceMemberships.role,
+							suspendedAt: workspaceMemberships.suspendedAt,
+							workspaceId: workspaceMemberships.workspaceId,
+						},
+						token: pickKeys(passwordResetTokens, ["expiresAt", "id"]),
+						user: pickKeys(users, ["email", "fullName", "id"]),
+					})
+					.from(passwordResetTokens)
+					.innerJoin(users, eq(passwordResetTokens.userId, users.id))
+					.innerJoin(workspaceMemberships, eq(workspaceMemberships.userId, users.id))
+					.where(eq(passwordResetTokens.tokenHash, hashedIncomingToken))
+					.limit(1)
+					.for("update");
+
+				if (!result?.token || result.membership.suspendedAt) {
+					return { status: "invalid" as const };
+				}
+
+				if (isPast(result.token.expiresAt)) {
+					await tx.delete(passwordResetTokens).where(eq(passwordResetTokens.id, result.token.id));
+
+					return { status: "invalid" as const };
+				}
+
 				const [userUpdate] = await tx
 					.update(users)
 					.set({
@@ -520,10 +512,21 @@ const authRoutes = new Hono()
 				await tx.delete(passwordResetTokens).where(eq(passwordResetTokens.id, result.token.id));
 
 				return {
+					status: "updated" as const,
 					updatedMembership: membershipUpdate,
 					updatedUser: userUpdate,
 				};
 			});
+
+			if (resetResult.status === "invalid") {
+				throw new AppError({
+					code: 400,
+					message: "Invalid or expired reset token",
+					realReason: "No active reset token found",
+				});
+			}
+
+			const { updatedMembership, updatedUser } = resetResult;
 
 			if (!updatedUser) {
 				throw new AppError({

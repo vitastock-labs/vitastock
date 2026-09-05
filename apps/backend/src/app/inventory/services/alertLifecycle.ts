@@ -39,6 +39,7 @@ type AlertCondition = {
 	threshold?: number;
 	type: SelectInventoryAlertType["type"];
 };
+type InventoryTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 type AlertEmailConfiguration = {
 	deliveryPolicy: typeof EMAIL_ALERT_DELIVERY_POLICIES.$inferUnion;
@@ -58,16 +59,19 @@ export const canSendImmediateInventoryAlertEmail = (options: {
 	return deliveryPolicy === "critical_immediate" && (type === "expired" || type === "low_stock");
 };
 
-const getAlertConditions = async (options: {
-	lowStockThreshold: number;
-	nearExpiryDays: number;
-	timezone: string;
-	workspaceId: string;
-}) => {
+const getAlertConditions = async (
+	options: {
+		lowStockThreshold: number;
+		nearExpiryDays: number;
+		timezone: string;
+		workspaceId: string;
+	},
+	dbClient: typeof db = db
+) => {
 	const { lowStockThreshold, nearExpiryDays, timezone, workspaceId } = options;
 	const { nearExpiryDate, today } = getWorkspaceInventoryDates({ nearExpiryDays, timezone });
 	const [lowStockDrugs, expiredBatches, nearExpiryBatches] = await Promise.all([
-		db
+		dbClient
 			.select({
 				drugId: drugs.id,
 				totalAvailable: sql<number>`
@@ -81,7 +85,7 @@ const getAlertConditions = async (options: {
 			)
 			.where(and(eq(drugs.workspaceId, workspaceId), eq(drugs.isActive, true)))
 			.groupBy(drugs.id),
-		db
+		dbClient
 			.select({
 				drugId: stockBatches.drugId,
 				expiryDate: stockBatches.expiryDate,
@@ -97,7 +101,7 @@ const getAlertConditions = async (options: {
 				)
 			)
 			.orderBy(asc(stockBatches.expiryDate)),
-		db
+		dbClient
 			.select({
 				drugId: stockBatches.drugId,
 				expiryDate: stockBatches.expiryDate,
@@ -146,10 +150,11 @@ const getAlertConditions = async (options: {
 };
 
 export const getAlertEmailConfiguration = async (
-	workspaceId: string
+	workspaceId: string,
+	dbClient: typeof db = db
 ): Promise<AlertEmailConfiguration | null> => {
 	const [[workspace], memberships] = await Promise.all([
-		db
+		dbClient
 			.select({
 				alertEmail: workspaces.alertEmail,
 				deliveryPolicy: workspaces.emailAlertDeliveryPolicy,
@@ -159,7 +164,7 @@ export const getAlertEmailConfiguration = async (
 			.from(workspaces)
 			.where(eq(workspaces.id, workspaceId))
 			.limit(1),
-		db
+		dbClient
 			.select({ email: users.email, fullName: users.fullName })
 			.from(workspaceMemberships)
 			.innerJoin(users, eq(workspaceMemberships.userId, users.id))
@@ -202,99 +207,99 @@ export const getAlertEmailConfiguration = async (
 const persistInventoryAlertChanges = async (options: {
 	currentConditions: AlertCondition[];
 	emailConfiguration: AlertEmailConfiguration | null;
+	tx: InventoryTransaction;
 	workspaceId: string;
 }) => {
-	const { currentConditions, emailConfiguration, workspaceId } = options;
+	const { currentConditions, emailConfiguration, tx, workspaceId } = options;
 	const now = new Date();
 
-	await db.transaction(async (tx) => {
-		const storedAlerts = await tx
-			.select()
-			.from(inventoryAlerts)
-			.where(eq(inventoryAlerts.workspaceId, workspaceId));
-		const storedAlertsByDedupeKey = new Map(storedAlerts.map((alert) => [alert.dedupeKey, alert]));
+	const storedAlerts = await tx
+		.select()
+		.from(inventoryAlerts)
+		.where(eq(inventoryAlerts.workspaceId, workspaceId))
+		.for("update");
+	const storedAlertsByDedupeKey = new Map(storedAlerts.map((alert) => [alert.dedupeKey, alert]));
 
-		const reconciledAlerts = await Promise.all(
-			currentConditions.map(async (condition) => {
-				const storedAlert = storedAlertsByDedupeKey.get(condition.dedupeKey);
-				const isNewOccurrence = !storedAlert || storedAlert.status === "resolved";
+	const reconciledAlerts = await Promise.all(
+		currentConditions.map(async (condition) => {
+			const storedAlert = storedAlertsByDedupeKey.get(condition.dedupeKey);
+			const isNewOccurrence = !storedAlert || storedAlert.status === "resolved";
 
-				if (storedAlert) {
-					const [alert] = await tx
-						.update(inventoryAlerts)
-						.set({
-							...condition,
-							acknowledgedAt: isNewOccurrence ? null : storedAlert.acknowledgedAt,
-							acknowledgedByUserId: isNewOccurrence ? null : storedAlert.acknowledgedByUserId,
-							lastNotifiedAt: isNewOccurrence ? null : storedAlert.lastNotifiedAt,
-							resolvedAt: null,
-							status: "active",
-						})
-						.where(eq(inventoryAlerts.id, storedAlert.id))
-						.returning();
-
-					return { alert, isNewOccurrence };
-				}
-
+			if (storedAlert) {
 				const [alert] = await tx
-					.insert(inventoryAlerts)
-					.values({ ...condition, status: "active", workspaceId })
+					.update(inventoryAlerts)
+					.set({
+						...condition,
+						acknowledgedAt: isNewOccurrence ? null : storedAlert.acknowledgedAt,
+						acknowledgedByUserId: isNewOccurrence ? null : storedAlert.acknowledgedByUserId,
+						lastNotifiedAt: isNewOccurrence ? null : storedAlert.lastNotifiedAt,
+						resolvedAt: null,
+						status: "active",
+					})
+					.where(eq(inventoryAlerts.id, storedAlert.id))
 					.returning();
 
 				return { alert, isNewOccurrence };
-			})
-		);
-
-		const newlyRaisedAlerts = reconciledAlerts.flatMap(({ alert, isNewOccurrence }) => {
-			if (!alert || !isNewOccurrence) {
-				return [];
 			}
 
-			return [alert];
-		});
-		const immediateAlerts = newlyRaisedAlerts.filter((alert) => {
-			if (!emailConfiguration) {
-				return false;
-			}
+			const [alert] = await tx
+				.insert(inventoryAlerts)
+				.values({ ...condition, status: "active", workspaceId })
+				.returning();
 
-			return canSendImmediateInventoryAlertEmail({
-				deliveryPolicy: emailConfiguration.deliveryPolicy,
-				type: alert.type,
-			});
-		});
-		const outboxRecords =
-			emailConfiguration ?
-				immediateAlerts.flatMap((alert) =>
-					emailConfiguration.recipients.map((recipient) => ({
-						alertId: alert.id,
-						dedupeKey: `alert_raised:${alert.id}:${now.toISOString()}:${recipient.email.toLowerCase()}`,
-						recipientEmail: recipient.email,
-						recipientName: recipient.name,
-						type: "alert_raised" as const,
-						workspaceId,
-					}))
-				)
-			:	[];
+			return { alert, isNewOccurrence };
+		})
+	);
 
-		if (outboxRecords.length > 0) {
-			await tx.insert(inventoryAlertOutbox).values(outboxRecords).onConflictDoNothing();
+	const newlyRaisedAlerts = reconciledAlerts.flatMap(({ alert, isNewOccurrence }) => {
+		if (!alert || !isNewOccurrence) {
+			return [];
 		}
 
-		const currentDedupeKeys = currentConditions.map((condition) => condition.dedupeKey);
-		const alertsToResolveWhere =
-			currentDedupeKeys.length > 0 ?
-				and(
-					eq(inventoryAlerts.workspaceId, workspaceId),
-					eq(inventoryAlerts.status, "active"),
-					notInArray(inventoryAlerts.dedupeKey, currentDedupeKeys)
-				)
-			:	and(eq(inventoryAlerts.workspaceId, workspaceId), eq(inventoryAlerts.status, "active"));
-
-		await tx
-			.update(inventoryAlerts)
-			.set({ resolvedAt: now, status: "resolved" })
-			.where(alertsToResolveWhere);
+		return [alert];
 	});
+	const immediateAlerts = newlyRaisedAlerts.filter((alert) => {
+		if (!emailConfiguration) {
+			return false;
+		}
+
+		return canSendImmediateInventoryAlertEmail({
+			deliveryPolicy: emailConfiguration.deliveryPolicy,
+			type: alert.type,
+		});
+	});
+	const outboxRecords =
+		emailConfiguration ?
+			immediateAlerts.flatMap((alert) =>
+				emailConfiguration.recipients.map((recipient) => ({
+					alertId: alert.id,
+					dedupeKey: `alert_raised:${alert.id}:${now.toISOString()}:${recipient.email.toLowerCase()}`,
+					recipientEmail: recipient.email,
+					recipientName: recipient.name,
+					type: "alert_raised" as const,
+					workspaceId,
+				}))
+			)
+		:	[];
+
+	if (outboxRecords.length > 0) {
+		await tx.insert(inventoryAlertOutbox).values(outboxRecords).onConflictDoNothing();
+	}
+
+	const currentDedupeKeys = currentConditions.map((condition) => condition.dedupeKey);
+	const alertsToResolveWhere =
+		currentDedupeKeys.length > 0 ?
+			and(
+				eq(inventoryAlerts.workspaceId, workspaceId),
+				eq(inventoryAlerts.status, "active"),
+				notInArray(inventoryAlerts.dedupeKey, currentDedupeKeys)
+			)
+		:	and(eq(inventoryAlerts.workspaceId, workspaceId), eq(inventoryAlerts.status, "active"));
+
+	await tx
+		.update(inventoryAlerts)
+		.set({ resolvedAt: now, status: "resolved" })
+		.where(alertsToResolveWhere);
 };
 
 export const syncInventoryAlerts = async (options: {
@@ -305,12 +310,21 @@ export const syncInventoryAlerts = async (options: {
 }) => {
 	const { lowStockThreshold, nearExpiryDays, timezone, workspaceId } = options;
 
-	const [currentConditions, emailConfiguration] = await Promise.all([
-		getAlertConditions({ lowStockThreshold, nearExpiryDays, timezone, workspaceId }),
-		getAlertEmailConfiguration(workspaceId),
-	]);
+	await db.transaction(async (tx) => {
+		await tx
+			.select({ id: workspaces.id })
+			.from(workspaces)
+			.where(eq(workspaces.id, workspaceId))
+			.for("update");
 
-	await persistInventoryAlertChanges({ currentConditions, emailConfiguration, workspaceId });
+		const dbClient = tx as unknown as typeof db;
+		const [currentConditions, emailConfiguration] = await Promise.all([
+			getAlertConditions({ lowStockThreshold, nearExpiryDays, timezone, workspaceId }, dbClient),
+			getAlertEmailConfiguration(workspaceId, dbClient),
+		]);
+
+		await persistInventoryAlertChanges({ currentConditions, emailConfiguration, tx, workspaceId });
+	});
 };
 
 const getInventoryAlertAction = (type: AlertCondition["type"]) => {

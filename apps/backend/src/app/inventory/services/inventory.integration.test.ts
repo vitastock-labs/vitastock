@@ -637,8 +637,7 @@ test("Alert lifecycle integration - deduplicates, resolves, and reactivates low-
 			workspaceId: fixture.workspace.id,
 		});
 
-	await syncAlerts();
-	await syncAlerts();
+	await Promise.all([syncAlerts(), syncAlerts()]);
 
 	let alerts = await db
 		.select()
