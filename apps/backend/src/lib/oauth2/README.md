@@ -71,11 +71,11 @@ for the provider being integrated.
 
 `clientAuthentication` controls how the client identifies itself at token and revocation endpoints.
 
-| Value                 | Behavior                                                   | Use when                                        |
-| --------------------- | ---------------------------------------------------------- | ----------------------------------------------- |
+| Value                 | Behavior                                                   | Use when                                       |
+| --------------------- | ---------------------------------------------------------- | ---------------------------------------------- |
 | `client_secret_basic` | Sends the client ID and secret using HTTP Basic auth.      | The provider requires an Authorization header. |
 | `client_secret_post`  | Sends `client_id` and `client_secret` in the request body. | The provider requires body credentials.        |
-| `none`                | Sends only `client_id` in the request body.                | A public client has no client secret.           |
+| `none`                | Sends only `client_id` in the request body.                | A public client has no client secret.          |
 
 When `clientAuthentication` is omitted, the client selects `client_secret_basic` when a secret is
 provided and `none` otherwise. Set it explicitly whenever the provider requires
@@ -254,11 +254,7 @@ provider's API using the access token instead.
 ## Error Handling
 
 ```ts
-import {
-	OAuth2RequestError,
-	OAuth2ResponseError,
-	OAuth2TransportError,
-} from "./lib/oauth2";
+import { OAuth2RequestError, OAuth2ResponseError, OAuth2TransportError } from "./lib/oauth2";
 
 try {
 	const tokens = await oauth.exchangeAuthorizationCode({
