@@ -2,7 +2,7 @@
 
 import type { SelectUserType, SessionUserType } from "@vitastock/db/schema/auth";
 import { pickKeys } from "@zayne-labs/toolkit-core";
-import { isPast } from "date-fns";
+import { addMilliseconds, isPast } from "date-fns";
 /* eslint-disable import/default */
 import jwt from "jsonwebtoken";
 /* eslint-enable import/default */
@@ -83,7 +83,7 @@ export const generateAccessToken = (
 
 	const accessToken = encodeJwtToken(payload, { expiresIn, secretKey: ENVIRONMENT.ACCESS_SECRET });
 
-	const expiresAt = new Date(Date.now() + expiresIn);
+	const expiresAt = addMilliseconds(new Date(), expiresIn);
 
 	const issuedAt = new Date();
 
@@ -100,7 +100,7 @@ export const generateRefreshToken = (
 
 	const refreshToken = encodeJwtToken(payload, { expiresIn, secretKey: ENVIRONMENT.REFRESH_SECRET });
 
-	const expiresAt = new Date(Date.now() + expiresIn);
+	const expiresAt = addMilliseconds(new Date(), expiresIn);
 
 	const issuedAt = new Date();
 

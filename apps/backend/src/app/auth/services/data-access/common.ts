@@ -27,7 +27,6 @@ export const necessaryUserDetails = defineEnum([
 export const necessaryMembershipDetails = defineEnum([
 	"id",
 	"role",
-	"status",
 	"suspendedAt",
 	"workspaceId",
 ] as const satisfies Array<keyof SessionMembershipType>);
@@ -36,6 +35,7 @@ export const necessaryWorkspaceDetails = defineEnum([
 	"id",
 	"name",
 	"alertEmail",
+	"emailAlertDeliveryPolicy",
 	"lowStockThreshold",
 	"nearExpiryDays",
 	"timezone",
@@ -109,7 +109,6 @@ export const getCurrentSessionState = async (options: {
 		...user,
 		membershipId: currentMembership.id,
 		role: currentMembership.role,
-		status: currentMembership.status,
 		suspendedAt: currentMembership.suspendedAt,
 		workspaceId: currentMembership.workspaceId,
 	} satisfies SessionUserType;

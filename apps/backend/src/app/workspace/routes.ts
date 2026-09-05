@@ -13,14 +13,18 @@ import { AppError, AppJsonResponse } from "@/lib/utils";
 import { generateRandomBytes } from "@/lib/utils/random";
 import { authMiddleware, authorizeRoleMiddleware, validateWithZodMiddleware } from "@/middleware";
 import { removeFromCache } from "@/services/cache";
-import { getAuthResponseData, getCurrentSessionState } from "../auth/services/common";
-import { hashToken, hashValue } from "../auth/services/hash";
+import { getAuthResponseData, getCurrentSessionState } from "../auth/services/data-access/common";
+import { hashToken, hashValue } from "../auth/services/utils/hash";
+import { syncInventoryAlerts } from "../inventory/services/alertLifecycle";
 import {
 	assertAdminCanOnlyManagePharmacist,
-	assertCanManageMember,
 	assertNotCurrentUser,
+	assertWhoCanManageWhichMember,
 } from "./services/assert";
-import { getPendingInvitationForAction, getWorkspaceMemberForAction } from "./services/data-access";
+import {
+	getPendingInvitationForAction,
+	getWorkspaceMemberForAction,
+} from "./services/data-access/workspace";
 import { sendPharmacistInviteEmail } from "./services/emails";
 import { getWorkspaceEventPayload } from "./services/events";
 
@@ -35,67 +39,77 @@ export const workspaceRoutes = new Hono()
 
 			const tokenHash = hashToken(token);
 
-			const [invitationResult] = await db
-				.select(
-					pickKeys(workspaceInvitations, [
-						"acceptedAt",
-						"defaultPasswordHash",
-						"expiresAt",
-						"id",
-						"inviteeEmail",
-						"inviteeName",
-						"role",
-						"workspaceId",
-					])
-				)
-				.from(workspaceInvitations)
-				.innerJoin(workspaces, eq(workspaceInvitations.workspaceId, workspaces.id))
-				.where(eq(workspaceInvitations.tokenHash, tokenHash))
-				.limit(1);
+			const acceptedInvitation = await db.transaction(async (tx) => {
+				const [invitationResult] = await tx
+					.select(
+						pickKeys(workspaceInvitations, [
+							"acceptedAt",
+							"defaultPasswordHash",
+							"expiresAt",
+							"id",
+							"inviteeEmail",
+							"inviteeName",
+							"role",
+							"workspaceId",
+						])
+					)
+					.from(workspaceInvitations)
+					.innerJoin(workspaces, eq(workspaceInvitations.workspaceId, workspaces.id))
+					.where(eq(workspaceInvitations.tokenHash, tokenHash))
+					.limit(1)
+					.for("update");
 
-			if (!invitationResult || invitationResult.acceptedAt) {
-				throw new AppError({
-					code: 400,
-					message: "Invalid invitation",
-				});
-			}
+				if (!invitationResult || invitationResult.acceptedAt) {
+					throw new AppError({
+						code: 400,
+						message: "Invalid invitation",
+					});
+				}
 
-			if (isPast(invitationResult.expiresAt)) {
-				await db.delete(workspaceInvitations).where(eq(workspaceInvitations.id, invitationResult.id));
+				if (isPast(invitationResult.expiresAt)) {
+					await tx
+						.delete(workspaceInvitations)
+						.where(eq(workspaceInvitations.id, invitationResult.id));
 
-				throw new AppError({
-					code: 400,
-					message: "Invalid or expired invitation",
-				});
-			}
+					return null;
+				}
 
-			const [existingUser] = await db
-				.select(pickKeys(users, ["id"]))
-				.from(users)
-				.where(eq(users.email, invitationResult.inviteeEmail))
-				.limit(1);
+				const [existingUser] = await tx
+					.select(pickKeys(users, ["id"]))
+					.from(users)
+					.where(eq(users.email, invitationResult.inviteeEmail))
+					.limit(1);
 
-			if (existingUser) {
-				throw new AppError({
-					code: 400,
-					message: "A user with this email already exists",
-				});
-			}
+				const [user] = await (async () => {
+					if (existingUser) {
+						return tx
+							.update(users)
+							.set({
+								emailVerifiedAt: new Date(),
+								fullName: invitationResult.inviteeName,
+								mustChangePassword: true,
+								passwordHash: invitationResult.defaultPasswordHash,
+								refreshTokenArray: [],
+								temporaryPasswordIssuedAt: new Date(),
+							})
+							.where(eq(users.id, existingUser.id))
+							.returning();
+					}
 
-			const newUser = await db.transaction(async (tx) => {
-				const [insertedUser] = await tx
-					.insert(users)
-					.values({
-						email: invitationResult.inviteeEmail,
-						emailVerifiedAt: new Date(),
-						fullName: invitationResult.inviteeName,
-						mustChangePassword: true,
-						passwordHash: invitationResult.defaultPasswordHash,
-						temporaryPasswordIssuedAt: new Date(),
-					})
-					.returning();
+					return tx
+						.insert(users)
+						.values({
+							email: invitationResult.inviteeEmail,
+							emailVerifiedAt: new Date(),
+							fullName: invitationResult.inviteeName,
+							mustChangePassword: true,
+							passwordHash: invitationResult.defaultPasswordHash,
+							temporaryPasswordIssuedAt: new Date(),
+						})
+						.returning();
+				})();
 
-				if (!insertedUser) {
+				if (!user) {
 					throw new AppError({
 						code: 500,
 						message: "Failed to create invited user",
@@ -106,7 +120,7 @@ export const workspaceRoutes = new Hono()
 					.insert(workspaceMemberships)
 					.values({
 						role: invitationResult.role,
-						userId: insertedUser.id,
+						userId: user.id,
 						workspaceId: invitationResult.workspaceId,
 					})
 					.returning();
@@ -116,12 +130,19 @@ export const workspaceRoutes = new Hono()
 					.set({ acceptedAt: new Date() })
 					.where(eq(workspaceInvitations.id, invitationResult.id));
 
-				return { insertedMembership, insertedUser };
+				return { insertedMembership, user };
 			});
 
+			if (!acceptedInvitation) {
+				throw new AppError({
+					code: 400,
+					message: "Invalid or expired invitation",
+				});
+			}
+
 			const { currentUser, currentWorkspace } = await getCurrentSessionState({
-				existingMembership: newUser.insertedMembership,
-				user: newUser.insertedUser,
+				existingMembership: acceptedInvitation.insertedMembership,
+				user: acceptedInvitation.user,
 			});
 
 			return AppJsonResponse(ctx, {
@@ -147,16 +168,17 @@ export const workspaceRoutes = new Hono()
 
 			assertAdminCanOnlyManagePharmacist({ actorRole: currentUser.role, targetRole: role });
 
-			const [existingUser] = await db
-				.select(pickKeys(users, ["id"]))
+			const [existingMembership] = await db
+				.select({ id: workspaceMemberships.id })
 				.from(users)
+				.innerJoin(workspaceMemberships, eq(users.id, workspaceMemberships.userId))
 				.where(eq(users.email, inviteeEmail))
 				.limit(1);
 
-			if (existingUser) {
+			if (existingMembership) {
 				throw new AppError({
 					code: 400,
-					message: "A user with this email already exists",
+					message: "A workspace member with this email already exists",
 				});
 			}
 
@@ -242,6 +264,50 @@ export const workspaceRoutes = new Hono()
 	)
 
 	.patch(
+		"/alert-settings",
+		authorizeRoleMiddleware(["owner", "admin"]),
+		validateWithZodMiddleware("json", backendApiSchemaRoutes["@patch/workspace/alert-settings"].body),
+		async (ctx) => {
+			const {
+				alertEmail,
+				emailAlertDeliveryPolicy,
+				emailAlertsEnabled,
+				lowStockThreshold,
+				nearExpiryDays,
+			} = ctx.req.valid("json");
+
+			const currentUser = ctx.get("currentUser");
+			const currentWorkspace = ctx.get("currentWorkspace");
+
+			await db
+				.update(workspaces)
+				.set({
+					alertEmail: emailAlertsEnabled ? alertEmail : null,
+					emailAlertDeliveryPolicy,
+					emailAlertsEnabledAt: emailAlertsEnabled ? new Date() : null,
+					lowStockThreshold,
+					nearExpiryDays,
+				})
+				.where(eq(workspaces.id, currentUser.workspaceId));
+
+			await removeFromCache(`workspace:${currentUser.workspaceId}`);
+
+			await syncInventoryAlerts({
+				lowStockThreshold,
+				nearExpiryDays,
+				timezone: currentWorkspace.timezone,
+				workspaceId: currentUser.workspaceId,
+			});
+
+			return AppJsonResponse(ctx, {
+				data: null,
+				message: "Alert settings updated successfully",
+				schema: backendApiSchemaRoutes["@patch/workspace/alert-settings"].data,
+			});
+		}
+	)
+
+	.patch(
 		"/member/role",
 		authorizeRoleMiddleware(["owner"]),
 		validateWithZodMiddleware("json", backendApiSchemaRoutes["@patch/workspace/member/role"].body),
@@ -255,7 +321,7 @@ export const workspaceRoutes = new Hono()
 			});
 
 			assertNotCurrentUser({ actorId: currentUser.id, targetMember });
-			assertCanManageMember({ actorRole: currentUser.role, targetMember });
+			assertWhoCanManageWhichMember({ actorRole: currentUser.role, targetMember });
 
 			const [updatedUser] = await db
 				.update(workspaceMemberships)
@@ -300,12 +366,12 @@ export const workspaceRoutes = new Hono()
 			});
 
 			assertNotCurrentUser({ actorId: currentUser.id, targetMember });
-			assertCanManageMember({ actorRole: currentUser.role, targetMember });
+			assertWhoCanManageWhichMember({ actorRole: currentUser.role, targetMember });
 
 			if (action === "suspend" && targetMember.suspendedAt) {
 				return AppJsonResponse(ctx, {
 					data: null,
-					message: "Member already suspended",
+					message: "Member is already suspended",
 					schema: backendApiSchemaRoutes["@post/workspace/member/suspension"].data,
 				});
 			}
@@ -318,17 +384,6 @@ export const workspaceRoutes = new Hono()
 				});
 			}
 
-			const updateData =
-				action === "suspend" ?
-					{
-						status: "suspended" as const,
-						suspendedAt: new Date(),
-					}
-				:	{
-						status: "active" as const,
-						suspendedAt: null,
-					};
-
 			const [updatedUser] = await db.transaction(async (tx) => {
 				if (action === "suspend") {
 					await tx.update(users).set({ refreshTokenArray: [] }).where(eq(users.id, targetMember.id));
@@ -336,7 +391,7 @@ export const workspaceRoutes = new Hono()
 
 				return tx
 					.update(workspaceMemberships)
-					.set(updateData)
+					.set({ suspendedAt: action === "suspend" ? new Date() : null })
 					.where(eq(workspaceMemberships.id, targetMember.membershipId))
 					.returning();
 			});
@@ -366,7 +421,7 @@ export const workspaceRoutes = new Hono()
 
 			return AppJsonResponse(ctx, {
 				data: null,
-				message: `Member ${action === "suspend" ? "suspended" : "unsuspended"} successfully`,
+				message: `Member ${action}ed successfully`,
 				schema: backendApiSchemaRoutes["@post/workspace/member/suspension"].data,
 			});
 		}
@@ -389,13 +444,13 @@ export const workspaceRoutes = new Hono()
 			});
 
 			assertNotCurrentUser({ actorId: currentUser.id, targetMember });
-			assertCanManageMember({ actorRole: currentUser.role, targetMember });
+			assertWhoCanManageWhichMember({ actorRole: currentUser.role, targetMember });
 
 			await db.transaction(async (tx) => {
+				await tx.update(users).set({ refreshTokenArray: [] }).where(eq(users.id, targetMember.id));
 				await tx
 					.delete(workspaceMemberships)
 					.where(eq(workspaceMemberships.id, targetMember.membershipId));
-				await tx.delete(users).where(eq(users.id, targetMember.id));
 			});
 
 			await Promise.all([
@@ -415,7 +470,7 @@ export const workspaceRoutes = new Hono()
 
 			return AppJsonResponse(ctx, {
 				data: null,
-				message: "Member permanently removed",
+				message: "Member removed from workspace",
 				schema: backendApiSchemaRoutes["@delete/workspace/member/:memberId"].data,
 			});
 		}
@@ -538,7 +593,6 @@ export const workspaceRoutes = new Hono()
 						fullName: users.fullName,
 						id: users.id,
 						role: workspaceMemberships.role,
-						status: workspaceMemberships.status,
 						suspendedAt: workspaceMemberships.suspendedAt,
 					})
 					.from(workspaceMemberships)
@@ -572,14 +626,7 @@ export const workspaceRoutes = new Hono()
 					...workspaceUsers.map((user) => {
 						const isCurrentUser = user.id === currentUser.id;
 
-						if (user.status === "suspended") {
-							if (!user.suspendedAt) {
-								throw new AppError({
-									code: 500,
-									message: "Suspended membership is missing suspended date",
-								});
-							}
-
+						if (user.suspendedAt) {
 							return {
 								createdAt: user.createdAt,
 								email: user.email,

@@ -41,9 +41,12 @@ function DropZoneInputRoot(props: DropZoneInputProps) {
 
 type ImagePreviewProps = {
 	classNames?: {
+		deleteButton?: string;
 		image?: string;
 		listContainer?: string;
 		listItem?: string;
+		metadata?: string;
+		preview?: string;
 	};
 };
 
@@ -53,8 +56,8 @@ function DropZoneInputImagePreview(props: ImagePreviewProps) {
 	return (
 		<DropZone.FileList
 			className={cnMerge(
-				`relative mt-3.5 max-h-[140px] divide-y divide-gray-600 overflow-y-auto overscroll-y-contain
-				rounded-md border border-gray-600`,
+				`relative mt-3.5 max-h-[140px] divide-y divide-shadcn-border overflow-y-auto
+				overscroll-y-contain rounded-lg border border-shadcn-border bg-white`,
 				classNames?.listContainer
 			)}
 		>
@@ -62,10 +65,10 @@ function DropZoneInputImagePreview(props: ImagePreviewProps) {
 				<DropZone.FileItem
 					key={ctx.fileState.id}
 					fileState={ctx.fileState}
-					className={cnMerge("justify-between text-xs", classNames?.listItem)}
+					className={cnMerge("gap-3 px-3 py-2 text-xs", classNames?.listItem)}
 				>
 					<DropZone.FileItemPreview
-						className="h-12 gap-4 md:h-[66px]"
+						className={cnMerge("h-11 shrink-0 gap-3", classNames?.preview)}
 						renderPreview={{
 							default: (
 								<span className="block size-10">
@@ -99,10 +102,18 @@ function DropZoneInputImagePreview(props: ImagePreviewProps) {
 						}}
 					/>
 
-					<DropZone.FileItemMetadata />
+					<DropZone.FileItemMetadata
+						className={cnMerge("min-w-0 grow text-left", classNames?.metadata)}
+					/>
 
-					<DropZone.FileItemDelete>
-						<IconBox icon="lucide:trash-2" className="size-5 text-red-500 active:scale-110" />
+					<DropZone.FileItemDelete
+						className={cnMerge(
+							`grid size-8 shrink-0 place-items-center rounded-md text-shadcn-destructive
+							hover:bg-shadcn-destructive/10`,
+							classNames?.deleteButton
+						)}
+					>
+						<IconBox icon="lucide:trash-2" className="size-4" />
 					</DropZone.FileItemDelete>
 				</DropZone.FileItem>
 			)}
@@ -112,7 +123,6 @@ function DropZoneInputImagePreview(props: ImagePreviewProps) {
 
 export const Root = DropZoneInputRoot;
 
-// eslint-disable-next-line react-refresh/only-export-components
 export const Area = DropZone.Area;
 
 export const ImagePreview = DropZoneInputImagePreview;

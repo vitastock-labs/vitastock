@@ -1,21 +1,23 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
 import { backendApiSchemaRoutes } from "@vitastock/shared/validation/backendApiSchema";
+import { createSearchParams } from "@zayne-labs/toolkit-core";
+import { parseAsString, useQueryState } from "nuqs";
 import { useForm } from "react-hook-form";
-import { useNavigate, useSearchParams } from "react-router";
+import { useNavigate } from "react-router";
 import { Logo } from "@/components/common/Logo";
 import { NavLink } from "@/components/common/NavLink";
 import { Button } from "@/components/ui";
 import { Form } from "@/components/ui/form";
 import { callBackendApiForQuery } from "@/lib/api/callBackendApi";
 import { sessionQuery } from "@/lib/react-query/queryOptions";
+import { InputField } from "@/pages/(home)/-components/FormPartsShared";
 import { Main } from "../-components/Main";
 
 const SignInSchema = backendApiSchemaRoutes["@post/auth/signin"].body;
 
 function SigninPage() {
-	const [searchParams] = useSearchParams();
-	const email = searchParams.get("email") ?? "";
+	const [email] = useQueryState("email", parseAsString.withDefault(""));
 
 	const form = useForm({
 		defaultValues: {
@@ -37,7 +39,10 @@ function SigninPage() {
 					ctx.response.status === 401 && ctx.error.errorData.appCode === "EMAIL_UNVERIFIED";
 
 				if (isEmailUnverifiedError) {
-					void navigate(`/auth/verify-email?${new URLSearchParams({ email: data.email })}`);
+					void navigate({
+						pathname: "/auth/verify-email",
+						search: createSearchParams({ email: data.email }).toString(),
+					});
 				}
 			},
 
@@ -61,24 +66,21 @@ function SigninPage() {
 
 				<Form.Root form={form} onSubmit={(event) => void onSubmit(event)} className="w-full gap-8">
 					<div className="flex flex-col gap-4">
-						<Form.Field control={form.control} name="email">
-							<Form.Input
-								placeholder="Email Address"
-								className="h-[50px] rounded-[8px] bg-[hsl(210,9%,96%)] p-4"
-							/>
+						<InputField
+							control={form.control}
+							name="email"
+							placeholder="Email Address"
+							classNames={{ input: "h-[50px] border-0 bg-[hsl(210,9%,96%)] p-4" }}
+						/>
 
-							<Form.ErrorMessage />
-						</Form.Field>
-
-						<Form.Field control={form.control} name="password">
-							<Form.Input
+						<div className="flex flex-col gap-1">
+							<InputField
+								control={form.control}
+								name="password"
 								placeholder="Password"
 								type="password"
-								classNames={{ inputGroup: "h-[50px] rounded-[8px] bg-[hsl(210,9%,96%)] p-4" }}
+								classNames={{ inputGroup: "h-[50px] border-0 bg-[hsl(210,9%,96%)] p-4" }}
 							/>
-
-							<Form.ErrorMessage />
-
 							<NavLink
 								transitionType="regular"
 								to="/auth/forgot-password"
@@ -86,7 +88,7 @@ function SigninPage() {
 							>
 								Forgot password?
 							</NavLink>
-						</Form.Field>
+						</div>
 					</div>
 
 					<Form.Submit asChild={true}>

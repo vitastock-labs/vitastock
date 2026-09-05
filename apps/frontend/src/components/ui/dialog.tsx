@@ -149,13 +149,10 @@ function DialogDescription(props: React.ComponentProps<typeof DialogPrimitive.De
 	);
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
 export const Close = DialogPrimitive.Close;
 
-// eslint-disable-next-line react-refresh/only-export-components
 export const Portal = DialogPrimitive.Portal;
 
-// eslint-disable-next-line react-refresh/only-export-components
 export const Trigger = DialogPrimitive.Trigger;
 
 export {

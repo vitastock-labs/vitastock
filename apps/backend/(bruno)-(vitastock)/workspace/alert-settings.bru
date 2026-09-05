@@ -1,0 +1,81 @@
+meta {
+  name: update-alert-settings
+  type: http
+  seq: 2
+}
+
+patch {
+  url: {{baseURL}}/workspace/alert-settings
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "alertEmail": "alerts@pharmacy.com",
+    "emailAlertDeliveryPolicy": "critical_immediate",
+    "emailAlertsEnabled": true,
+    "lowStockThreshold": 10,
+    "nearExpiryDays": 30
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  # Update Alert Settings
+
+  Updates workspace-wide inventory alert thresholds and email delivery configuration.
+
+  ## Authorization
+
+  Requires an authenticated `owner` or `admin`. Pharmacists receive `403 Forbidden`.
+
+  ## Request Body
+
+  | Field | Type | Required | Rules / Description |
+  |-------|------|----------|---------------------|
+  | `emailAlertsEnabled` | boolean | Yes | Enables or disables alert-email delivery. |
+  | `alertEmail` | email string | Conditional | Required when email delivery is enabled. |
+  | `emailAlertDeliveryPolicy` | enum | Yes | `digest_only`, `critical_immediate`, or `all_immediate`. |
+  | `lowStockThreshold` | integer | Yes | Must be greater than or equal to `0`. |
+  | `nearExpiryDays` | integer | Yes | Must be greater than `0`. |
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Alert settings updated successfully",
+    "data": null
+  }
+  ```
+
+  ## Persistence Behavior
+
+  - When email delivery is enabled, `alertEmail` is stored and `emailAlertsEnabledAt` is set to the current time.
+  - When disabled, both stored email-delivery fields are cleared.
+  - `digest_only` sends active alerts in the daily workspace-timezone digest only.
+  - `critical_immediate` immediately sends low-stock and expired alerts, while near-expiry alerts wait for the digest.
+  - `all_immediate` immediately sends every newly raised alert. Every enabled policy retains the daily digest.
+  - Workspace cache is invalidated immediately.
+  - Persisted inventory alerts are re-evaluated using the new low-stock and near-expiry thresholds.
+
+  ## Delivery Impact
+
+  Alerts remain immediately visible in VitaStock regardless of email configuration. Policy upgrades apply only to newly raised alert occurrences; they do not backfill immediate emails for active alerts. Pending outbox records are checked against current enablement, recipients, and policy before they are queued. Changing thresholds may immediately raise new alerts or resolve existing alerts.
+
+  ## Errors
+
+  | Status | Description |
+  |--------|-------------|
+  | `401 Unauthorized` | Authentication is invalid or membership is suspended. |
+  | `403 Forbidden` | The authenticated member is not an owner or admin. |
+  | `422 Unprocessable Entity` | Email configuration or numeric thresholds are invalid. |
+  | `500 Internal Server Error` | Settings persistence or alert synchronization failed unexpectedly. |
+}

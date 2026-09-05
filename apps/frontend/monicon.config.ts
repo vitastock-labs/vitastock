@@ -67,7 +67,6 @@ function getIconsArray() {
 		"lucide:users",
 		"lucide:users-round",
 		"lucide:wallet",
-		"lucide:zap",
 		"lucide:zap-off",
 		"lucide:plus",
 		"lucide:circle",
@@ -91,5 +90,10 @@ function getIconsArray() {
 		"lucide:send-horizontal",
 		"solar:file-outline",
 		"solar:document-medicine-linear",
+		"lucide:plus",
+		"lucide:minus",
+		"lucide:clipboard-list",
+		"lucide:circle-dollar-sign",
+		"tabler:currency-naira",
 	];
 }

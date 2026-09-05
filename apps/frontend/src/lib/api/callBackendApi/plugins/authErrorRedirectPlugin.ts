@@ -40,12 +40,6 @@ export const authErrorRedirectPlugin = (authOptions?: AuthErrorRedirectPluginMet
 			}, redirectDelay);
 		};
 
-		const turnOffErrorToast = () => {
-			ctx.options.meta ??= {};
-			ctx.options.meta.toast ??= {};
-			ctx.options.meta.toast.error = false;
-		};
-
 		const signInRoute = authMeta?.redirectRoute ?? defaultRedirectRoute;
 
 		const redirectErrorMessage = authMeta?.redirectErrorMessage ?? defaultRedirectErrorMessage;
@@ -62,7 +56,6 @@ export const authErrorRedirectPlugin = (authOptions?: AuthErrorRedirectPluginMet
 			redirectFn,
 			shouldSkipRouteFromRedirect,
 			signInRoute,
-			turnOffErrorToast,
 		};
 	};
 
@@ -78,24 +71,12 @@ export const authErrorRedirectPlugin = (authOptions?: AuthErrorRedirectPluginMet
 					Meta: AuthErrorRedirectPluginMeta & ToastPluginMeta;
 				}>
 			) => {
-				const {
-					redirectErrorMessage,
-					redirectFn,
-					shouldSkipRouteFromRedirect,
-					signInRoute,
-					turnOffErrorToast,
-				} = getAuthMetaAndDerivatives(ctx);
-
-				// == Turn off error toast in the case where redirect is skipped and auth error needs redirect
-				if (shouldSkipRouteFromRedirect && isAuthErrorThatNeedsRedirect(ctx.error)) {
-					turnOffErrorToast();
-				}
+				const { redirectErrorMessage, redirectFn, shouldSkipRouteFromRedirect, signInRoute } =
+					getAuthMetaAndDerivatives(ctx);
 
 				if (shouldSkipRouteFromRedirect || !isAuthErrorThatNeedsRedirect(ctx.error)) return;
 
-				if (isBrowser()) {
-					redirectFn(signInRoute);
-				}
+				isBrowser() && redirectFn(signInRoute);
 
 				throw new Error(redirectErrorMessage);
 			},

@@ -1,0 +1,66 @@
+meta {
+  name: cancel-invitation
+  type: http
+  seq: 4
+}
+
+delete {
+  url: {{baseURL}}/workspace/invitation/{{invitationId}}
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  # Cancel Invitation
+
+  Permanently cancels an unaccepted workspace invitation.
+
+  ## Authorization
+
+  Requires an authenticated `owner` or `admin`.
+
+  - Owners may cancel admin or pharmacist invitations.
+  - Admins may cancel pharmacist invitations only.
+
+  ## Path Parameters
+
+  | Parameter | Type | Required | Description |
+  |-----------|------|----------|-------------|
+  | `invitationId` | UUID | Yes | Unaccepted invitation ID from the workspace-members response. |
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Invitation canceled successfully",
+    "data": null
+  }
+  ```
+
+  ## Persistence Behavior
+
+  The invitation row is deleted. Its acceptance token can no longer resolve to an invitation, so later acceptance attempts fail as invalid.
+
+  ## Safety Rules
+
+  - The invitation must belong to the authenticated workspace.
+  - Accepted invitations are not returned by the pending-invitation lookup and cannot be cancelled here.
+  - Admins cannot cancel invitations for the admin role.
+
+  ## Errors
+
+  | Status | Message / Description |
+  |--------|-----------------------|
+  | `401 Unauthorized` | Authentication is invalid or membership is suspended. |
+  | `403 Forbidden` | Actor lacks permission for the invitation role. |
+  | `404 Not Found` | `Pending invitation not found`. |
+  | `422 Unprocessable Entity` | `invitationId` is not a valid UUID. |
+}

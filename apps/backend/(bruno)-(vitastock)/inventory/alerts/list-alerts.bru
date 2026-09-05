@@ -1,0 +1,100 @@
+meta {
+  name: list-alerts
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseURL}}/inventory/alerts
+  body: none
+  auth: inherit
+}
+
+params:query {
+  status: active
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  # List Inventory Alerts
+
+  Returns persisted inventory alerts for the authenticated workspace, newest first.
+
+  ## Authorization
+
+  Requires an authenticated user with an active workspace membership.
+
+  ## Query Parameters
+
+  | Parameter | Type | Required | Allowed Values | Description |
+  |-----------|------|----------|----------------|-------------|
+  | `status` | string | No | `active`, `resolved` | Alert lifecycle state. Defaults to `active`. |
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Alerts fetched successfully",
+    "data": {
+      "alerts": [
+        {
+          "id": "alert-uuid",
+          "type": "low_stock",
+          "status": "active",
+          "action": "restock",
+          "drug": {
+            "id": "drug-uuid",
+            "name": "Amoxil",
+            "genericName": "Amoxicillin",
+            "strength": "500 mg",
+            "form": "Capsule",
+            "unit": "Capsule",
+            "isActive": true
+          },
+          "batchNumber": null,
+          "expiryDate": null,
+          "quantityAffected": 8,
+          "threshold": 10,
+          "acknowledgedAt": null
+        }
+      ]
+    }
+  }
+  ```
+
+  ## Alert Types and Actions
+
+  | Type | Scope | Derived Action |
+  |------|-------|----------------|
+  | `low_stock` | One alert per drug when usable quantity is at/below the workspace threshold. | `restock` |
+  | `expiring_soon` | One alert per available batch inside the workspace near-expiry window. | `review` |
+  | `expired` | One alert per expired batch that still has quantity. | `remove` |
+
+  ## Lifecycle
+
+  - Alerts are persisted and deduplicated; repeated evaluations do not create duplicate active occurrences.
+  - Alert evaluation runs after stock movements, after alert-setting changes, and from the background inventory scan.
+  - An alert becomes `resolved` when its underlying condition no longer applies.
+  - Acknowledgement records that a member has seen an alert; it does not resolve or hide it.
+
+  ## Nullable Fields
+
+  - `batchNumber` and `expiryDate` are normally null for drug-level low-stock alerts.
+  - `threshold` is relevant to low-stock alerts.
+  - `quantityAffected` reflects the quantity associated with the evaluated condition.
+  - `acknowledgedAt` is null until an active member acknowledges the alert.
+
+  ## Errors
+
+  | Status | Description |
+  |--------|-------------|
+  | `401 Unauthorized` | Authentication is invalid or workspace access is suspended. |
+  | `422 Unprocessable Entity` | `status` is not `active` or `resolved`. |
+}

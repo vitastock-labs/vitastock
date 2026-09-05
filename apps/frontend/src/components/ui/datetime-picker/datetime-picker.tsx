@@ -88,7 +88,7 @@ export function DateTimePicker(props: DatePickerProps) {
 				</button>
 			</Popover.Trigger>
 
-			<Popover.Content className="flex w-fit rounded-[10px] border-[1.4px] border-shadcn-border p-0">
+			<Popover.Content className="flex w-fit rounded-[10px] p-0">
 				{showDatePicker && (
 					<Calendar
 						mode="single"
@@ -164,11 +164,11 @@ const resolveOrder = (
 
 	switch (selectedOrder) {
 		case "ascending": {
-			return selectedRange.toSorted((a, b) => a - b);
+			return [...selectedRange].sort((a, b) => a - b);
 		}
 
 		case "descending": {
-			return selectedRange.toSorted((a, b) => b - a);
+			return [...selectedRange].sort((a, b) => b - a);
 		}
 
 		case "preserve": {

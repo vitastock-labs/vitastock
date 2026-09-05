@@ -14,3 +14,40 @@ settings {
   encodeUrl: true
   timeout: 0
 }
+
+docs {
+  # Health Check
+
+  Confirms that the API process is running and able to serve HTTP requests.
+
+  ## Authorization
+
+  Public endpoint. No authentication is required.
+
+  ## Request
+
+  No path parameters, query parameters, or request body.
+
+  This request uses `{{baseHost}}/health`, outside the versioned `/api/v1` route prefix.
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Server is up and running!"
+  }
+  ```
+
+  ## Scope
+
+  This is a process-level liveness check. It does not currently verify database, Redis, queue-worker, email-provider, or alert-worker readiness.
+
+  ## Failure Interpretation
+
+  - Connection failure or timeout: the API deployment is unreachable or not accepting requests.
+  - `5xx`: the API process or hosting layer failed while serving the health request.
+  - A `200` response does not guarantee that external dependencies are healthy.
+}

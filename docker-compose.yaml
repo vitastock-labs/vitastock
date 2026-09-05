@@ -61,6 +61,8 @@ services:
       ports:
          - 6382:6379
       command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy noeviction
+      volumes:
+         - vitastock-redis-queue-data:/data
       networks:
          - vitastock-network
       healthcheck:
@@ -71,11 +73,14 @@ services:
          start_period: 5s
 
    vitastock-backend:
+      image: vitastock-backend:local
       build:
          context: .
          dockerfile: apps/backend/Dockerfile
       container_name: vitastock-backend
+      init: true
       restart: unless-stopped
+      stop_grace_period: 20s
       depends_on:
          vitastock-postgres-db:
             condition: service_healthy
@@ -98,9 +103,9 @@ services:
 
       healthcheck:
          test:
-               - CMD-SHELL
-               - node -e "fetch('http://localhost:8000/health').then((res) => process.exit(res.ok ? 0: 1)).catch(() => process.exit(1))"
-            
+            - CMD-SHELL
+            - >-
+               node -e "fetch('http://localhost:8000/health').then((res) => process.exit(res.ok ? 0 : 1)).catch(() => process.exit(1))"
          interval: 30s
          timeout: 3s
          start_period: 10s
@@ -108,6 +113,7 @@ services:
 
 volumes:
    vitastock-postgres-db-data:
+   vitastock-redis-queue-data:
 
 networks:
    vitastock-network:

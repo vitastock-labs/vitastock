@@ -15,12 +15,12 @@
 	"dependencies": {
 		"consola": "3.4.2",
 		"find-up-simple": "^1.0.1",
-		"zod": "4.4.3"
+		"zod": "4.5.4"
 	},
 	"devDependencies": {
 		"@total-typescript/ts-reset": "0.6.1",
 		"@zayne-labs/tsconfig": "^0.13.14",
-		"tsdown": "0.22.14",
+		"tsdown": "0.23.0",
 		"typescript": "6.0.3"
 	}
 }

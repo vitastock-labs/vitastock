@@ -3,23 +3,26 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { backendApiSchemaRoutes } from "@vitastock/shared/validation/backendApiSchema";
 import { REGEXP_ONLY_DIGITS } from "input-otp";
+import { parseAsString, useQueryStates } from "nuqs";
 import { Fragment } from "react";
 import { useForm } from "react-hook-form";
-import { useNavigate, useSearchParams } from "react-router";
+import { useNavigate } from "react-router";
 import { For } from "@/components/common/for";
 import { IconBox } from "@/components/common/IconBox";
 import { Button, InputOTP } from "@/components/ui";
 import { Form } from "@/components/ui/form";
 import { callBackendApiForQuery } from "@/lib/api/callBackendApi";
 import { resendVerificationEmailMutation } from "@/lib/react-query/mutationOptions";
+import { FormField } from "@/pages/(home)/-components/FormPartsShared";
 import { Main } from "../-components/Main";
 
 const VerifyEmailSchema = backendApiSchemaRoutes["@post/auth/verify-email"].body.pick({ code: true });
 
 function VerifyEmailPage() {
-	const [searchParams] = useSearchParams();
-	const email = searchParams.get("email") ?? "";
-	const code = searchParams.get("code") ?? "";
+	const [{ code, email }] = useQueryStates({
+		code: parseAsString.withDefault(""),
+		email: parseAsString.withDefault(""),
+	});
 
 	const resendTimer = useTimer({
 		countdown: true,
@@ -77,7 +80,7 @@ function VerifyEmailPage() {
 				</div>
 
 				<Form.Root form={form} onSubmit={(event) => void onSubmit(event)} className="w-full gap-8">
-					<Form.Field control={form.control} name="code" className="items-center">
+					<FormField control={form.control} name="code" classNames={{ base: "items-center" }}>
 						<Form.FieldBoundController
 							render={({ field }) => (
 								<InputOTP.Root
@@ -109,8 +112,7 @@ function VerifyEmailPage() {
 								</InputOTP.Root>
 							)}
 						/>
-						<Form.ErrorMessage />
-					</Form.Field>
+					</FormField>
 
 					<Form.Submit asChild={true}>
 						{(formState) => (

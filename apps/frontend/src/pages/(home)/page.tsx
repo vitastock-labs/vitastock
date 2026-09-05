@@ -14,7 +14,7 @@ import {
 import { ForWithWrapper } from "@/components/common/for";
 import { IconBox } from "@/components/common/IconBox";
 import { ImageOnline } from "@/components/common/Image";
-import { NavLink } from "@/components/common/NavLink";
+import { NavLinkEphemeral } from "@/components/common/NavLink";
 import { Button } from "@/components/ui/button";
 import { cnJoin } from "@/lib/utils/cn";
 import { Main } from "./-components/Main";
@@ -57,16 +57,15 @@ function HeroSection() {
 			</p>
 
 			<div className="mt-9 flex flex-col items-center gap-4 delay-180">
-				<Button
-					className="h-[56px] rounded-full px-10 text-lg
-						shadow-[0_20px_60px_-10px_theme(--color-vitastock-primary-dark/0.35)]"
-					asChild={true}
-				>
-					<NavLink to="/auth/signup">
+				<NavLinkEphemeral to="/auth/signup">
+					<Button
+						className="h-[56px] rounded-full px-10 text-lg
+							shadow-[0_20px_60px_-10px_theme(--color-vitastock-primary-dark/0.35)]"
+					>
 						Get Started for Free
 						<IconBox icon="lucide:arrow-right" />
-					</NavLink>
-				</Button>
+					</Button>
+				</NavLinkEphemeral>
 				<p className="text-center text-[14px] font-medium text-vitastock-body-color/60">
 					No setup stress. Get started in minutes.
 				</p>
@@ -142,11 +141,9 @@ const problems = [
 		classNames: {
 			blur: tw`bg-white/20`,
 			card: tw`border-vitastock-primary-main bg-vitastock-primary-main text-shadcn-primary-foreground`,
-			chip: tw`bg-shadcn-primary-foreground/10 text-shadcn-primary-foreground ring-1
-			ring-shadcn-primary-foreground/20`,
+			chip: tw`bg-shadcn-primary-foreground/10 text-shadcn-primary-foreground ring-1 ring-shadcn-primary-foreground/20`,
 			desc: tw`text-shadcn-primary-foreground/80`,
-			iconWrap: tw`bg-shadcn-primary-foreground/15 text-shadcn-primary-foreground ring-1
-			ring-shadcn-primary-foreground/20`,
+			iconWrap: tw`bg-shadcn-primary-foreground/15 text-shadcn-primary-foreground ring-1 ring-shadcn-primary-foreground/20`,
 			title: tw`text-shadcn-primary-foreground`,
 		},
 		desc: "Stockouts and expiry issues are usually discovered after the damage is done.",
@@ -201,12 +198,7 @@ function ProblemSection() {
 									problem.classNames.iconWrap
 								)}
 							>
-								<IconBox
-									icon={problem.icon}
-									width={24}
-									height={24}
-									className="size-6"
-								/>
+								<IconBox icon={problem.icon} width={24} height={24} className="size-6" />
 							</span>
 
 							<h3
@@ -335,16 +327,15 @@ function SolutionSection() {
 					)}
 				/>
 
-				<Button
-					className="mt-9 rounded-full px-8
-						shadow-[0_20px_60px_-10px_theme(--color-vitastock-primary-dark/0.35)]"
-					asChild={true}
-				>
-					<NavLink to="/auth/signup">
+				<NavLinkEphemeral to="/auth/signup">
+					<Button
+						className="mt-9 rounded-full px-8
+							shadow-[0_20px_60px_-10px_theme(--color-vitastock-primary-dark/0.35)]"
+					>
 						Get Started for Free
 						<IconBox icon="lucide:arrow-right" />
-					</NavLink>
-				</Button>
+					</Button>
+				</NavLinkEphemeral>
 			</div>
 		</section>
 	);
@@ -510,12 +501,12 @@ function FeaturesSection() {
 					)}
 				/>
 
-				<Button className="mt-9 rounded-full px-8 shadow-vitastock-primary-glow" asChild={true}>
-					<NavLink to="/auth/signup">
+				<NavLinkEphemeral to="/auth/signup">
+					<Button className="mt-9 rounded-full px-8 shadow-vitastock-primary-glow">
 						Get Started for Free
 						<IconBox icon="lucide:arrow-right" />
-					</NavLink>
-				</Button>
+					</Button>
+				</NavLinkEphemeral>
 			</div>
 
 			<div className="group relative aspect-5/4 w-full perspective-distant">
@@ -578,12 +569,12 @@ function FinalCTASection() {
 					</p>
 
 					<div className="mt-9 flex flex-col gap-4">
-						<Button className="rounded-full px-8 shadow-vitastock-primary-glow" asChild={true}>
-							<NavLink to="/auth/signup">
+						<NavLinkEphemeral to="/auth/signup">
+							<Button className="rounded-full px-8 shadow-vitastock-primary-glow">
 								Get Started for Free
 								<IconBox icon="lucide:arrow-right" />
-							</NavLink>
-						</Button>
+							</Button>
+						</NavLinkEphemeral>
 
 						<p className="text-[14px] text-vitastock-body-color">
 							No complicated setup. Built for busy pharmacy teams.

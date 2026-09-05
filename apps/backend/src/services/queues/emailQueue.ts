@@ -5,12 +5,10 @@ import { appLogger } from "@/lib/logger";
 import { sendEmail } from "../email/send";
 import { redisQueueClient } from "./utils/queueClient";
 
-const emailQueueKey = "emailQueue";
+const emailQueueName = "emailQueue";
 
-const connection = redisQueueClient as never;
-
-export const emailQueue = new Queue<EmailJobOptions>(emailQueueKey, {
-	connection,
+export const emailQueue = new Queue<EmailJobOptions>(emailQueueName, {
+	connection: redisQueueClient,
 	defaultJobOptions: {
 		attempts: 3,
 		backoff: {
@@ -21,7 +19,7 @@ export const emailQueue = new Queue<EmailJobOptions>(emailQueueKey, {
 });
 
 export const addEmailToQueue = async (options: EmailJobOptions) => {
-	const { data, onError, onSuccess, type } = options;
+	const { data, jobId, onError, onSuccess, type } = options;
 
 	try {
 		emitAppEvent("email.enqueueRequested", {
@@ -31,6 +29,7 @@ export const addEmailToQueue = async (options: EmailJobOptions) => {
 
 		await emailQueue.add(type, options, {
 			...(data.priority !== "high" && { priority: 2 }),
+			...(jobId && { jobId }),
 		});
 
 		await onSuccess?.();
@@ -51,14 +50,20 @@ export const addEmailToQueue = async (options: EmailJobOptions) => {
 	}
 };
 
-// == Lazy initialization - only create when Redis is connected
 let emailWorker: Worker<EmailJobOptions> | null = null;
-let emailQueueEvent: QueueEvents | null = null;
+let emailQueueEvents: QueueEvents | null = null;
 
-const getEmailWorker = () => {
-	emailWorker ??= new Worker<EmailJobOptions>(
-		emailQueueKey,
+const createEmailWorker = () => {
+	const worker = new Worker<EmailJobOptions>(
+		emailQueueName,
 		async (job) => {
+			const jobLogger = appLogger.child({ jobId: job.id, jobType: job.name, queue: emailQueueName });
+
+			jobLogger.info(
+				{ emailType: job.data.type, recipient: job.data.data.to.email },
+				`Processing ${job.data.type} email to ${job.data.data.to.email}`
+			);
+
 			const result = await sendEmail(job.data);
 
 			emitAppEvent("email.sent", {
@@ -66,9 +71,14 @@ const getEmailWorker = () => {
 				recipient: job.data.data.to.email,
 				...result,
 			});
+
+			jobLogger.info(
+				{ messageId: result.messageId, recipient: job.data.data.to.email },
+				`Successfully sent ${job.data.type} email to ${job.data.data.to.email}`
+			);
 		},
 		{
-			connection,
+			connection: redisQueueClient,
 			limiter: {
 				duration: 1000,
 				max: 1,
@@ -84,63 +94,69 @@ const getEmailWorker = () => {
 		}
 	);
 
-	emailWorker.on("error", (error) => {
+	worker.on("error", (error) => {
 		appLogger.critical({
 			error,
 			message: `Error processing email job: ${error.message}. Redis Status: ${redisQueueClient.status}`,
 		});
 	});
 
-	emailWorker.on("stalled", (jobId) => {
-		appLogger.pretty.warn(`Job ''${jobId}'' stalled - will be retried by another worker`);
+	worker.on("stalled", (jobId) => {
+		const jobLogger = appLogger.child({ jobId, queue: emailQueueName });
+		jobLogger.warn("Email job stalled - another worker will retry");
 	});
 
-	return emailWorker;
+	return worker;
 };
 
-const getEmailQueueEvents = () => {
-	emailQueueEvent ??= new QueueEvents(emailQueueKey, { connection });
+const createEmailQueueEvents = () => {
+	const queueEvents = new QueueEvents<unknown>(emailQueueName, { connection: redisQueueClient });
 
-	emailQueueEvent.on("failed", ({ failedReason, jobId }) => {
-		appLogger.pretty.error(`Job '${jobId}' failed with error ${failedReason}`, { failedReason });
+	queueEvents.on("failed", ({ failedReason, jobId }) => {
+		const jobLogger = appLogger.child({ jobId, queue: emailQueueName });
+		jobLogger.error({ failedReason }, `Email job failed: ${failedReason}`);
 	});
 
-	emailQueueEvent.on("waiting", ({ jobId }) => {
-		appLogger.pretty.info(`Job '${jobId}' is waiting`);
+	queueEvents.on("waiting", ({ jobId }) => {
+		const jobLogger = appLogger.child({ jobId, queue: emailQueueName });
+		jobLogger.info("Email job waiting in queue");
 	});
 
-	emailQueueEvent.on("completed", ({ jobId, returnvalue }) => {
-		appLogger.pretty.info(`Job '${jobId}' completed`, { returnvalue });
+	queueEvents.on("completed", ({ jobId, returnvalue }) => {
+		const jobLogger = appLogger.child({ jobId, queue: emailQueueName });
+		jobLogger.info({ returnvalue }, "Email job completed successfully");
 	});
 
-	emailQueueEvent.on("retries-exhausted", ({ attemptsMade, jobId }) => {
+	queueEvents.on("retries-exhausted", ({ attemptsMade, jobId }) => {
 		appLogger.pretty.error(`Job '${jobId}' failed after ${attemptsMade} attempts - no more retries`);
 	});
 
-	emailQueueEvent.on("progress", ({ data, jobId }) => {
+	queueEvents.on("progress", ({ data, jobId }) => {
 		appLogger.pretty.debug(`Job '${jobId}' progress:`, { data });
 	});
 
-	return emailQueueEvent;
+	return queueEvents;
 };
 
 export const startEmailQueueAndWorker = async () => {
-	// == Ensure Redis is connected before creating Worker/QueueEvents
 	if (redisQueueClient.status === "wait") {
 		await redisQueueClient.connect();
 	}
 
-	// == Now create Worker and QueueEvents (Redis is ready)
-	const worker = getEmailWorker();
-	const queueEvents = getEmailQueueEvents();
+	emailWorker ??= createEmailWorker();
+	emailQueueEvents ??= createEmailQueueEvents();
 
-	await Promise.all([emailQueue.waitUntilReady(), queueEvents.waitUntilReady(), worker.waitUntilReady()]);
+	await Promise.all([
+		emailQueue.waitUntilReady(),
+		emailQueueEvents.waitUntilReady(),
+		emailWorker.waitUntilReady(),
+	]);
 
 	appLogger.pretty.info("Email queue and worker are ready!");
 };
 
 export const stopEmailQueueAndWorker = async () => {
-	await Promise.all([emailWorker?.close(), emailQueueEvent?.close(), emailQueue.close()]);
+	await Promise.all([emailWorker?.close(), emailQueueEvents?.close(), emailQueue.close()]);
 
 	appLogger.pretty.info("Email queue and worker closed!");
 };
