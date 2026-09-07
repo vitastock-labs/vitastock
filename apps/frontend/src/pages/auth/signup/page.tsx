@@ -12,6 +12,7 @@ import { NavLink } from "@/components/common/NavLink";
 import { Button } from "@/components/ui";
 import { Form } from "@/components/ui/form";
 import { callBackendApiForQuery } from "@/lib/api/callBackendApi";
+import { isPostHogEnabled, posthog } from "@/lib/posthog";
 import { sessionQuery } from "@/lib/react-query/queryOptions";
 import { InputField } from "@/pages/(home)/-components/FormPartsShared";
 import { Main } from "../-components/Main";
@@ -44,6 +45,15 @@ function SignupPage() {
 			body: data,
 
 			onSuccess: async (ctx) => {
+				const user = ctx.data.data.user;
+
+				isPostHogEnabled && posthog.identify(user.id, {
+					email: user.email,
+					name: user.fullName,
+					role: user.role,
+				});
+				isPostHogEnabled && posthog.capture("account_registered");
+
 				await queryClient.invalidateQueries(sessionQuery());
 				void navigate({
 					pathname: "/auth/verify-email",

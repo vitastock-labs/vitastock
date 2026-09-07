@@ -2,12 +2,16 @@ import { mutationOptions } from "@tanstack/react-query";
 import type { z } from "zod";
 import { callBackendApiForQuery } from "../api/callBackendApi";
 import type { BackendApiRoutes } from "../api/callBackendApi/apiSchema";
+import { isPostHogEnabled, posthog } from "../posthog";
 
 export const signoutMutation = () => {
 	return mutationOptions({
 		mutationFn: () => {
 			return callBackendApiForQuery("@post/auth/signout", {
 				meta: { toast: { success: true } },
+				onSuccess: () => {
+					isPostHogEnabled && posthog.reset();
+				},
 			});
 		},
 		mutationKey: ["auth", "signout"],
@@ -45,6 +49,9 @@ export const cancelWorkspaceInvitationMutation = () => {
 		) => {
 			return callBackendApiForQuery("@delete/workspace/invitation/:invitationId", {
 				meta: { toast: { success: true } },
+				onSuccess: () => {
+					isPostHogEnabled && posthog.capture("workspace_invitation_cancelled");
+				},
 				params,
 			});
 		},
@@ -58,6 +65,9 @@ export const changeWorkspaceMemberRoleMutation = () => {
 			return callBackendApiForQuery("@patch/workspace/member/role", {
 				body,
 				meta: { toast: { success: true } },
+				onSuccess: () => {
+					isPostHogEnabled && posthog.capture("workspace_member_role_changed");
+				},
 			});
 		},
 		mutationKey: ["workspace", "member", "role"],
@@ -69,6 +79,9 @@ export const removeWorkspaceMemberMutation = () => {
 		mutationFn: (params: z.infer<BackendApiRoutes["@delete/workspace/member/:memberId"]["params"]>) => {
 			return callBackendApiForQuery("@delete/workspace/member/:memberId", {
 				meta: { toast: { success: true } },
+				onSuccess: () => {
+					isPostHogEnabled && posthog.capture("workspace_member_removed");
+				},
 				params,
 			});
 		},
@@ -82,6 +95,9 @@ export const suspendWorkspaceMemberMutation = () => {
 			return callBackendApiForQuery("@post/workspace/member/suspension", {
 				body,
 				meta: { toast: { success: true } },
+				onSuccess: () => {
+					isPostHogEnabled && posthog.capture("workspace_member_suspension_changed");
+				},
 			});
 		},
 		mutationKey: ["workspace", "member", "suspend"],
@@ -94,6 +110,9 @@ export const acknowledgeInventoryAlertMutation = () => {
 			return callBackendApiForQuery("@post/inventory/alerts/acknowledge", {
 				body,
 				meta: { toast: { success: true } },
+				onSuccess: () => {
+					isPostHogEnabled && posthog.capture("inventory_alert_acknowledged");
+				},
 			});
 		},
 		mutationKey: ["inventory", "alerts", "acknowledge"],
@@ -111,6 +130,8 @@ export const inventoryActivityExportMutation = () => {
 					const filename = disposition?.match(/filename="(?<filename>[^"]+)"/u)?.groups?.filename;
 
 					forceDownload(data, filename ?? "vitastock-stock-movements.csv");
+
+					isPostHogEnabled && posthog.capture("inventory_activity_exported");
 				},
 				query,
 				responseType: "blob",

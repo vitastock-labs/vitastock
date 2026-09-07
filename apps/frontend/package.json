@@ -40,6 +40,7 @@
 		"motion": "^13.2.0",
 		"nuqs": "^2.10.1",
 		"papaparse": "^5.7.0",
+		"posthog-js": "^1.407.2",
 		"radix-ui": "1.6.7",
 		"react": "^19.2.8",
 		"react-dom": "^19.2.8",

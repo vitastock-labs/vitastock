@@ -18,6 +18,7 @@ import { Form } from "@/components/ui/form";
 import { Switch as SwitchButton } from "@/components/ui/switch";
 import { callBackendApiForQuery } from "@/lib/api/callBackendApi";
 import { EmailAlertDeliveryPolicySchema, WorkspaceRoleSchema } from "@/lib/api/callBackendApi/apiSchema";
+import { isPostHogEnabled, posthog } from "@/lib/posthog";
 import {
 	cancelWorkspaceInvitationMutation,
 	changeWorkspaceMemberRoleMutation,
@@ -135,6 +136,8 @@ function AlertSettingsSection() {
 			body: data,
 			meta: { toast: { success: true } },
 			onSuccess: () => {
+				isPostHogEnabled && posthog.capture("workspace_alert_settings_updated");
+
 				void queryClient.invalidateQueries(sessionQuery());
 				void queryClient.invalidateQueries(dashboardOverviewQuery());
 				void queryClient.invalidateQueries({ queryKey: inventoryAlertsQuery().queryKey.slice(0, -1) });
@@ -925,6 +928,8 @@ function InviteMemberDialog() {
 			body: data,
 			meta: { toast: { success: true } },
 			onSuccess: () => {
+				isPostHogEnabled && posthog.capture("workspace_invitation_sent");
+
 				void queryClient.invalidateQueries(workspaceMembersQuery());
 				form.reset();
 				dialogCtx.setIsOpen(false);
@@ -1056,6 +1061,8 @@ function ResendInvitationDialog(props: { invitationId: string }) {
 			body: { ...data, invitationId },
 			meta: { toast: { success: true } },
 			onSuccess: () => {
+				isPostHogEnabled && posthog.capture("workspace_invitation_resent");
+
 				void queryClient.invalidateQueries(workspaceMembersQuery());
 				form.reset();
 				dialogCtx.setIsOpen(false);

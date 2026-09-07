@@ -21,6 +21,7 @@ import {
 import { Form } from "@/components/ui/form";
 import { callBackendApiForQuery } from "@/lib/api/callBackendApi";
 import { backendApiSchemaRoutes } from "@/lib/api/callBackendApi/apiSchema";
+import { isPostHogEnabled, posthog } from "@/lib/posthog";
 import { handleInventoryDrugActionMutation } from "@/lib/react-query/mutationOptions";
 import {
 	dashboardOverviewQuery,
@@ -231,6 +232,8 @@ export function CreateDrugDialog(props: { initialName?: string; onComplete?: (dr
 			body: data,
 			meta: { toast: { success: true } },
 			onSuccess: (ctx) => {
+				isPostHogEnabled && posthog.capture("inventory_drug_created");
+
 				void Promise.all([
 					queryClient.invalidateQueries({
 						queryKey: inventoryDrugsQuery().queryKey.slice(0, -1),
@@ -275,6 +278,8 @@ export function EditDrugDialog(props: { drug: Drug; onComplete: () => void }) {
 			body: data,
 			meta: { toast: { success: true } },
 			onSuccess: () => {
+				isPostHogEnabled && posthog.capture("inventory_drug_updated");
+
 				void Promise.all([
 					queryClient.invalidateQueries({
 						queryKey: inventoryDrugsQuery().queryKey.slice(0, -1),
@@ -413,6 +418,8 @@ function DrugLifecycleButton(props: { drug: Drug }) {
 			{ action },
 			{
 				onSuccess: () => {
+					isPostHogEnabled && posthog.capture("inventory_drug_lifecycle_changed", { action });
+
 					void Promise.all([
 						queryClient.invalidateQueries({
 							queryKey: inventoryDrugsQuery().queryKey.slice(0, -1),

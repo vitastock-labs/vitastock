@@ -78,7 +78,7 @@ function HeroSection() {
 			>
 				<ImageOnline
 					src={heroImg}
-					alt="Hero Image"
+					alt="VitaStock pharmacy inventory dashboard showing stock management interface"
 					width={1000}
 					height={800}
 					priority={true}

@@ -19,6 +19,7 @@ import { ScrollArea } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import { createDataTableColumnHelper, useDataTable } from "@/components/ui/data-table";
 import { callBackendApiForQuery } from "@/lib/api/callBackendApi";
+import { isPostHogEnabled, posthog } from "@/lib/posthog";
 import {
 	dashboardOverviewQuery,
 	inventoryActivityQuery,
@@ -530,6 +531,10 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 				},
 				meta: { toast: { success: true } },
 				onSuccess: () => {
+					isPostHogEnabled && posthog.capture("inventory_bulk_import_completed", {
+						imported_row_count: validRows.length,
+					});
+
 					void queryClient.invalidateQueries(inventorySummaryQuery());
 					void queryClient.invalidateQueries(dashboardOverviewQuery());
 					void queryClient.invalidateQueries(inventoryAlertsUnreadCountQuery());

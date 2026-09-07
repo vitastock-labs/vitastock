@@ -1,8 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import type { BaseApiErrorResponse } from "@vitastock/shared/validation/backendApiSchema";
+import { useEffect } from "react";
 import { Outlet, useNavigate } from "react-router";
 import { LoadingScreen } from "@/components/common/LoadingScreen";
 import { Switch } from "@/components/common/switch";
+import { isPostHogEnabled, posthog } from "@/lib/posthog";
 import { sessionQuery } from "@/lib/react-query/queryOptions";
 import { ForceChangePasswordDialog } from "@/pages/(protected)/-components/ForceChangePasswordDialog";
 
@@ -18,6 +20,16 @@ function ProtectedLayout() {
 	const mustChangePassword =
 		(sessionQueryResult.error?.cause as BaseApiErrorResponse | undefined)?.appCode
 		=== "PASSWORD_CHANGE_REQUIRED";
+
+	useEffect(() => {
+		const user = sessionQueryResult.data?.user;
+
+		isPostHogEnabled && user && posthog.identify(user.id, {
+			email: user.email,
+			name: user.fullName,
+			role: user.role,
+		});
+	}, [sessionQueryResult.data?.user]);
 
 	return (
 		<Switch.Root>
