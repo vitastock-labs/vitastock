@@ -1,5 +1,20 @@
-import { tz } from "@date-fns/tz";
+import { tz, TZDateMini } from "@date-fns/tz";
 import { addDays, format } from "date-fns";
+
+const getWorkspaceStartOfDay = (date: string, timezone: string) => {
+	const [year = 0, month = 0, day = 0] = date.split("-").map(Number);
+
+	return TZDateMini.tz(timezone, year, month - 1, day);
+};
+
+export const getWorkspaceDateRange = (options: { from?: string; timezone: string; to?: string }) => {
+	const { from, timezone, to } = options;
+
+	return {
+		from: from ? getWorkspaceStartOfDay(from, timezone) : undefined,
+		toExclusive: to ? addDays(getWorkspaceStartOfDay(to, timezone), 1) : undefined,
+	};
+};
 
 export const getWorkspaceInventoryDates = (options: {
 	date?: Date;

@@ -3,12 +3,19 @@ import { users } from "@vitastock/db/schema/auth";
 import { drugs, stockLogs } from "@vitastock/db/schema/inventory";
 import type { backendApiSchemaRoutes } from "@vitastock/shared/validation/backendApiSchema";
 import { subDays } from "date-fns";
-import { and, count, desc, eq, gte, ilike, or, sql, type SQL } from "drizzle-orm";
+import { and, count, desc, eq, gte, ilike, lt, or, sql, type SQL } from "drizzle-orm";
 import type { z } from "zod";
+import { AppError } from "@/lib/utils";
+import { getWorkspaceDateRange } from "../utils/date";
 
+type InventoryActivityFilters = z.infer<
+	NonNullable<(typeof backendApiSchemaRoutes)["@get/inventory/activity/export"]["query"]>
+>;
 type InventoryActivityQuery = z.infer<
 	NonNullable<(typeof backendApiSchemaRoutes)["@get/inventory/activity"]["query"]>
 >;
+
+export const INVENTORY_ACTIVITY_EXPORT_MAX_ROWS = 10_000;
 
 const activityId = sql<string>`
   concat(
@@ -43,6 +50,7 @@ const getLogicalActivityRows = (options: {
 			batchCount: count(),
 			createdAt: sql<Date>`min(${stockLogs.createdAt})`.mapWith(stockLogs.createdAt),
 			drug: {
+				form: drugs.form,
 				genericName: drugs.genericName,
 				id: drugs.id,
 				name: drugs.name,
@@ -70,9 +78,52 @@ const getLogicalActivityRows = (options: {
 			drugs.id,
 			users.id
 		)
-		.orderBy(desc(sql`min(${stockLogs.createdAt})`))
+		.orderBy(desc(sql`min(${stockLogs.createdAt})`), desc(stockLogs.stockTransactionId))
 		.limit(limit)
 		.offset(offset);
+};
+
+const getInventoryActivityWhereConditions = (options: {
+	query: InventoryActivityFilters | undefined;
+	timezone: string;
+	workspaceId: string;
+}) => {
+	const { query, timezone, workspaceId } = options;
+	const dateRange = getWorkspaceDateRange({
+		from: query?.from,
+		timezone,
+		to: query?.to,
+	});
+	const whereConditions: Array<SQL | undefined> = [eq(stockLogs.workspaceId, workspaceId)];
+
+	if (query?.drugId) {
+		whereConditions.push(eq(stockLogs.drugId, query.drugId));
+	}
+
+	if (query?.logType) {
+		whereConditions.push(eq(stockLogs.logType, query.logType));
+	}
+
+	if (query?.search) {
+		whereConditions.push(
+			or(
+				ilike(drugs.genericName, `%${query.search}%`),
+				ilike(drugs.name, `%${query.search}%`),
+				ilike(drugs.strength, `%${query.search}%`),
+				ilike(users.fullName, `%${query.search}%`)
+			)
+		);
+	}
+
+	if (dateRange.from) {
+		whereConditions.push(gte(stockLogs.createdAt, dateRange.from));
+	}
+
+	if (dateRange.toExclusive) {
+		whereConditions.push(lt(stockLogs.createdAt, dateRange.toExclusive));
+	}
+
+	return whereConditions;
 };
 
 export const getRecentInventoryActivity = (workspaceId: string, limit = 8) => {
@@ -84,26 +135,13 @@ export const getRecentInventoryActivity = (workspaceId: string, limit = 8) => {
 
 export const getInventoryActivity = async (options: {
 	query: InventoryActivityQuery | undefined;
+	timezone: string;
 	workspaceId: string;
 }) => {
-	const { query, workspaceId } = options;
+	const { query, timezone, workspaceId } = options;
 	const page = query?.page ?? 1;
 	const pageSize = query?.pageSize ?? 20;
-	const search = query?.search;
-	const whereConditions = [
-		eq(stockLogs.workspaceId, workspaceId),
-		...(query?.logType ? [eq(stockLogs.logType, query.logType)] : []),
-		...(search ?
-			[
-				or(
-					ilike(drugs.genericName, `%${search}%`),
-					ilike(drugs.name, `%${search}%`),
-					ilike(drugs.strength, `%${search}%`),
-					ilike(users.fullName, `%${search}%`)
-				),
-			]
-		:	[]),
-	];
+	const whereConditions = getInventoryActivityWhereConditions({ query, timezone, workspaceId });
 	const now = new Date();
 	const sevenDaysAgo = subDays(now, 7);
 	const thirtyDaysAgo = subDays(now, 30);
@@ -178,4 +216,26 @@ export const getInventoryActivity = async (options: {
 			weeklyStockOutQuantity: weeklyStats?.weeklyStockOutQuantity ?? 0,
 		},
 	};
+};
+
+export const getInventoryActivityExportRows = async (options: {
+	query: InventoryActivityFilters | undefined;
+	timezone: string;
+	workspaceId: string;
+}) => {
+	const { query, timezone, workspaceId } = options;
+	const rows = await getLogicalActivityRows({
+		limit: INVENTORY_ACTIVITY_EXPORT_MAX_ROWS + 1,
+		whereConditions: getInventoryActivityWhereConditions({ query, timezone, workspaceId }),
+	});
+
+	if (rows.length > INVENTORY_ACTIVITY_EXPORT_MAX_ROWS) {
+		throw new AppError({
+			code: 422,
+			message:
+				"This report contains more than 10,000 movements. Narrow the report filters and try again.",
+		});
+	}
+
+	return rows;
 };

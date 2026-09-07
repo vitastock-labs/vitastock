@@ -117,7 +117,7 @@ function AlertsPage() {
 
 	return (
 		<Main className="gap-8">
-			<section className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+			<header className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
 				<div>
 					<h1 className="text-[32px] font-extrabold tracking-tight text-black">Alerts</h1>
 					<p className="mt-1 text-[15px] font-medium text-vitastock-body-color/80">
@@ -166,7 +166,7 @@ function AlertsPage() {
 						</TabsAnimated.List>
 					</TabsAnimated.Root>
 				</div>
-			</section>
+			</header>
 
 			<section
 				className="flex flex-col overflow-hidden rounded-2xl bg-white ring-1 ring-shadcn-border/40"

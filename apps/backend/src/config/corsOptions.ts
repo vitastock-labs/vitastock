@@ -9,6 +9,7 @@ export const allowedOrigins = [
 
 const corsOptions = {
 	credentials: true,
+	exposeHeaders: ["Content-Disposition"],
 	origin: allowedOrigins,
 } satisfies Parameters<typeof cors>[0];
 

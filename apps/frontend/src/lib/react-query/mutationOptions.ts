@@ -100,6 +100,26 @@ export const acknowledgeInventoryAlertMutation = () => {
 	});
 };
 
+export const inventoryActivityExportMutation = () => {
+	return mutationOptions({
+		mutationFn: (
+			query: z.infer<NonNullable<BackendApiRoutes["@get/inventory/activity/export"]["query"]>>
+		) => {
+			return callBackendApiForQuery("@get/inventory/activity/export", {
+				onSuccess: ({ data, response }) => {
+					const disposition = response.headers.get("Content-Disposition");
+					const filename = disposition?.match(/filename="(?<filename>[^"]+)"/u)?.groups?.filename;
+
+					forceDownload(data, filename ?? "vitastock-stock-movements.csv");
+				},
+				query,
+				responseType: "blob",
+			});
+		},
+		mutationKey: ["inventory", "activity", "export"],
+	});
+};
+
 export const handleInventoryDrugActionMutation = (
 	params: z.infer<BackendApiRoutes["@post/inventory/drugs/:drugId/action"]["params"]>
 ) => {
@@ -113,4 +133,16 @@ export const handleInventoryDrugActionMutation = (
 		},
 		mutationKey: ["inventory", "drugs", "action", params.drugId],
 	});
+};
+
+const forceDownload = (data: Blob, filename: string) => {
+	const fileUrl = URL.createObjectURL(data);
+	const link = document.createElement("a");
+
+	link.href = fileUrl;
+	link.download = filename;
+	document.body.append(link);
+	link.click();
+	link.remove();
+	URL.revokeObjectURL(fileUrl);
 };

@@ -11,7 +11,7 @@ const dashboardNavItems = [
 		href: "/dashboard",
 		icon: "material-symbols:dashboard-outline-rounded",
 		iconActive: "material-symbols:dashboard-rounded",
-		title: "Dashboard",
+		title: "Home",
 	},
 	{
 		href: "/dashboard/inventory",

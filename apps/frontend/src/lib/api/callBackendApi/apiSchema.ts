@@ -1,6 +1,7 @@
 export {
 	backendApiSchema,
 	backendApiSchemaRoutes,
+	EmailAlertDeliveryPolicySchema,
 	SignUpSchema,
 	StockAdditionLogTypeSchema,
 	StockLogTypeSchema,

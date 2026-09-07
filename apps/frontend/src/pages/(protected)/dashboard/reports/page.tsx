@@ -1,13 +1,15 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { createSearchParams } from "@zayne-labs/toolkit-core";
-import { ForWithWrapper } from "@zayne-labs/ui-react/common/for";
-import { parseAsString, parseAsStringLiteral, useQueryState } from "nuqs";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { createSearchParams, tw } from "@zayne-labs/toolkit-core";
+import { For, ForWithWrapper } from "@zayne-labs/ui-react/common/for";
+import { parseISO } from "date-fns";
+import { parseAsString, parseAsStringLiteral, useQueryState, useQueryStates } from "nuqs";
+import { useDeferredValue, useState } from "react";
 import { IconBox } from "@/components/common/IconBox";
 import { NavLinkEphemeral } from "@/components/common/NavLink";
 import { Switch } from "@/components/common/switch";
-import { Badge } from "@/components/ui";
+import { Badge, Combobox } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import {
 	createDataTableColumnHelper,
@@ -16,13 +18,17 @@ import {
 	useDataTableQueryState,
 	type DataTableQueryKeys,
 } from "@/components/ui/data-table";
+import { DateTimePicker } from "@/components/ui/datetime-picker";
 import {
+	backendApiSchemaRoutes,
 	StockAdditionLogTypeSchema,
 	StockLogTypeSchema,
 	StockMovementLogTypeSchema,
 } from "@/lib/api/callBackendApi/apiSchema";
+import { inventoryActivityExportMutation } from "@/lib/react-query/mutationOptions";
 import {
 	inventoryActivityQuery,
+	inventoryDrugsQuery,
 	type InventoryActivityQueryResultType,
 } from "@/lib/react-query/queryOptions";
 import { cnJoin } from "@/lib/utils/cn";
@@ -113,7 +119,9 @@ const activityColumns = activityColumnHelper.columns([
 	}),
 	activityColumnHelper.accessor("notes", {
 		cell: ({ getValue }) => (
-			<span className="block max-w-64 truncate text-vitastock-body-color">{getValue() ?? "-"}</span>
+			<span className="block max-w-64 truncate text-vitastock-body-color">
+				{getValue() ?? EMPTY_DISPLAY_VALUE}
+			</span>
 		),
 		enableSorting: false,
 		header: "Notes",
@@ -132,19 +140,46 @@ function ReportsPage() {
 		ACTIVITY_TABLE_QUERY_KEYS.select,
 		parseAsStringLiteral(StockLogTypeSchema.options)
 	);
+	const [{ drugId, from, to }, setReportFilters] = useQueryStates({
+		drugId: parseAsString,
+		from: parseAsString,
+		to: parseAsString,
+	});
+	const activityFilters = {
+		...(drugId && { drugId }),
+		...(from && { from }),
+		...(logType && { logType }),
+		...(search && { search }),
+		...(to && { to }),
+	};
+	const activityFiltersResult =
+		backendApiSchemaRoutes["@get/inventory/activity/export"].query.safeParse(activityFilters);
+	const filtersAreValid = activityFiltersResult.success;
+	const filterError = activityFiltersResult.error?.issues[0]?.message;
 
-	const inventoryActivityQueryResult = useQuery(
-		inventoryActivityQuery({
-			...(logType && { logType }),
+	const inventoryActivityQueryResult = useQuery({
+		...inventoryActivityQuery({
+			...activityFilters,
 			page: pagination.pageIndex + 1,
 			pageSize: pagination.pageSize,
-			...(search && { search }),
-		})
-	);
+		}),
+		enabled: filtersAreValid,
+	});
+	const inventoryActivityExportMutationResult = useMutation(inventoryActivityExportMutation());
+
+	const handleExport = () => {
+		inventoryActivityExportMutationResult.mutate(activityFilters);
+	};
 
 	const activity = inventoryActivityQueryResult.data;
 	const hasNoActivity =
-		inventoryActivityQueryResult.isSuccess && activity?.pagination.total === 0 && !search && !logType;
+		inventoryActivityQueryResult.isSuccess
+		&& activity?.pagination.total === 0
+		&& !search
+		&& !logType
+		&& !drugId
+		&& !from
+		&& !to;
 
 	const table = useDataTable({
 		columns: activityColumns,
@@ -215,11 +250,51 @@ function ReportsPage() {
 						>
 							<DataTableQueryToolbar
 								table={table}
+								actions={
+									<Button
+										size="medium"
+										type="button"
+										isLoading={inventoryActivityExportMutationResult.isPending}
+										className="h-10 rounded-lg px-4"
+										disabled={
+											!filtersAreValid
+											|| !inventoryActivityQueryResult.isSuccess
+											|| activity?.pagination.total === 0
+										}
+										onClick={handleExport}
+									>
+										<IconBox icon="lucide:download" className="size-4" />
+										Export CSV
+									</Button>
+								}
+								hasCustomFilters={[drugId, from, to].some(Boolean)}
 								isSearching={inventoryActivityQueryResult.isFetching && Boolean(search)}
+								onReset={() => void setReportFilters(null)}
 								searchPlaceholder="Search drug or person..."
 								selectLabel="All movements"
 								selectOptions={STOCK_LOG_TYPE_FILTER_OPTIONS}
-							/>
+							>
+								<ReportDrugFilter
+									drugId={drugId}
+									onChange={(value) => {
+										void setReportFilters({ drugId: value === "" ? null : value });
+										table.setPageIndex(0);
+									}}
+								/>
+								<ReportDateFilter
+									from={from}
+									to={to}
+									onChange={(dates) => {
+										void setReportFilters(dates);
+										table.setPageIndex(0);
+									}}
+								/>
+							</DataTableQueryToolbar>
+							{filterError && (
+								<p className="px-6 pb-4 text-[13px] font-medium text-shadcn-destructive">
+									{filterError}
+								</p>
+							)}
 						</DashboardDataTable>
 					</section>
 				</Switch.Default>
@@ -229,6 +304,95 @@ function ReportsPage() {
 }
 
 export default ReportsPage;
+
+function ReportDrugFilter(props: { drugId: string | null; onChange: (value: string) => void }) {
+	const { drugId, onChange } = props;
+	const [search, setSearch] = useState("");
+	const deferredSearch = useDeferredValue(search.trim());
+	const drugsQueryResult = useQuery(
+		inventoryDrugsQuery({
+			...(drugId && !deferredSearch && { drugId }),
+			page: 1,
+			pageSize: 20,
+			...(deferredSearch && { search: deferredSearch }),
+		})
+	);
+	const drugs = drugsQueryResult.data?.drugs ?? [];
+	const options = drugs.map((drug) => ({
+		label: formatDrugLabel(drug, { includeGenericName: true }),
+		value: drug.id,
+	}));
+
+	return (
+		<Combobox.Root data={options} type="drug" value={drugId ?? ""} onValueChange={onChange}>
+			<Combobox.Trigger
+				classNames={{
+					base: `h-10 w-60 justify-between rounded-lg border-none bg-white px-3 text-[13px]
+					font-normal shadow-[0_2px_8px_hsl(220,15%,15%,0.12)] hover:bg-white`,
+					icon: "text-vitastock-body-color/70",
+				}}
+			/>
+			<Combobox.Content popoverOptions={{ align: "start", sideOffset: 6 }}>
+				<Combobox.Input className="h-10 text-[14px]" onValueChange={setSearch} />
+				<Combobox.Empty className="p-4 text-center text-[13px] text-vitastock-body-color">
+					{drugsQueryResult.isFetching ? "Searching drugs..." : "No drugs found."}
+				</Combobox.Empty>
+				<Combobox.List className="max-h-64 p-1.5">
+					<Combobox.Group className="p-0">
+						<For
+							each={options}
+							renderItem={(option) => (
+								<Combobox.Item
+									key={option.value}
+									value={option.value}
+									keywords={[option.label]}
+									className="min-h-9 rounded-md px-3 text-[13px]
+										data-[selected=true]:bg-vitastock-primary-main/10
+										data-[selected=true]:text-vitastock-primary-dark"
+								>
+									{option.label}
+								</Combobox.Item>
+							)}
+						/>
+					</Combobox.Group>
+				</Combobox.List>
+			</Combobox.Content>
+		</Combobox.Root>
+	);
+}
+
+function ReportDateFilter(props: {
+	from: string | null;
+	onChange: (dates: { from?: string | null; to?: string | null }) => void;
+	to: string | null;
+}) {
+	const { from, onChange, to } = props;
+	const pickerClassName = tw`h-10 w-40 rounded-lg border-none bg-white px-3 text-[13px]
+	shadow-[0_2px_8px_hsl(220,15%,15%,0.12)]`;
+
+	return (
+		<div className="flex items-center gap-2">
+			<DateTimePicker
+				variant="date"
+				dateString={from ?? ""}
+				placeholder="From"
+				datePickerProps={{ disabled: to ? { after: parseISO(to) } : undefined }}
+				dateFormats={{ onChangeDate: "yyyy-MM-dd", visibleDate: "dd MMM yyyy" }}
+				className={pickerClassName}
+				onDateStringChange={(value) => onChange({ from: value ?? null })}
+			/>
+			<DateTimePicker
+				variant="date"
+				dateString={to ?? ""}
+				placeholder="To"
+				datePickerProps={{ disabled: from ? { before: parseISO(from) } : undefined }}
+				dateFormats={{ onChangeDate: "yyyy-MM-dd", visibleDate: "dd MMM yyyy" }}
+				className={pickerClassName}
+				onDateStringChange={(value) => onChange({ to: value ?? null })}
+			/>
+		</div>
+	);
+}
 
 function ReportsStats(props: {
 	isLoading: boolean;

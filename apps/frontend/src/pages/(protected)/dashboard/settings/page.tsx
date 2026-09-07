@@ -17,7 +17,7 @@ import {
 import { Form } from "@/components/ui/form";
 import { Switch as SwitchButton } from "@/components/ui/switch";
 import { callBackendApiForQuery } from "@/lib/api/callBackendApi";
-import { WorkspaceRoleSchema } from "@/lib/api/callBackendApi/apiSchema";
+import { EmailAlertDeliveryPolicySchema, WorkspaceRoleSchema } from "@/lib/api/callBackendApi/apiSchema";
 import {
 	cancelWorkspaceInvitationMutation,
 	changeWorkspaceMemberRoleMutation,
@@ -38,6 +38,17 @@ import { FormField, InputField, SelectField } from "@/pages/(home)/-components/F
 import { DashboardDataTable } from "../-components/DashboardDataTableShared";
 import { DrugMasterDialog } from "../-components/DrugMasterDialog";
 import { Main } from "../-components/Main";
+
+const EMAIL_ALERT_DELIVERY_POLICY_LABELS = {
+	all_immediate: "All alerts immediately + daily digest",
+	critical_immediate: "Critical alerts + daily digest",
+	digest_only: "Daily digest only",
+} satisfies Record<(typeof EmailAlertDeliveryPolicySchema.options)[number], string>;
+
+const EMAIL_ALERT_DELIVERY_POLICY_OPTIONS = EmailAlertDeliveryPolicySchema.options.map((policy) => ({
+	label: EMAIL_ALERT_DELIVERY_POLICY_LABELS[policy],
+	value: policy,
+}));
 
 function SettingsPage() {
 	return (
@@ -180,50 +191,40 @@ function AlertSettingsSection() {
 				</article>
 
 				<Form.Watch control={form.control} name="emailAlertsEnabled">
-					{(emailAlertsEnabled) => (
-						<>
-							<InputField
-								control={form.control}
-								name="alertEmail"
-								type="email"
-								disabled={!canUpdateAlertSettings || !emailAlertsEnabled}
-								label="Alert Email"
-								description="Alert emails are sent to this address and active workspace managers."
-								placeholder="alerts@pharmacy.com"
-								classNames={{
-									base: "pt-6",
-									input: "mt-2 bg-transparent px-3 text-[14.5px] font-medium",
-									label: "text-[14.5px] font-bold text-black",
-								}}
-							/>
+					{(emailAlertsEnabled) =>
+						emailAlertsEnabled && (
+							<>
+								<InputField
+									control={form.control}
+									name="alertEmail"
+									type="email"
+									disabled={!canUpdateAlertSettings}
+									label="Alert Email"
+									description="Alert emails are sent to this address and active workspace managers."
+									placeholder="alerts@pharmacy.com"
+									classNames={{
+										base: "pt-6",
+										input: "mt-2 bg-transparent px-3 text-[14.5px] font-medium",
+										label: "text-[14.5px] font-bold text-black",
+									}}
+								/>
 
-							{emailAlertsEnabled && (
 								<SelectField
 									control={form.control}
 									name="emailAlertDeliveryPolicy"
 									disabled={!canUpdateAlertSettings}
 									label="Email Delivery"
 									description="Critical alerts include low stock and expired stock. Near-expiry alerts are always visible in VitaStock and are emailed immediately only with the highest-frequency option."
-									options={[
-										{ label: "Daily digest only", value: "digest_only" },
-										{
-											label: "Critical alerts + daily digest",
-											value: "critical_immediate",
-										},
-										{
-											label: "All alerts immediately + daily digest",
-											value: "all_immediate",
-										},
-									]}
+									options={EMAIL_ALERT_DELIVERY_POLICY_OPTIONS}
 									classNames={{
 										base: "pt-6",
 										label: "text-[14.5px] font-bold text-black",
 										trigger: "mt-2 bg-transparent font-medium",
 									}}
 								/>
-							)}
-						</>
-					)}
+							</>
+						)
+					}
 				</Form.Watch>
 
 				<article className="flex items-center justify-between pt-6">
@@ -443,7 +444,7 @@ function ManagePeopleDialog() {
 				</DialogAnimated.Close>
 			</DialogAnimated.Header>
 
-			<section className="flex min-h-0 grow flex-col">
+			<div className="flex min-h-0 grow flex-col">
 				<DashboardDataTable
 					table={table}
 					isError={workspaceMembersQueryResult.isError}
@@ -476,7 +477,7 @@ function ManagePeopleDialog() {
 						}
 					/>
 				</DashboardDataTable>
-			</section>
+			</div>
 		</DialogAnimated.Content>
 	);
 }

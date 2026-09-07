@@ -13,12 +13,14 @@ import { and, asc, eq } from "drizzle-orm";
 import { afterAll, expect, test } from "vitest";
 import { AppError } from "@/lib/utils";
 import { createInventoryFixture } from "@/test/inventoryFixture";
+import { createInventoryActivityCsv } from "./activity-export";
 import { enqueuePendingInventoryAlertEmails } from "./alertJobs";
 import { acknowledgeInventoryAlert, syncInventoryAlerts } from "./alertLifecycle";
 import { getInventoryActivity } from "./data-access/activity";
 import { handleDrugAction } from "./data-access/drugs";
 import { getInventorySummaryRows } from "./data-access/summary";
 import { createInventoryStockLog } from "./stock-log";
+import { getWorkspaceToday } from "./utils/date";
 
 afterAll(async () => {
 	await db.$client.end();
@@ -298,13 +300,30 @@ test("FEFO integration - deducts persisted batches from earliest expiry first", 
 
 	const activity = await getInventoryActivity({
 		query: undefined,
+		timezone: fixture.workspace.timezone,
 		workspaceId: fixture.workspace.id,
 	});
 	const stockOutActivity = activity.rows.find(
 		(row) => row.stockTransactionId === stockOutLogs[0]?.stockTransactionId
 	);
+	const activityExport = await createInventoryActivityCsv({
+		query: {
+			drugId: fixture.drug.id,
+			from: getWorkspaceToday(fixture.workspace.timezone),
+			logType: "stock_out",
+			to: getWorkspaceToday(fixture.workspace.timezone),
+		},
+		timezone: fixture.workspace.timezone,
+		workspaceId: fixture.workspace.id,
+	});
 
 	expect(stockOutActivity).toMatchObject({ batchCount: 2, quantity: 7 });
+	expect(activityExport.filename).toBe(
+		`vitastock-stock-movements-${getWorkspaceToday(fixture.workspace.timezone)}-to-${getWorkspaceToday(fixture.workspace.timezone)}.csv`
+	);
+	expect(activityExport.content).toContain("Timestamp,Drug Name,Generic Name,Strength,Dosage Form");
+	expect(activityExport.content).toContain(",Stock Out,Patient,7,2,");
+	expect(activityExport.content).toContain(stockOutLogs[0]?.stockTransactionId);
 });
 
 test("Inventory state integration - reports overlapping stock and expiry conditions", async () => {
@@ -488,6 +507,7 @@ test("Inventory reporting integration - calculates weekly movement and expiry lo
 
 	const report = await getInventoryActivity({
 		query: undefined,
+		timezone: fixture.workspace.timezone,
 		workspaceId: fixture.workspace.id,
 	});
 

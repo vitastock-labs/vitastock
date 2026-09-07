@@ -33,6 +33,10 @@ export const getWorkspaceDrugList = async (options: {
 
 	const whereConditions: Array<SQL | undefined> = [eq(drugs.workspaceId, workspaceId)];
 
+	if (query.drugId) {
+		whereConditions.push(eq(drugs.id, query.drugId));
+	}
+
 	if (search) {
 		whereConditions.push(
 			or(

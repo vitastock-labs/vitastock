@@ -143,6 +143,7 @@ const withBaseErrorResponse = <
 const PasswordSchema = z.string().min(8, "Password must be at least 8 characters long");
 
 export const WorkspaceRoleSchema = z.enum(["owner", "admin", "pharmacist"]);
+export const EmailAlertDeliveryPolicySchema = z.enum(EMAIL_ALERT_DELIVERY_POLICIES);
 
 export const StockLogTypeSchema = z.enum(STOCK_LOG_TYPES);
 export const StockOutReasonSchema = z.enum(STOCK_OUT_REASONS);
@@ -283,7 +284,7 @@ const UserDetailsSchema = z.toZod<UserDetailsType>()(
 const WorkspaceDetailsSchema = z.toZod<WorkspaceDetailsType>()(
 	z.object({
 		alertEmail: z.email().nullable(),
-		emailAlertDeliveryPolicy: z.enum(EMAIL_ALERT_DELIVERY_POLICIES),
+		emailAlertDeliveryPolicy: EmailAlertDeliveryPolicySchema,
 		id: z.uuid(),
 		lowStockThreshold: z.number(),
 		name: z.string().min(1, "Pharmacy name is required"),
@@ -443,7 +444,7 @@ export const workspaceRoutes = () => {
 	const WorkspaceAlertSettingsSchema = z
 		.object({
 			alertEmail: z.email("Please enter a valid alert email").optional(),
-			emailAlertDeliveryPolicy: z.enum(EMAIL_ALERT_DELIVERY_POLICIES),
+			emailAlertDeliveryPolicy: EmailAlertDeliveryPolicySchema,
 			emailAlertsEnabled: z.boolean(),
 			lowStockThreshold: stringWithNumberValidation(z.number().int().min(0)),
 			nearExpiryDays: stringWithNumberValidation(z.number().int().positive()),
@@ -646,20 +647,35 @@ const inventoryRoutes = () => {
 		type: z.enum(INVENTORY_ALERT_TYPES),
 	});
 
-	const InventoryActivityQuerySchema = z
+	const InventoryActivityFiltersSchema = z
 		.object({
+			drugId: z.uuid(),
+			from: IsoDateSchema,
 			logType: StockLogTypeSchema,
-			page: stringWithNumberValidation(z.number().int().min(1)),
-			pageSize: stringWithNumberValidation(z.number().int().min(1).max(100)),
 			search: z.string().trim().min(1),
+			to: IsoDateSchema,
 		})
 		.partial()
-		.optional();
+		.superRefine((filters, ctx) => {
+			if (!filters.from || !filters.to || filters.from <= filters.to) return;
+
+			ctx.addIssue({
+				code: "custom",
+				message: "The end date must be on or after the start date",
+				path: ["to"],
+			});
+		});
+
+	const InventoryActivityQuerySchema = InventoryActivityFiltersSchema.safeExtend({
+		page: stringWithNumberValidation(z.number().int().min(1)).optional(),
+		pageSize: stringWithNumberValidation(z.number().int().min(1).max(100)).optional(),
+	}).optional();
 
 	const InventoryActivityRowSchema = z.object({
 		batchCount: z.number(),
 		createdAt: stringWithDateValidation(),
 		drug: DrugDetailsSchema.pick({
+			form: true,
 			genericName: true,
 			id: true,
 			name: true,
@@ -705,6 +721,10 @@ const inventoryRoutes = () => {
 			query: InventoryActivityQuerySchema,
 		},
 
+		"@get/inventory/activity/export": {
+			query: InventoryActivityFiltersSchema.optional(),
+		},
+
 		"@get/inventory/alerts": {
 			data: withBaseSuccessResponse(
 				z.object({
@@ -739,6 +759,7 @@ const inventoryRoutes = () => {
 			),
 			query: z
 				.object({
+					drugId: z.uuid(),
 					page: stringWithNumberValidation(z.number().int().min(1)),
 					pageSize: stringWithNumberValidation(z.number().int().min(1).max(100)),
 					search: z.string().trim().min(1),

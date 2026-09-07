@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { AppJsonResponse } from "@/lib/utils";
 import { authMiddleware, authorizeRoleMiddleware } from "@/middleware";
 import { validateWithZodMiddleware } from "@/middleware/validateWithZodMiddleware";
+import { createInventoryActivityCsv } from "./services/activity-export";
 import {
 	acknowledgeInventoryAlert,
 	getPersistedInventoryAlerts,
@@ -182,13 +183,34 @@ export const inventoryRoutes = new Hono()
 	})
 
 	.get(
+		"/activity/export",
+		validateWithZodMiddleware("query", backendApiSchemaRoutes["@get/inventory/activity/export"].query),
+		async (ctx) => {
+			const currentUser = ctx.get("currentUser");
+			const currentWorkspace = ctx.get("currentWorkspace");
+			const activityExport = await createInventoryActivityCsv({
+				query: ctx.req.valid("query"),
+				timezone: currentWorkspace.timezone,
+				workspaceId: currentUser.workspaceId,
+			});
+
+			ctx.header("Content-Disposition", `attachment; filename="${activityExport.filename}"`);
+			ctx.header("Content-Type", "text/csv; charset=utf-8");
+
+			return ctx.body(activityExport.content);
+		}
+	)
+
+	.get(
 		"/activity",
 		validateWithZodMiddleware("query", backendApiSchemaRoutes["@get/inventory/activity"].query),
 		async (ctx) => {
 			const currentUser = ctx.get("currentUser");
+			const currentWorkspace = ctx.get("currentWorkspace");
 
 			const activity = await getInventoryActivity({
 				query: ctx.req.valid("query"),
+				timezone: currentWorkspace.timezone,
 				workspaceId: currentUser.workspaceId,
 			});
 

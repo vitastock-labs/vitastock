@@ -13,7 +13,7 @@ import { For } from "@/components/common/for";
 import { IconBox } from "@/components/common/IconBox";
 import { Show } from "@/components/common/show";
 import { Switch } from "@/components/common/switch";
-import { Badge, Card, Combobox, DropdownMenu, ScrollArea, Tooltip } from "@/components/ui";
+import { Badge, Card, DropdownMenu, ScrollArea, Tooltip } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import {
 	createDataTableColumnHelper,
@@ -44,7 +44,12 @@ import {
 } from "@/lib/react-query/queryOptions";
 import { cnJoin } from "@/lib/utils/cn";
 import { formatDate, formatDrugLabel, formatEnumLabel } from "@/lib/utils/formatters";
-import { FormField, InputField, SelectField } from "@/pages/(home)/-components/FormPartsShared";
+import {
+	ComboboxField,
+	FormField,
+	InputField,
+	SelectField,
+} from "@/pages/(home)/-components/FormPartsShared";
 import {
 	EMPTY_DISPLAY_VALUE,
 	LOADING_DISPLAY_VALUE,
@@ -90,10 +95,10 @@ function InventoryPage() {
 					<InventoryStats />
 					<InventoryActions />
 
-					<section className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+					<div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
 						<InventoryTable />
 						<ProjectedStockOut />
-					</section>
+					</div>
 				</Switch.Default>
 			</Switch.Root>
 		</Main>
@@ -866,6 +871,7 @@ function StockOutDetails(props: {
 	});
 	const batches = batchesQueryResult.data?.batches ?? [];
 	const batchOptions = batches.map((batch) => ({
+		keywords: [batch.batchNumber ?? "Unnumbered batch", batch.expiryDate],
 		label: `${batch.batchNumber ?? "Unnumbered batch"} - ${formatDate(batch.expiryDate)} - ${batch.quantityAvailable} available`,
 		value: batch.id,
 	}));
@@ -922,92 +928,46 @@ function StockOutDetails(props: {
 		);
 	}
 
+	const label = reason === StockOutReasonSchema.enum.expired ? "Expired Batch" : "Damaged Batch";
+
 	return (
-		<FormField
-			control={form.control}
-			name="batchId"
-			label={reason === StockOutReasonSchema.enum.expired ? "Expired Batch" : "Damaged Batch"}
-		>
-			<Switch.Root>
-				<Switch.Match when={drugId.length === 0}>
-					<p className="text-[12px] text-vitastock-body-color">Select a drug first.</p>
-				</Switch.Match>
+		<Switch.Root>
+			<Switch.Match when={drugId.length === 0}>
+				<p className="text-[12px] text-vitastock-body-color">Select a drug first.</p>
+			</Switch.Match>
 
-				<Switch.Match when={batchesQueryResult.isLoading}>
-					<p className="text-[12px] text-vitastock-body-color">Loading eligible batches...</p>
-				</Switch.Match>
+			<Switch.Match when={batchesQueryResult.isLoading}>
+				<p className="text-[12px] text-vitastock-body-color">Loading eligible batches...</p>
+			</Switch.Match>
 
-				<Switch.Match when={batchesQueryResult.isError}>
-					<p className="text-[12px] text-shadcn-destructive">Failed to load eligible batches.</p>
-				</Switch.Match>
+			<Switch.Match when={batchesQueryResult.isError}>
+				<p className="text-[12px] text-shadcn-destructive">Failed to load eligible batches.</p>
+			</Switch.Match>
 
-				<Switch.Match when={batchesQueryResult.isSuccess && batches.length === 0}>
-					<p
-						className="rounded-lg border border-shadcn-border bg-shadcn-muted/40 p-3 text-[12px]
-							text-vitastock-body-color"
-					>
-						{availability === "expired" ?
-							"This drug has no expired stock to remove. Choose another drug or change the reason."
-						:	"This drug has no unexpired stock available for damaged-stock removal. Choose another drug or change the reason."
-						}
-					</p>
-				</Switch.Match>
+			<Switch.Match when={batchesQueryResult.isSuccess && batches.length === 0}>
+				<p
+					className="rounded-lg border border-shadcn-border bg-shadcn-muted/40 p-3 text-[12px]
+						text-vitastock-body-color"
+				>
+					{availability === "expired" ?
+						"This drug has no expired stock to remove. Choose another drug or change the reason."
+					:	"This drug has no unexpired stock available for damaged-stock removal. Choose another drug or change the reason."
+					}
+				</p>
+			</Switch.Match>
 
-				<Switch.Default>
-					<Form.FieldBoundController
-						render={({ field, fieldState }) => (
-							<Combobox.Root
-								data={batchOptions}
-								type="batch"
-								value={field.value}
-								onValueChange={field.onChange}
-							>
-								<Combobox.Trigger
-									aria-invalid={fieldState.invalid}
-									className="h-10 w-full justify-between rounded-lg border-shadcn-border
-										bg-shadcn-background px-4 text-left text-[14px] font-normal shadow-none
-										hover:bg-shadcn-background aria-invalid:border-shadcn-destructive
-										aria-invalid:ring-[3px] aria-invalid:ring-shadcn-destructive/20"
-								/>
-								<Combobox.Content
-									className="rounded-lg bg-shadcn-background"
-									popoverOptions={{ align: "start", sideOffset: 6 }}
-								>
-									<Combobox.Input className="h-10 text-[14px]" />
-									<Combobox.Empty className="p-3 text-[13px]">
-										No matching batch found.
-									</Combobox.Empty>
-									<Combobox.List className="max-h-52 p-1.5">
-										<Combobox.Group className="p-0">
-											<For
-												each={batches}
-												renderItem={(batch) => (
-													<Combobox.Item
-														key={batch.id}
-														value={batch.id}
-														keywords={[
-															batch.batchNumber ?? "Unnumbered batch",
-															batch.expiryDate,
-														]}
-														className="min-h-9 rounded-md px-3 text-[14px]
-															data-[selected=true]:bg-vitastock-primary-main/10
-															data-[selected=true]:text-vitastock-primary-dark"
-													>
-														{batch.batchNumber ?? "Unnumbered batch"} -{" "}
-														{formatDate(batch.expiryDate)} - {batch.quantityAvailable}{" "}
-														available
-													</Combobox.Item>
-												)}
-											/>
-										</Combobox.Group>
-									</Combobox.List>
-								</Combobox.Content>
-							</Combobox.Root>
-						)}
-					/>
-				</Switch.Default>
-			</Switch.Root>
-		</FormField>
+			<Switch.Default>
+				<ComboboxField
+					control={form.control}
+					name="batchId"
+					label={label}
+					data={batchOptions}
+					type="batch"
+					emptyContent="No matching batch found."
+					classNames={{ list: "max-h-52" }}
+				/>
+			</Switch.Default>
+		</Switch.Root>
 	);
 }
 
@@ -1143,75 +1103,28 @@ function StockMovementDialog(props: {
 				<Switch.Default>
 					<Form.Root form={form} onSubmit={(event) => void onSubmit(event)}>
 						<div className="flex flex-col gap-4 border-y border-shadcn-border/70 p-5">
-							<FormField control={form.control} name="drugId" label="Drug Name">
-								<Form.FieldBoundController
-									render={({ field, fieldState }) => (
-										<Combobox.Root
-											data={drugOptions}
-											type="drug"
-											value={field.value}
-											onValueChange={(value) => {
-												field.onChange(value);
-												form.setValue("batchId", undefined);
-											}}
+							<ComboboxField
+								control={form.control}
+								name="drugId"
+								label="Drug Name"
+								data={drugOptions}
+								type="drug"
+								onInputValueChange={setDrugSearch}
+								onValueChange={() => form.setValue("batchId", undefined)}
+								emptyContent={
+									drugSearch.trim() && (
+										<Button
+											type="button"
+											className="h-9 w-full justify-start px-3"
+											onClick={() => setIsCreateDrugOpen(true)}
 										>
-											<Combobox.Trigger
-												aria-invalid={fieldState.invalid}
-												classNames={{
-													base: `h-10 w-full justify-between rounded-lg border-shadcn-border
-													bg-shadcn-background px-4 text-left text-[14px] font-normal
-													shadow-none hover:bg-shadcn-background
-													aria-invalid:border-shadcn-destructive aria-invalid:ring-[3px]
-													aria-invalid:ring-shadcn-destructive/20`,
-													icon: "text-vitastock-body-color/70",
-												}}
-											/>
-											<Combobox.Content
-												className="rounded-lg bg-shadcn-background"
-												popoverOptions={{ align: "start", sideOffset: 6 }}
-											>
-												<Combobox.Input
-													className="h-10 text-[14px]"
-													onValueChange={setDrugSearch}
-												/>
-												<Combobox.Empty className="p-2">
-													{drugSearch.trim() && (
-														<Button
-															type="button"
-															className="h-9 w-full justify-start px-3"
-															onClick={() => setIsCreateDrugOpen(true)}
-														>
-															<IconBox icon="lucide:plus" className="size-4" />
-															Add "{drugSearch.trim()}" as a new drug
-														</Button>
-													)}
-												</Combobox.Empty>
-												<Combobox.List className="max-h-64 p-1.5">
-													<Combobox.Group className="p-0">
-														<For
-															each={drugs}
-															renderItem={(drug) => (
-																<Combobox.Item
-																	key={drug.id}
-																	value={drug.id}
-																	keywords={[
-																		formatDrugLabel(drug, { includeGenericName: true }),
-																	]}
-																	className="min-h-9 rounded-md px-3 text-[14px]
-																		data-[selected=true]:bg-vitastock-primary-main/10
-																		data-[selected=true]:text-vitastock-primary-dark"
-																>
-																	{formatDrugLabel(drug, { includeGenericName: true })}
-																</Combobox.Item>
-															)}
-														/>
-													</Combobox.Group>
-												</Combobox.List>
-											</Combobox.Content>
-										</Combobox.Root>
-									)}
-								/>
-							</FormField>
+											<IconBox icon="lucide:plus" className="size-4" />
+											Add "{drugSearch.trim()}" as a new drug
+										</Button>
+									)
+								}
+								classNames={{ empty: "p-2" }}
+							/>
 
 							<div className={cnJoin("grid gap-4", !isDispense && "grid-cols-2")}>
 								<InputField

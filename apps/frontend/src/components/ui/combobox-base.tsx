@@ -17,20 +17,34 @@ function ComboboxValue(props: React.ComponentProps<typeof ComboboxPrimitive.Valu
 	return <ComboboxPrimitive.Value data-slot="combobox-value" {...props} />;
 }
 
+function ComboboxIcon(props: React.ComponentProps<typeof ComboboxPrimitive.Icon>) {
+	const { className, render, ...restOfProps } = props;
+
+	return (
+		<ComboboxPrimitive.Icon
+			data-slot="combobox-icon"
+			className={cnMerge(
+				`size-4 shrink-0 text-shadcn-muted-foreground transition-transform duration-200
+				group-data-popup-open:rotate-180 [&_svg]:pointer-events-none [&_svg]:size-4`,
+				className as string
+			)}
+			render={render ?? <IconBox icon="lucide:chevrons-up-down" />}
+			{...restOfProps}
+		/>
+	);
+}
+
 function ComboboxTrigger(props: React.ComponentProps<typeof ComboboxPrimitive.Trigger>) {
 	const { children, className, ...restOfProps } = props;
 
 	return (
 		<ComboboxPrimitive.Trigger
 			data-slot="combobox-trigger"
-			className={cnMerge("[&_svg:not([class*='size-'])]:size-4", className as string)}
+			className={cnMerge("group [&_svg:not([class*='size-'])]:size-4", className as string)}
 			{...restOfProps}
 		>
 			{children}
-			<IconBox
-				icon="lucide:chevron-down"
-				className="pointer-events-none size-4 text-shadcn-muted-foreground"
-			/>
+			<ComboboxIcon />
 		</ComboboxPrimitive.Trigger>
 	);
 }
@@ -121,8 +135,8 @@ function ComboboxContent(
 	} = props;
 
 	return (
-		<ComboboxPrimitive.Portal>
-			<ComboboxPrimitive.Positioner
+		<ComboboxPortal>
+			<ComboboxPositioner
 				side={side}
 				sideOffset={sideOffset}
 				align={align}
@@ -151,9 +165,21 @@ function ComboboxContent(
 					)}
 					{...restOfProps}
 				/>
-			</ComboboxPrimitive.Positioner>
-		</ComboboxPrimitive.Portal>
+			</ComboboxPositioner>
+		</ComboboxPortal>
 	);
+}
+
+function ComboboxPortal(props: React.ComponentProps<typeof ComboboxPrimitive.Portal>) {
+	return <ComboboxPrimitive.Portal data-slot="combobox-portal" {...props} />;
+}
+
+function ComboboxPositioner(props: React.ComponentProps<typeof ComboboxPrimitive.Positioner>) {
+	return <ComboboxPrimitive.Positioner data-slot="combobox-positioner" {...props} />;
+}
+
+function ComboboxBackdrop(props: React.ComponentProps<typeof ComboboxPrimitive.Backdrop>) {
+	return <ComboboxPrimitive.Backdrop data-slot="combobox-backdrop" {...props} />;
 }
 
 function ComboboxList(props: React.ComponentProps<typeof ComboboxPrimitive.List>) {
@@ -186,6 +212,7 @@ function ComboboxItem(
 				outline-hidden select-none data-highlighted:bg-shadcn-accent
 				data-highlighted:text-shadcn-accent-foreground
 				not-data-[variant=destructive]:data-highlighted:**:text-shadcn-accent-foreground
+				data-selected:bg-shadcn-accent/60 data-selected:text-shadcn-accent-foreground
 				data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none
 				[&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4`,
 				className as string
@@ -203,13 +230,17 @@ function ComboboxItem(
 					}
 				>
 					<IconBox
-						icon="lucide:chevron-down"
+						icon="lucide:check"
 						className="pointer-events-none size-4 text-shadcn-muted-foreground"
 					/>
 				</ComboboxPrimitive.ItemIndicator>
 			)}
 		</ComboboxPrimitive.Item>
 	);
+}
+
+function ComboboxRow(props: React.ComponentProps<typeof ComboboxPrimitive.Row>) {
+	return <ComboboxPrimitive.Row data-slot="combobox-row" {...props} />;
 }
 
 function ComboboxGroup(props: React.ComponentProps<typeof ComboboxPrimitive.Group>) {
@@ -243,6 +274,21 @@ function ComboboxEmpty(props: React.ComponentProps<typeof ComboboxPrimitive.Empt
 			className={cnMerge(
 				`hidden w-full justify-center py-2 text-center text-sm text-shadcn-muted-foreground
 				group-data-empty/combobox-content:flex`,
+				className as string
+			)}
+			{...restOfProps}
+		/>
+	);
+}
+
+function ComboboxStatus(props: React.ComponentProps<typeof ComboboxPrimitive.Status>) {
+	const { className, ...restOfProps } = props;
+
+	return (
+		<ComboboxPrimitive.Status
+			data-slot="combobox-status"
+			className={cnMerge(
+				"flex items-center gap-2 px-2 py-1.5 text-sm text-shadcn-muted-foreground empty:p-0",
 				className as string
 			)}
 			{...restOfProps}
@@ -338,6 +384,7 @@ function useComboboxAnchor() {
 }
 
 export {
+	ComboboxBackdrop as Backdrop,
 	ComboboxChip as Chip,
 	ComboboxChips as Chips,
 	ComboboxChipsInput as ChipsInput,
@@ -346,12 +393,17 @@ export {
 	ComboboxContent as Content,
 	ComboboxEmpty as Empty,
 	ComboboxGroup as Group,
+	ComboboxIcon as Icon,
 	ComboboxInput as Input,
 	ComboboxItem as Item,
 	ComboboxLabel as Label,
 	ComboboxList as List,
+	ComboboxPortal as Portal,
+	ComboboxPositioner as Positioner,
 	ComboboxRoot as Root,
+	ComboboxRow as Row,
 	ComboboxSeparator as Separator,
+	ComboboxStatus as Status,
 	ComboboxTrigger as Trigger,
 	ComboboxValue as Value,
 	// eslint-disable-next-line react-refresh/only-export-components

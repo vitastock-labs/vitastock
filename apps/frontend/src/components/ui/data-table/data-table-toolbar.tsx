@@ -169,7 +169,9 @@ function DataTableToolbarSelectFilter<TData extends RowData>(props: {
 function DataTableQueryToolbar<TData extends RowData>(
 	props: React.ComponentProps<"div"> & {
 		actions?: React.ReactNode;
+		hasCustomFilters?: boolean;
 		isSearching?: boolean;
+		onReset?: () => void;
 		searchPlaceholder?: string;
 		selectLabel?: string;
 		selectOptions?: ReadonlyArray<{ label: string; value: string }>;
@@ -178,8 +180,11 @@ function DataTableQueryToolbar<TData extends RowData>(
 ) {
 	const {
 		actions,
+		children,
 		className,
+		hasCustomFilters = false,
 		isSearching = false,
+		onReset,
 		searchPlaceholder = "Search...",
 		selectLabel = "All",
 		selectOptions,
@@ -209,7 +214,7 @@ function DataTableQueryToolbar<TData extends RowData>(
 			)}
 			{...restOfProps}
 		>
-			<div className="flex items-center gap-3">
+			<div className="flex min-w-0 grow flex-wrap items-center gap-3">
 				<Form.InputGroup
 					className="h-10 w-full max-w-80 gap-2 rounded-lg border-none bg-shadcn-muted/40 px-3
 						text-[14px] ring-1 ring-transparent focus-within:bg-white
@@ -256,7 +261,9 @@ function DataTableQueryToolbar<TData extends RowData>(
 					</Select.Root>
 				)}
 
-				{(search || selectedValue) && (
+				{children}
+
+				{[search, selectedValue, hasCustomFilters].some(Boolean) && (
 					<Button
 						theme="secondary-outline"
 						size="medium"
@@ -266,6 +273,7 @@ function DataTableQueryToolbar<TData extends RowData>(
 							void setSearch(null);
 							void setSelectedValue(null);
 							void setPage(null);
+							onReset?.();
 						}}
 					>
 						<IconBox icon="lucide:x" className="size-4" />
