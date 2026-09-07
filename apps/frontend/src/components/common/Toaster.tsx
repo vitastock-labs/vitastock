@@ -29,7 +29,7 @@ const SonnerToaster = (props: ToasterProps) => {
 				error: <ToastIcon type="error" />,
 				success: <ToastIcon type="success" />,
 			}}
-			duration={4000}
+			duration={3000}
 			visibleToasts={3}
 			toastOptions={{
 				classNames: {

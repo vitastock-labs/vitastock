@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createSearchParams } from "@zayne-labs/toolkit-core";
+import { createSearchParamsString } from "@zayne-labs/toolkit-core";
 import { parseAsStringEnum, useQueryStates } from "nuqs";
 import { TabsAnimated } from "@/components/animated/ui";
 import { For } from "@/components/common/for";
@@ -12,11 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { StockMovementLogTypeSchema, StockOutReasonSchema } from "@/lib/api/callBackendApi/apiSchema";
 import { acknowledgeInventoryAlertMutation } from "@/lib/react-query/mutationOptions";
-import {
-	inventoryAlertsQuery,
-	inventoryAlertsUnreadCountQuery,
-	type InventoryAlertsQueryResultType,
-} from "@/lib/react-query/queryOptions";
+import { inventoryAlertsQuery, type InventoryAlertsQueryResultType } from "@/lib/react-query/queryOptions";
 import { cnJoin } from "@/lib/utils/cn";
 import { formatDate, formatDrugLabel } from "@/lib/utils/formatters";
 import { EmptyState } from "@/pages/(protected)/dashboard/-components/EmptyState";
@@ -51,7 +47,7 @@ const alertPresentation = {
 
 const alertActionPresentation = {
 	remove: {
-		icon: "lucide:trash-2",
+		icon: "lucide:trash",
 		label: "Remove",
 	},
 	restock: {
@@ -104,12 +100,9 @@ function AlertsPage() {
 			{ alertId },
 			{
 				onSuccess: () => {
-					void Promise.all([
-						queryClient.invalidateQueries({
-							queryKey: inventoryAlertsQuery().queryKey.slice(0, -1),
-						}),
-						queryClient.invalidateQueries(inventoryAlertsUnreadCountQuery()),
-					]);
+					void queryClient.invalidateQueries({
+						queryKey: inventoryAlertsQuery().queryKey.slice(0, -1),
+					});
 				},
 			}
 		);
@@ -220,19 +213,19 @@ function AlertsPage() {
 
 								const actionSearch = (() => {
 									if (alert.action === "remove") {
-										return createSearchParams({
+										return createSearchParamsString({
 											batchId: alert.batchId ?? "",
 											drugId: alert.drug.id,
 											movement: StockMovementLogTypeSchema.enum.stock_out,
 											reason: StockOutReasonSchema.enum.expired,
-										}).toString();
+										});
 									}
 
 									if (alert.action === "restock") {
-										return createSearchParams({
+										return createSearchParamsString({
 											drugId: alert.drug.id,
 											movement: StockMovementLogTypeSchema.enum.stock_in,
-										}).toString();
+										});
 									}
 
 									return "";

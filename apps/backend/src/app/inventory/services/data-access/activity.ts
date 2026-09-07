@@ -6,7 +6,7 @@ import { subDays } from "date-fns";
 import { and, count, desc, eq, gte, ilike, lt, or, sql, type SQL } from "drizzle-orm";
 import type { z } from "zod";
 import { AppError } from "@/lib/utils";
-import { getWorkspaceDateRange } from "../utils/date";
+import { getWorkspaceDateRange, getWorkspaceToday } from "../utils/date";
 
 type InventoryActivityFilters = z.infer<
 	NonNullable<(typeof backendApiSchemaRoutes)["@get/inventory/activity/export"]["query"]>
@@ -146,62 +146,80 @@ export const getInventoryActivity = async (options: {
 	const sevenDaysAgo = subDays(now, 7);
 	const thirtyDaysAgo = subDays(now, 30);
 
-	const [rows, totalResult, weeklyStatsResult, expiryLossResult] = await Promise.all([
-		getLogicalActivityRows({
-			limit: pageSize,
-			offset: (page - 1) * pageSize,
-			whereConditions,
-		}),
-		db
-			.select({ total: logicalMovementCount })
-			.from(stockLogs)
-			.innerJoin(drugs, eq(stockLogs.drugId, drugs.id))
-			.innerJoin(users, eq(stockLogs.performedByUserId, users.id))
-			.where(and(...whereConditions)),
-		db
-			.select({
-				weeklyMovementCount: logicalMovementCount,
-				weeklyStockInQuantity: sql<number>`
-					coalesce(
-						sum(
-							case when ${stockLogs.logType} in ('opening_stock', 'stock_in')
-							then ${stockLogs.quantity}
-							else 0 end
-						),
-						0
+	const [rows, totalResult, weeklyStatsResult, expiryLossResult, activityDateRangeResult] =
+		await Promise.all([
+			getLogicalActivityRows({
+				limit: pageSize,
+				offset: (page - 1) * pageSize,
+				whereConditions,
+			}),
+			db
+				.select({ total: logicalMovementCount })
+				.from(stockLogs)
+				.innerJoin(drugs, eq(stockLogs.drugId, drugs.id))
+				.innerJoin(users, eq(stockLogs.performedByUserId, users.id))
+				.where(and(...whereConditions)),
+			db
+				.select({
+					weeklyMovementCount: logicalMovementCount,
+					weeklyStockInQuantity: sql<number>`
+						coalesce(
+							sum(
+								case when ${stockLogs.logType} in ('opening_stock', 'stock_in')
+								then ${stockLogs.quantity}
+								else 0 end
+							),
+							0
+						)
+					`.mapWith(Number),
+					weeklyStockOutQuantity: sql<number>`
+						coalesce(
+							sum(
+								case when ${stockLogs.logType} = 'stock_out'
+								then ${stockLogs.quantity}
+								else 0 end
+							),
+							0
+						)
+					`.mapWith(Number),
+				})
+				.from(stockLogs)
+				.where(and(eq(stockLogs.workspaceId, workspaceId), gte(stockLogs.createdAt, sevenDaysAgo))),
+			db
+				.select({
+					expiredLossQuantity: sql<number>`coalesce(sum(${stockLogs.quantity}), 0)`.mapWith(Number),
+				})
+				.from(stockLogs)
+				.where(
+					and(
+						eq(stockLogs.workspaceId, workspaceId),
+						gte(stockLogs.createdAt, thirtyDaysAgo),
+						or(eq(stockLogs.logType, "expired"), eq(stockLogs.reason, "expired"))
 					)
-				`.mapWith(Number),
-				weeklyStockOutQuantity: sql<number>`
-					coalesce(
-						sum(
-							case when ${stockLogs.logType} = 'stock_out'
-							then ${stockLogs.quantity}
-							else 0 end
-						),
-						0
-					)
-				`.mapWith(Number),
-			})
-			.from(stockLogs)
-			.where(and(eq(stockLogs.workspaceId, workspaceId), gte(stockLogs.createdAt, sevenDaysAgo))),
-		db
-			.select({
-				expiredLossQuantity: sql<number>`coalesce(sum(${stockLogs.quantity}), 0)`.mapWith(Number),
-			})
-			.from(stockLogs)
-			.where(
-				and(
-					eq(stockLogs.workspaceId, workspaceId),
-					gte(stockLogs.createdAt, thirtyDaysAgo),
-					or(eq(stockLogs.logType, "expired"), eq(stockLogs.reason, "expired"))
-				)
-			),
-	]);
+				),
+			db
+				.select({
+					from: sql<Date | null>`min(${stockLogs.createdAt})`,
+					to: sql<Date | null>`max(${stockLogs.createdAt})`,
+				})
+				.from(stockLogs)
+				.where(eq(stockLogs.workspaceId, workspaceId)),
+		]);
 	const total = totalResult[0]?.total ?? 0;
 	const weeklyStats = weeklyStatsResult[0];
 	const expiryLoss = expiryLossResult[0];
+	const activityDateRange = activityDateRangeResult[0];
+	let availableDateRange = null;
+
+	if (activityDateRange?.from && activityDateRange.to) {
+		availableDateRange = {
+			from: getWorkspaceToday(timezone, activityDateRange.from),
+			to: getWorkspaceToday(timezone, activityDateRange.to),
+		};
+	}
 
 	return {
+		availableDateRange,
 		pagination: {
 			page,
 			pageCount: Math.ceil(total / pageSize),

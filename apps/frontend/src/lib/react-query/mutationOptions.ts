@@ -2,7 +2,7 @@ import { mutationOptions } from "@tanstack/react-query";
 import type { z } from "zod";
 import { callBackendApiForQuery } from "../api/callBackendApi";
 import type { BackendApiRoutes } from "../api/callBackendApi/apiSchema";
-import { isPostHogEnabled, posthog } from "../posthog";
+import { posthog } from "../posthog";
 
 export const signoutMutation = () => {
 	return mutationOptions({
@@ -10,7 +10,7 @@ export const signoutMutation = () => {
 			return callBackendApiForQuery("@post/auth/signout", {
 				meta: { toast: { success: true } },
 				onSuccess: () => {
-					isPostHogEnabled && posthog.reset();
+					posthog?.reset();
 				},
 			});
 		},
@@ -50,7 +50,7 @@ export const cancelWorkspaceInvitationMutation = () => {
 			return callBackendApiForQuery("@delete/workspace/invitation/:invitationId", {
 				meta: { toast: { success: true } },
 				onSuccess: () => {
-					isPostHogEnabled && posthog.capture("workspace_invitation_cancelled");
+					posthog?.capture("workspace_invitation_cancelled");
 				},
 				params,
 			});
@@ -66,7 +66,7 @@ export const changeWorkspaceMemberRoleMutation = () => {
 				body,
 				meta: { toast: { success: true } },
 				onSuccess: () => {
-					isPostHogEnabled && posthog.capture("workspace_member_role_changed");
+					posthog?.capture("workspace_member_role_changed");
 				},
 			});
 		},
@@ -80,7 +80,7 @@ export const removeWorkspaceMemberMutation = () => {
 			return callBackendApiForQuery("@delete/workspace/member/:memberId", {
 				meta: { toast: { success: true } },
 				onSuccess: () => {
-					isPostHogEnabled && posthog.capture("workspace_member_removed");
+					posthog?.capture("workspace_member_removed");
 				},
 				params,
 			});
@@ -96,7 +96,7 @@ export const suspendWorkspaceMemberMutation = () => {
 				body,
 				meta: { toast: { success: true } },
 				onSuccess: () => {
-					isPostHogEnabled && posthog.capture("workspace_member_suspension_changed");
+					posthog?.capture("workspace_member_suspension_changed");
 				},
 			});
 		},
@@ -111,7 +111,7 @@ export const acknowledgeInventoryAlertMutation = () => {
 				body,
 				meta: { toast: { success: true } },
 				onSuccess: () => {
-					isPostHogEnabled && posthog.capture("inventory_alert_acknowledged");
+					posthog?.capture("inventory_alert_acknowledged");
 				},
 			});
 		},
@@ -131,7 +131,7 @@ export const inventoryActivityExportMutation = () => {
 
 					forceDownload(data, filename ?? "vitastock-stock-movements.csv");
 
-					isPostHogEnabled && posthog.capture("inventory_activity_exported");
+					posthog?.capture("inventory_activity_exported");
 				},
 				query,
 				responseType: "blob",

@@ -2,7 +2,7 @@ import posthogClient from "posthog-js";
 
 const posthogKey: string | null = "phc_rPeD43twFYdicjRwTtwqYGC8NJDLLrX3Cfd5gXMewYND";
 
-export const isPostHogEnabled = Boolean(posthogKey);
+const isPostHogEnabled = Boolean(posthogKey);
 
 posthogClient.init(posthogKey, {
 	api_host: "https://eu.i.posthog.com",
@@ -14,5 +14,4 @@ posthogClient.init(posthogKey, {
 	defaults: "2026-05-30",
 });
 
-// eslint-disable-next-line unicorn/prefer-export-from
-export { posthogClient as posthog };
+export const posthog = isPostHogEnabled ? posthogClient : null;

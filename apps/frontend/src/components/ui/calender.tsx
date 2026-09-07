@@ -257,8 +257,8 @@ export function CalendarDayButton(props: React.ComponentProps<typeof DayButton> 
 				data-[range-start=true]:rounded-l-md data-[range-start=true]:bg-shadcn-primary
 				data-[range-start=true]:text-shadcn-primary-foreground
 				data-[selected-single=true]:bg-shadcn-primary
-				data-[selected-single=true]:text-shadcn-primary-foreground
-				dark:hover:text-shadcn-primary-foreground [&>span]:text-xs [&>span]:opacity-70`,
+				data-[selected-single=true]:text-shadcn-primary-foreground [&>span]:text-xs
+				[&>span]:opacity-70`,
 				defaultClassNames.day,
 				shadcnButtonVariants({ size, variant }),
 				className

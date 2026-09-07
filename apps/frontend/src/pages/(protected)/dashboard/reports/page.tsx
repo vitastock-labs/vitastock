@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { createSearchParams, tw } from "@zayne-labs/toolkit-core";
+import { createSearchParamsString, tw } from "@zayne-labs/toolkit-core";
 import { For, ForWithWrapper } from "@zayne-labs/ui-react/common/for";
 import { parseISO } from "date-fns";
 import { parseAsString, parseAsStringLiteral, useQueryState, useQueryStates } from "nuqs";
@@ -211,9 +211,9 @@ function ReportsPage() {
 							<NavLinkEphemeral
 								to={{
 									pathname: "/dashboard/inventory",
-									search: createSearchParams({
+									search: createSearchParamsString({
 										movement: StockMovementLogTypeSchema.enum.stock_in,
-									}).toString(),
+									}),
 								}}
 							>
 								<Button>
@@ -229,7 +229,8 @@ function ReportsPage() {
 					<ReportsStats isLoading={inventoryActivityQueryResult.isLoading} stats={activity?.stats} />
 
 					<section
-						className="flex flex-col rounded-2xl bg-white shadow-sm ring-1 ring-shadcn-border/60"
+						className="flex min-w-0 flex-col rounded-2xl bg-white shadow-sm ring-1
+							ring-shadcn-border/60"
 					>
 						<header className="flex flex-col gap-1 border-b border-shadcn-border/50 p-6">
 							<div className="flex flex-col gap-1">
@@ -282,6 +283,7 @@ function ReportsPage() {
 									}}
 								/>
 								<ReportDateFilter
+									availableDateRange={activity?.availableDateRange}
 									from={from}
 									to={to}
 									onChange={(dates) => {
@@ -362,21 +364,31 @@ function ReportDrugFilter(props: { drugId: string | null; onChange: (value: stri
 }
 
 function ReportDateFilter(props: {
+	availableDateRange: InventoryActivityQueryResultType["availableDateRange"] | undefined;
 	from: string | null;
 	onChange: (dates: { from?: string | null; to?: string | null }) => void;
 	to: string | null;
 }) {
-	const { from, onChange, to } = props;
-	const pickerClassName = tw`h-10 w-40 rounded-lg border-none bg-white px-3 text-[13px]
-	shadow-[0_2px_8px_hsl(220,15%,15%,0.12)]`;
+	const { availableDateRange, from, onChange, to } = props;
+	const pickerClassName = tw`h-10 w-full min-w-0 rounded-lg border-none bg-white px-3 text-[13px]
+	shadow-[0_2px_8px_hsl(220,15%,15%,0.12)] sm:w-40`;
+	const earliestActivityDate = availableDateRange ? parseISO(availableDateRange.from) : undefined;
+	const latestActivityDate = availableDateRange ? parseISO(availableDateRange.to) : undefined;
+	const latestFromDate = to ? parseISO(to) : latestActivityDate;
+	const earliestToDate = from ? parseISO(from) : earliestActivityDate;
 
 	return (
-		<div className="flex items-center gap-2">
+		<div className="flex w-full min-w-0 shrink-0 flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
 			<DateTimePicker
 				variant="date"
 				dateString={from ?? ""}
 				placeholder="From"
-				datePickerProps={{ disabled: to ? { after: parseISO(to) } : undefined }}
+				datePickerProps={{
+					disabled: [
+						...(earliestActivityDate ? [{ before: earliestActivityDate }] : []),
+						...(latestFromDate ? [{ after: latestFromDate }] : []),
+					],
+				}}
 				dateFormats={{ onChangeDate: "yyyy-MM-dd", visibleDate: "dd MMM yyyy" }}
 				className={pickerClassName}
 				onDateStringChange={(value) => onChange({ from: value ?? null })}
@@ -385,7 +397,12 @@ function ReportDateFilter(props: {
 				variant="date"
 				dateString={to ?? ""}
 				placeholder="To"
-				datePickerProps={{ disabled: from ? { before: parseISO(from) } : undefined }}
+				datePickerProps={{
+					disabled: [
+						...(earliestToDate ? [{ before: earliestToDate }] : []),
+						...(latestActivityDate ? [{ after: latestActivityDate }] : []),
+					],
+				}}
 				dateFormats={{ onChangeDate: "yyyy-MM-dd", visibleDate: "dd MMM yyyy" }}
 				className={pickerClassName}
 				onDateStringChange={(value) => onChange({ to: value ?? null })}

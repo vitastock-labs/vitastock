@@ -76,7 +76,7 @@ export function DateTimePicker(props: DatePickerProps) {
 					type="button"
 					className={cnMerge(
 						shadcnButtonVariants({ variant: "outline" }),
-						"w-full justify-between text-[14px] font-medium text-black md:w-full",
+						"w-full justify-between text-[14px] font-medium text-black",
 						className
 					)}
 				>
@@ -109,7 +109,8 @@ export function DateTimePicker(props: DatePickerProps) {
 									className={cnMerge(
 										`hover:bg-vitastock-primary-subtle/60 hover:text-vitastock-primary-dark
 										data-[selected-single=true]:bg-vitastock-primary-main
-										data-[selected-single=true]:text-white`,
+										data-[selected-single=true]:text-white
+										data-[selected-single=true]:hover:bg-vitastock-primary-main/80`,
 										innerProps.className
 									)}
 								/>

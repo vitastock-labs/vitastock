@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { createSearchParams } from "@zayne-labs/toolkit-core";
+import { createSearchParamsString } from "@zayne-labs/toolkit-core";
 import { For } from "@/components/common/for";
 import { IconBox } from "@/components/common/IconBox";
 import { NavLinkEphemeral } from "@/components/common/NavLink";
@@ -156,9 +156,9 @@ function DashboardQuickActions() {
 				<NavLinkEphemeral
 					to={{
 						pathname: "/dashboard/inventory",
-						search: createSearchParams({
+						search: createSearchParamsString({
 							movement: StockMovementLogTypeSchema.enum.stock_in,
-						}).toString(),
+						}),
 					}}
 				>
 					<Button>
@@ -169,9 +169,9 @@ function DashboardQuickActions() {
 				<NavLinkEphemeral
 					to={{
 						pathname: "/dashboard/inventory",
-						search: createSearchParams({
+						search: createSearchParamsString({
 							movement: StockMovementLogTypeSchema.enum.stock_out,
-						}).toString(),
+						}),
 					}}
 				>
 					<Button>

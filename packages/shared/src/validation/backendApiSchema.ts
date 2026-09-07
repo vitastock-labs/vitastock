@@ -703,6 +703,12 @@ const inventoryRoutes = () => {
 		"@get/inventory/activity": {
 			data: withBaseSuccessResponse(
 				z.object({
+					availableDateRange: z
+						.object({
+							from: IsoDateSchema,
+							to: IsoDateSchema,
+						})
+						.nullable(),
 					pagination: z.object({
 						page: z.number(),
 						pageCount: z.number(),
@@ -739,8 +745,8 @@ const inventoryRoutes = () => {
 				.optional(),
 		},
 
-		"@get/inventory/alerts/unread-count": {
-			data: withBaseSuccessResponse(z.object({ count: z.number() })),
+		"@get/inventory/alerts/status": {
+			data: withBaseSuccessResponse(z.object({ hasActiveAlerts: z.boolean() })),
 		},
 
 		"@get/inventory/drugs": {

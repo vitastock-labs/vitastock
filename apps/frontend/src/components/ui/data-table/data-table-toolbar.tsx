@@ -214,7 +214,7 @@ function DataTableQueryToolbar<TData extends RowData>(
 			)}
 			{...restOfProps}
 		>
-			<div className="flex min-w-0 grow flex-wrap items-center gap-3">
+			<div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
 				<Form.InputGroup
 					className="h-10 w-full max-w-80 gap-2 rounded-lg border-none bg-shadcn-muted/40 px-3
 						text-[14px] ring-1 ring-transparent focus-within:bg-white

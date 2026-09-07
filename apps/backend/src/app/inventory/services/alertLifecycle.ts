@@ -16,7 +16,6 @@ import {
 import {
 	and,
 	asc,
-	count,
 	desc,
 	eq,
 	gt,
@@ -378,19 +377,14 @@ export const getPersistedInventoryAlerts = async (options: {
 	}));
 };
 
-export const getUnreadInventoryAlertCount = async (workspaceId: string) => {
-	const [result] = await db
-		.select({ total: count() })
+export const hasActiveInventoryAlerts = async (workspaceId: string) => {
+	const [activeAlert] = await db
+		.select({ id: inventoryAlerts.id })
 		.from(inventoryAlerts)
-		.where(
-			and(
-				eq(inventoryAlerts.workspaceId, workspaceId),
-				eq(inventoryAlerts.status, "active"),
-				isNull(inventoryAlerts.acknowledgedAt)
-			)
-		);
+		.where(and(eq(inventoryAlerts.workspaceId, workspaceId), eq(inventoryAlerts.status, "active")))
+		.limit(1);
 
-	return result?.total ?? 0;
+	return Boolean(activeAlert);
 };
 
 export const acknowledgeInventoryAlert = async (options: {

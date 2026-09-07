@@ -89,7 +89,7 @@ Apply these conventions to all repository changes unless a more specific `AGENTS
 
 - Use `nuqs` for refresh-sensitive or shareable UI state such as search, filters, tabs, selected records, and table pagination.
 - Use dynamic route segments for primary selected entities. Reserve query parameters for secondary UI state such as filters, tabs, actions, and nested views.
-- Build destination search strings with `createSearchParams` and pass links as pathname/search objects.
+- Build destination search strings with `createSearchParamsString` and pass links as pathname/search objects.
 - Do not concatenate query strings manually. Batch related query-state updates when several filters are applied or reset together.
 - Use `NavLinkEphemeral` for declarative action navigation instead of button-driven `navigate` calls.
 - Reset actions must clear both table state and corresponding URL state.

@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
 import { backendApiSchemaRoutes } from "@vitastock/shared/validation/backendApiSchema";
-import { createSearchParams } from "@zayne-labs/toolkit-core";
+import { createSearchParamsString } from "@zayne-labs/toolkit-core";
 import { parseAsString, useQueryState } from "nuqs";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router";
@@ -11,7 +11,7 @@ import { Button } from "@/components/ui";
 import { Form } from "@/components/ui/form";
 import { callBackendApiForQuery } from "@/lib/api/callBackendApi";
 import { checkUserSessionForQuery } from "@/lib/api/callBackendApi/plugins/utils/session";
-import { isPostHogEnabled, posthog } from "@/lib/posthog";
+import { posthog } from "@/lib/posthog";
 import { sessionQuery } from "@/lib/react-query/queryOptions";
 import { InputField } from "@/pages/(home)/-components/FormPartsShared";
 import { Main } from "../-components/Main";
@@ -43,7 +43,7 @@ function SigninPage() {
 				if (isEmailUnverifiedError) {
 					void navigate({
 						pathname: "/auth/verify-email",
-						search: createSearchParams({ email: data.email }).toString(),
+						search: createSearchParamsString({ email: data.email }),
 					});
 				}
 			},
@@ -52,13 +52,8 @@ function SigninPage() {
 				const session = await checkUserSessionForQuery();
 				const user = session.data.user;
 
-				isPostHogEnabled
-					&& posthog.identify(user.id, {
-						email: user.email,
-						name: user.fullName,
-						role: user.role,
-					});
-				isPostHogEnabled && posthog.capture("user_signed_in");
+				posthog?.identify(user.id, { email: user.email, name: user.fullName, role: user.role });
+				posthog?.capture("user_signed_in");
 
 				await queryClient.invalidateQueries(sessionQuery());
 

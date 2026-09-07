@@ -31,12 +31,12 @@ import {
 	StockMovementLogTypeSchema,
 	StockOutReasonSchema,
 } from "@/lib/api/callBackendApi/apiSchema";
-import { isPostHogEnabled, posthog } from "@/lib/posthog";
+import { posthog } from "@/lib/posthog";
 import {
 	dashboardOverviewQuery,
 	inventoryActivityQuery,
 	inventoryAlertsQuery,
-	inventoryAlertsUnreadCountQuery,
+	inventoryAlertsStatusQuery,
 	inventoryDrugBatchesQuery,
 	inventoryDrugsQuery,
 	inventorySummaryQuery,
@@ -1042,15 +1042,14 @@ function StockMovementDialog(props: {
 			},
 			meta: { toast: { success: true } },
 			onSuccess: () => {
-				isPostHogEnabled
-					&& posthog.capture("inventory_stock_movement_recorded", {
-						movement_type: data.logType,
-					});
+				posthog?.capture("inventory_stock_movement_recorded", {
+					movement_type: data.logType,
+				});
 
 				void queryClient.invalidateQueries(inventorySummaryQuery());
 				void queryClient.invalidateQueries(dashboardOverviewQuery());
 				void queryClient.invalidateQueries({ queryKey: inventoryAlertsQuery().queryKey.slice(0, -1) });
-				void queryClient.invalidateQueries(inventoryAlertsUnreadCountQuery());
+				void queryClient.invalidateQueries(inventoryAlertsStatusQuery());
 				void queryClient.invalidateQueries({
 					queryKey: inventoryActivityQuery().queryKey.slice(0, -1),
 				});

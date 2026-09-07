@@ -4,10 +4,10 @@ import { DashboardSidebar } from "./-components/DashboardSidebar";
 
 function DashboardLayout() {
 	return (
-		<div className="flex grow bg-[hsl(210,17%,98%)]">
+		<div className="flex min-w-0 grow bg-[hsl(210,17%,98%)]">
 			<DashboardSidebar />
 
-			<div className="flex grow flex-col">
+			<div className="flex min-w-0 grow flex-col">
 				<DashboardHeader />
 				<Outlet />
 			</div>

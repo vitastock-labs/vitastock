@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import { createSearchParams } from "@zayne-labs/toolkit-core";
+import { createSearchParamsString } from "@zayne-labs/toolkit-core";
 import { parseAsString, useQueryStates } from "nuqs";
 import { useNavigate } from "react-router";
 import { IconBox } from "@/components/common/IconBox";
@@ -29,7 +29,7 @@ function AcceptInvitationPage() {
 					void navigate(
 						{
 							pathname: "/auth/signin",
-							search: createSearchParams({ email: inviteeEmail }).toString(),
+							search: createSearchParamsString({ email: inviteeEmail }),
 						},
 						{ replace: true }
 					);

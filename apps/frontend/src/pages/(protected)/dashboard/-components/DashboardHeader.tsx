@@ -6,14 +6,14 @@ import { NavLink, NavLinkEphemeral } from "@/components/common/NavLink";
 import { Button, DropdownMenu } from "@/components/ui";
 import * as Avatar from "@/components/ui/avatar";
 import { signoutMutation } from "@/lib/react-query/mutationOptions";
-import { inventoryAlertsUnreadCountQuery, sessionQuery } from "@/lib/react-query/queryOptions";
+import { inventoryAlertsStatusQuery, sessionQuery } from "@/lib/react-query/queryOptions";
 import { getNameInitials } from "@/lib/utils/common";
 import { LOADING_DISPLAY_VALUE } from "./constants";
 
 function DashboardHeader() {
 	const sessionQueryResult = useQuery(sessionQuery());
-	const inventoryAlertsUnreadCountQueryResult = useQuery(inventoryAlertsUnreadCountQuery());
-	const unreadAlertCount = inventoryAlertsUnreadCountQueryResult.data?.count ?? 0;
+	const inventoryAlertsStatusQueryResult = useQuery(inventoryAlertsStatusQuery());
+	const hasActiveAlerts = inventoryAlertsStatusQueryResult.data?.hasActiveAlerts ?? false;
 
 	return (
 		<header
@@ -32,17 +32,14 @@ function DashboardHeader() {
 					className="relative grid size-10 shrink-0 place-items-center rounded-lg
 						hover:bg-vitastock-primary-main/5 hover:text-vitastock-primary-main
 						focus-visible:outline-2 focus-visible:outline-vitastock-primary-main"
-					aria-label={`Inventory alerts, ${unreadAlertCount} unread`}
+					aria-label={hasActiveAlerts ? "Inventory alerts require attention" : "Inventory alerts"}
 				>
 					<IconBox icon="lucide:bell" className="size-5" />
-					{unreadAlertCount > 0 && (
+					{hasActiveAlerts && (
 						<span
-							className="absolute -top-1 -right-1 grid min-w-4 place-items-center rounded-full
-								bg-shadcn-destructive px-1 py-0.5 text-[9px] leading-none font-bold text-white
+							className="absolute top-1.5 right-1.5 size-2.5 rounded-full bg-shadcn-destructive
 								ring-2 ring-white"
-						>
-							{unreadAlertCount > 99 ? "99+" : unreadAlertCount}
-						</span>
+						/>
 					)}
 				</Button>
 			</NavLinkEphemeral>

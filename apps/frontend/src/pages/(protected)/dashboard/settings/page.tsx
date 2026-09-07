@@ -18,7 +18,7 @@ import { Form } from "@/components/ui/form";
 import { Switch as SwitchButton } from "@/components/ui/switch";
 import { callBackendApiForQuery } from "@/lib/api/callBackendApi";
 import { EmailAlertDeliveryPolicySchema, WorkspaceRoleSchema } from "@/lib/api/callBackendApi/apiSchema";
-import { isPostHogEnabled, posthog } from "@/lib/posthog";
+import { posthog } from "@/lib/posthog";
 import {
 	cancelWorkspaceInvitationMutation,
 	changeWorkspaceMemberRoleMutation,
@@ -136,7 +136,7 @@ function AlertSettingsSection() {
 			body: data,
 			meta: { toast: { success: true } },
 			onSuccess: () => {
-				isPostHogEnabled && posthog.capture("workspace_alert_settings_updated");
+				posthog?.capture("workspace_alert_settings_updated");
 
 				void queryClient.invalidateQueries(sessionQuery());
 				void queryClient.invalidateQueries(dashboardOverviewQuery());
@@ -731,7 +731,7 @@ function MemberActionsDropdown(props: MemberActionsDropdownProps) {
 					{permissions.canRemoveMember && (
 						<DropdownMenu.Item variant="destructive" asChild={true}>
 							<MemberActionMenuButton
-								icon="lucide:trash-2"
+								icon="lucide:trash"
 								isDisabled={hasPendingMutation}
 								onClick={() => setIsRemoveDialogOpen(true)}
 							>
@@ -897,7 +897,7 @@ function ConfirmRemoveMemberDialog(props: {
 							className="h-10 bg-shadcn-destructive text-white hover:bg-shadcn-destructive/90"
 							onClick={onConfirm}
 						>
-							<IconBox icon="lucide:trash-2" className="size-4" />
+							<IconBox icon="lucide:trash" className="size-4" />
 							Remove member
 						</Button>
 					</DialogAnimated.Footer>
@@ -928,7 +928,7 @@ function InviteMemberDialog() {
 			body: data,
 			meta: { toast: { success: true } },
 			onSuccess: () => {
-				isPostHogEnabled && posthog.capture("workspace_invitation_sent");
+				posthog?.capture("workspace_invitation_sent");
 
 				void queryClient.invalidateQueries(workspaceMembersQuery());
 				form.reset();
@@ -1061,7 +1061,7 @@ function ResendInvitationDialog(props: { invitationId: string }) {
 			body: { ...data, invitationId },
 			meta: { toast: { success: true } },
 			onSuccess: () => {
-				isPostHogEnabled && posthog.capture("workspace_invitation_resent");
+				posthog?.capture("workspace_invitation_resent");
 
 				void queryClient.invalidateQueries(workspaceMembersQuery());
 				form.reset();

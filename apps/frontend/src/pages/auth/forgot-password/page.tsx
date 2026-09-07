@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { backendApiSchemaRoutes } from "@vitastock/shared/validation/backendApiSchema";
-import { createSearchParams } from "@zayne-labs/toolkit-core";
+import { createSearchParamsString } from "@zayne-labs/toolkit-core";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router";
 import { IconBox } from "@/components/common/IconBox";
@@ -30,7 +30,7 @@ function ForgotPasswordPage() {
 			onSuccess: () => {
 				void navigate({
 					pathname: "/auth/signin",
-					search: createSearchParams({ email: data.email }).toString(),
+					search: createSearchParamsString({ email: data.email }),
 				});
 			},
 		});

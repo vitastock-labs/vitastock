@@ -56,7 +56,7 @@ function getIconsArray() {
 		"lucide:shield",
 		"lucide:shield-check",
 		"lucide:shopping-cart",
-		"lucide:trash-2",
+		"lucide:trash",
 		"lucide:trending-down",
 		"lucide:triangle-alert",
 		"lucide:user",

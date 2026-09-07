@@ -7,7 +7,7 @@ import { createInventoryActivityCsv } from "./services/activity-export";
 import {
 	acknowledgeInventoryAlert,
 	getPersistedInventoryAlerts,
-	getUnreadInventoryAlertCount,
+	hasActiveInventoryAlerts,
 	syncInventoryAlerts,
 } from "./services/alertLifecycle";
 import { createInventoryBulkImport, validateInventoryBulkImportRows } from "./services/bulk-import";
@@ -170,15 +170,15 @@ export const inventoryRoutes = new Hono()
 		}
 	)
 
-	.get("/alerts/unread-count", async (ctx) => {
+	.get("/alerts/status", async (ctx) => {
 		const currentUser = ctx.get("currentUser");
 
-		const count = await getUnreadInventoryAlertCount(currentUser.workspaceId);
+		const hasActiveAlerts = await hasActiveInventoryAlerts(currentUser.workspaceId);
 
 		return AppJsonResponse(ctx, {
-			data: { count },
-			message: "Unread alert count fetched successfully",
-			schema: backendApiSchemaRoutes["@get/inventory/alerts/unread-count"].data,
+			data: { hasActiveAlerts },
+			message: "Alert status fetched successfully",
+			schema: backendApiSchemaRoutes["@get/inventory/alerts/status"].data,
 		});
 	})
 

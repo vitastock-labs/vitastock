@@ -19,12 +19,12 @@ import { ScrollArea } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import { createDataTableColumnHelper, useDataTable } from "@/components/ui/data-table";
 import { callBackendApiForQuery } from "@/lib/api/callBackendApi";
-import { isPostHogEnabled, posthog } from "@/lib/posthog";
+import { posthog } from "@/lib/posthog";
 import {
 	dashboardOverviewQuery,
 	inventoryActivityQuery,
 	inventoryAlertsQuery,
-	inventoryAlertsUnreadCountQuery,
+	inventoryAlertsStatusQuery,
 	inventoryDrugsQuery,
 	inventorySummaryQuery,
 	sessionQuery,
@@ -531,14 +531,13 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 				},
 				meta: { toast: { success: true } },
 				onSuccess: () => {
-					isPostHogEnabled
-						&& posthog.capture("inventory_bulk_import_completed", {
-							imported_row_count: validRows.length,
-						});
+					posthog?.capture("inventory_bulk_import_completed", {
+						imported_row_count: validRows.length,
+					});
 
 					void queryClient.invalidateQueries(inventorySummaryQuery());
 					void queryClient.invalidateQueries(dashboardOverviewQuery());
-					void queryClient.invalidateQueries(inventoryAlertsUnreadCountQuery());
+					void queryClient.invalidateQueries(inventoryAlertsStatusQuery());
 					void queryClient.invalidateQueries({
 						queryKey: inventoryAlertsQuery().queryKey.slice(0, -1),
 					});
@@ -577,8 +576,9 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 				}
 			}}
 			className={cnJoin(
-				`flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-400px)] flex-col gap-0 overflow-hidden rounded-lg
+				`grid max-h-[calc(100dvh-2rem)] w-[calc(100vw-32px)] gap-0 overflow-hidden rounded-lg
 				border-shadcn-border bg-shadcn-background p-0`,
+				showChrome && "grid-rows-[auto_minmax(0,1fr)_auto]",
 				previewState ? "h-[calc(100dvh-2rem)] max-w-none" : "max-w-175"
 			)}
 		>
@@ -586,8 +586,10 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 				<Switch.Match when={showChrome}>
 					<>
 						<header
-							className="flex items-start justify-between gap-6 border-b border-shadcn-border/70
-								px-7 py-5"
+							className={cnJoin(
+								"flex items-start justify-between gap-6 border-b border-shadcn-border/70",
+								previewState ? "px-5 py-3" : "px-7 py-5"
+							)}
 						>
 							<div className="flex flex-col gap-1">
 								<DialogAnimated.Title className="text-[22px] font-extrabold text-shadcn-foreground">
@@ -747,7 +749,7 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 
 							<Switch.Match when={previewState !== undefined}>
 								{previewState && (
-									<div className="flex min-h-0 flex-1 flex-col gap-5 overflow-hidden p-7">
+									<div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-3">
 										<ForWithWrapper
 											as="div"
 											aria-label="Import validation summary"
@@ -767,9 +769,9 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 											renderItem={(stat) => (
 												<article
 													key={stat.label}
-													className="rounded-lg bg-shadcn-muted/50 p-3 text-center"
+													className="rounded-lg bg-shadcn-muted/50 px-3 py-2 text-center"
 												>
-													<p className="text-[20px] font-extrabold text-shadcn-foreground">
+													<p className="text-[18px] font-extrabold text-shadcn-foreground">
 														{stat.value}
 													</p>
 													<p
@@ -784,7 +786,8 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 
 										<aside
 											className={cnJoin(
-												"flex items-start gap-3 rounded-lg p-3 text-[13px] font-medium",
+												`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px]
+												font-medium`,
 												previewHasIssues ? "bg-red-50 text-red-700" : (
 													"bg-green-50 text-green-700"
 												)
@@ -806,7 +809,7 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 											table={previewTable}
 											emptyMessage="No rows detected in this file."
 											classNames={{
-												base: "min-h-70 grow",
+												base: "min-h-0 grow",
 												tableContainer: "min-h-0 grow rounded-lg border border-shadcn-border",
 												tableHead: "sticky top-0 z-1 bg-shadcn-muted",
 												tableRoot: "min-w-250",
@@ -818,8 +821,11 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 						</Switch.Root>
 
 						<DialogAnimated.Footer
-							className="flex-row items-center justify-between gap-5 border-t
-								border-shadcn-border/70 bg-shadcn-muted/30 p-5"
+							className={cnJoin(
+								`relative z-10 flex-row items-center justify-between gap-5 border-t
+								border-shadcn-border/70 bg-shadcn-background`,
+								previewState ? "px-4 py-3" : "p-5"
+							)}
 						>
 							<Show.Root when={previewState !== undefined}>
 								<Show.Content>

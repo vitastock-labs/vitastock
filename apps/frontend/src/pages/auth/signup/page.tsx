@@ -4,7 +4,7 @@ import {
 	SignUpSchema as SignUpSchemaPrimitive,
 	withMatchingPasswordFields,
 } from "@vitastock/shared/validation/backendApiSchema";
-import { createSearchParams } from "@zayne-labs/toolkit-core";
+import { createSearchParamsString } from "@zayne-labs/toolkit-core";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router";
 import { Logo } from "@/components/common/Logo";
@@ -12,7 +12,7 @@ import { NavLink } from "@/components/common/NavLink";
 import { Button } from "@/components/ui";
 import { Form } from "@/components/ui/form";
 import { callBackendApiForQuery } from "@/lib/api/callBackendApi";
-import { isPostHogEnabled, posthog } from "@/lib/posthog";
+import { posthog } from "@/lib/posthog";
 import { sessionQuery } from "@/lib/react-query/queryOptions";
 import { InputField } from "@/pages/(home)/-components/FormPartsShared";
 import { Main } from "../-components/Main";
@@ -47,18 +47,13 @@ function SignupPage() {
 			onSuccess: async (ctx) => {
 				const user = ctx.data.data.user;
 
-				isPostHogEnabled
-					&& posthog.identify(user.id, {
-						email: user.email,
-						name: user.fullName,
-						role: user.role,
-					});
-				isPostHogEnabled && posthog.capture("account_registered");
+				posthog?.identify(user.id, { email: user.email, name: user.fullName, role: user.role });
+				posthog?.capture("account_registered");
 
 				await queryClient.invalidateQueries(sessionQuery());
 				void navigate({
 					pathname: "/auth/verify-email",
-					search: createSearchParams({ email: ctx.data.data.user.email }).toString(),
+					search: createSearchParamsString({ email: ctx.data.data.user.email }),
 				});
 			},
 		});

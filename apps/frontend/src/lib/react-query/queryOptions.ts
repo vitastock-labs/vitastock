@@ -108,17 +108,17 @@ export type InventoryAlertsQueryResultType = Awaited<
 	ReturnType<NonNullable<ReturnType<typeof inventoryAlertsQuery>["select"]>>
 >;
 
-export const inventoryAlertsUnreadCountQuery = () => {
+export const inventoryAlertsStatusQuery = () => {
 	return queryOptions({
-		queryFn: () => callBackendApiForQuery("@get/inventory/alerts/unread-count"),
-		queryKey: ["inventory", "alerts", "unread-count"],
+		queryFn: () => callBackendApiForQuery("@get/inventory/alerts/status"),
+		queryKey: ["inventory", "alerts", "status"],
 		refetchInterval: 60_000,
 		select: (data) => data.data,
 	});
 };
 
-export type InventoryAlertsUnreadCountQueryResultType = Awaited<
-	ReturnType<NonNullable<ReturnType<typeof inventoryAlertsUnreadCountQuery>["select"]>>
+export type InventoryAlertsStatusQueryResultType = Awaited<
+	ReturnType<NonNullable<ReturnType<typeof inventoryAlertsStatusQuery>["select"]>>
 >;
 
 export const inventoryActivityQuery = (

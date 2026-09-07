@@ -113,7 +113,7 @@ function DropZoneInputImagePreview(props: ImagePreviewProps) {
 							classNames?.deleteButton
 						)}
 					>
-						<IconBox icon="lucide:trash-2" className="size-4" />
+						<IconBox icon="lucide:trash" className="size-4" />
 					</DropZone.FileItemDelete>
 				</DropZone.FileItem>
 			)}
