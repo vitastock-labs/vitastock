@@ -24,11 +24,13 @@ function ProtectedLayout() {
 	useEffect(() => {
 		const user = sessionQueryResult.data?.user;
 
-		isPostHogEnabled && user && posthog.identify(user.id, {
-			email: user.email,
-			name: user.fullName,
-			role: user.role,
-		});
+		isPostHogEnabled
+			&& user
+			&& posthog.identify(user.id, {
+				email: user.email,
+				name: user.fullName,
+				role: user.role,
+			});
 	}, [sessionQueryResult.data?.user]);
 
 	return (

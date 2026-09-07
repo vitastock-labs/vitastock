@@ -531,9 +531,10 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 				},
 				meta: { toast: { success: true } },
 				onSuccess: () => {
-					isPostHogEnabled && posthog.capture("inventory_bulk_import_completed", {
-						imported_row_count: validRows.length,
-					});
+					isPostHogEnabled
+						&& posthog.capture("inventory_bulk_import_completed", {
+							imported_row_count: validRows.length,
+						});
 
 					void queryClient.invalidateQueries(inventorySummaryQuery());
 					void queryClient.invalidateQueries(dashboardOverviewQuery());

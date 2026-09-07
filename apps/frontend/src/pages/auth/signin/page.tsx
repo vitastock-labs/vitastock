@@ -52,11 +52,12 @@ function SigninPage() {
 				const session = await checkUserSessionForQuery();
 				const user = session.data.user;
 
-				isPostHogEnabled && posthog.identify(user.id, {
-					email: user.email,
-					name: user.fullName,
-					role: user.role,
-				});
+				isPostHogEnabled
+					&& posthog.identify(user.id, {
+						email: user.email,
+						name: user.fullName,
+						role: user.role,
+					});
 				isPostHogEnabled && posthog.capture("user_signed_in");
 
 				await queryClient.invalidateQueries(sessionQuery());

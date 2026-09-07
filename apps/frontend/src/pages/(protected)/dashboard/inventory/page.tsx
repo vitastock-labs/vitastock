@@ -1042,9 +1042,10 @@ function StockMovementDialog(props: {
 			},
 			meta: { toast: { success: true } },
 			onSuccess: () => {
-				isPostHogEnabled && posthog.capture("inventory_stock_movement_recorded", {
-					movement_type: data.logType,
-				});
+				isPostHogEnabled
+					&& posthog.capture("inventory_stock_movement_recorded", {
+						movement_type: data.logType,
+					});
 
 				void queryClient.invalidateQueries(inventorySummaryQuery());
 				void queryClient.invalidateQueries(dashboardOverviewQuery());

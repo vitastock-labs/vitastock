@@ -47,11 +47,12 @@ function SignupPage() {
 			onSuccess: async (ctx) => {
 				const user = ctx.data.data.user;
 
-				isPostHogEnabled && posthog.identify(user.id, {
-					email: user.email,
-					name: user.fullName,
-					role: user.role,
-				});
+				isPostHogEnabled
+					&& posthog.identify(user.id, {
+						email: user.email,
+						name: user.fullName,
+						role: user.role,
+					});
 				isPostHogEnabled && posthog.capture("account_registered");
 
 				await queryClient.invalidateQueries(sessionQuery());
