@@ -34,7 +34,6 @@ function RadioGroupItem(props: React.ComponentProps<typeof RadioGroupPrimitive.I
 	);
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
 export const Indicator = RadioGroupPrimitive.Indicator;
 
 export { RadioGroupRoot as Root, RadioGroupItem as Item };

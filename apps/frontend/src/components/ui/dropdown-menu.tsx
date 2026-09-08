@@ -27,12 +27,12 @@ function DropdownMenuContent(props: React.ComponentProps<typeof DropdownMenuPrim
 				className={cnMerge(
 					`z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-32
 					origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto
-					rounded-md border bg-shadcn-popover p-1 text-shadcn-popover-foreground shadow-md
-					data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2
-					data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2
-					data-[state=closed]:animate-out data-[state=closed]:fade-out-0
-					data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0
-					data-[state=open]:zoom-in-95`,
+					rounded-md border border-transparent bg-shadcn-popover p-1 text-shadcn-popover-foreground
+					shadow-xl shadow-black/20 data-[side=bottom]:slide-in-from-top-2
+					data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2
+					data-[side=top]:slide-in-from-bottom-2 data-[state=closed]:animate-out
+					data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in
+					data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95`,
 					className
 				)}
 				{...restOfProps}
@@ -210,11 +210,12 @@ function DropdownMenuSubContent(props: React.ComponentProps<typeof DropdownMenuP
 			data-slot="dropdown-menu-sub-content"
 			className={cnMerge(
 				`z-50 min-w-32 origin-(--radix-dropdown-menu-content-transform-origin) overflow-hidden
-				rounded-md border bg-shadcn-popover p-1 text-shadcn-popover-foreground shadow-lg
-				data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2
-				data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2
-				data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95
-				data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95`,
+				rounded-md border border-transparent bg-shadcn-popover p-1 text-shadcn-popover-foreground
+				shadow-xl shadow-black/20 data-[side=bottom]:slide-in-from-top-2
+				data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2
+				data-[side=top]:slide-in-from-bottom-2 data-[state=closed]:animate-out
+				data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in
+				data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95`,
 				className
 			)}
 			{...restOfProps}

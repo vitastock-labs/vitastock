@@ -9,6 +9,7 @@ import { Form } from "@/components/ui/form";
 import { callBackendApiForQuery } from "@/lib/api/callBackendApi";
 import { signoutMutation } from "@/lib/react-query/mutationOptions";
 import { sessionQuery } from "@/lib/react-query/queryOptions";
+import { InputField } from "@/pages/(home)/-components/FormPartsShared";
 
 const ChangePasswordSchema = backendApiSchemaRoutes["@patch/auth/change-password"].body;
 
@@ -68,50 +69,30 @@ export function ForceChangePasswordDialog() {
 					className="mt-4 w-full gap-6"
 				>
 					<div className="flex flex-col gap-4">
-						<Form.Field control={form.control} name="currentPassword">
-							<Form.Label className="text-[14px] font-semibold text-gray-700">
-								Current Password
-							</Form.Label>
-							<Form.Input
-								placeholder="Enter current password"
-								type="password"
-								classNames={{
-									inputGroup:
-										"h-12.5 rounded-lg border-none bg-[hsl(210,9%,96%)] p-4 focus-visible:ring-1",
-								}}
-							/>
-							<Form.ErrorMessage />
-						</Form.Field>
-
-						<Form.Field control={form.control} name="newPassword">
-							<Form.Label className="text-[14px] font-semibold text-gray-700">
-								New Password
-							</Form.Label>
-							<Form.Input
-								placeholder="Enter new password"
-								type="password"
-								classNames={{
-									inputGroup:
-										"h-12.5 rounded-lg border-none bg-[hsl(210,9%,96%)] p-4 focus-visible:ring-1",
-								}}
-							/>
-							<Form.ErrorMessage />
-						</Form.Field>
-
-						<Form.Field control={form.control} name="confirmNewPassword">
-							<Form.Label className="text-[14px] font-semibold text-gray-700">
-								Confirm New Password
-							</Form.Label>
-							<Form.Input
-								placeholder="Confirm new password"
-								type="password"
-								classNames={{
-									inputGroup:
-										"h-12.5 rounded-lg border-none bg-[hsl(210,9%,96%)] p-4 focus-visible:ring-1",
-								}}
-							/>
-							<Form.ErrorMessage />
-						</Form.Field>
+						<InputField
+							control={form.control}
+							name="currentPassword"
+							label="Current Password"
+							placeholder="Enter current password"
+							type="password"
+							classNames={{ inputGroup: "h-12.5 bg-white p-4", label: "text-gray-700" }}
+						/>
+						<InputField
+							control={form.control}
+							name="newPassword"
+							label="New Password"
+							placeholder="Enter new password"
+							type="password"
+							classNames={{ inputGroup: "h-12.5 bg-white p-4", label: "text-gray-700" }}
+						/>
+						<InputField
+							control={form.control}
+							name="confirmNewPassword"
+							label="Confirm New Password"
+							placeholder="Confirm new password"
+							type="password"
+							classNames={{ inputGroup: "h-12.5 bg-white p-4", label: "text-gray-700" }}
+						/>
 					</div>
 
 					<Form.Submit asChild={true}>

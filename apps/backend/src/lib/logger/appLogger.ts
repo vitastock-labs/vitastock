@@ -1,8 +1,9 @@
-import { isString } from "@zayne-labs/toolkit-type-helpers";
+import { isFunction, isString } from "@zayne-labs/toolkit-type-helpers";
 import { consola } from "consola";
-import { pino } from "pino";
+import { pino, type Logger as PinoLogger } from "pino";
 import pretty from "pino-pretty";
 import { ENVIRONMENT } from "@/config/env";
+import { requestContext } from "@/middleware/authMiddleware/requestContext";
 
 type PrettyLogPayload = {
 	method?: unknown;
@@ -40,14 +41,44 @@ const prettyStream = pretty({
 	singleLine: true,
 });
 
-export const structuredLogger = pino(
-	{
-		enabled: ENVIRONMENT.NODE_ENV !== "test",
-		level: ENVIRONMENT.LOG_LEVEL,
-		timestamp: pino.stdTimeFunctions.isoTime,
+const loggerOptions = {
+	base: {
+		env: ENVIRONMENT.NODE_ENV,
+		service: ENVIRONMENT.PROCESS_TYPE,
 	},
-	prettyStream
-);
+	level: ENVIRONMENT.LOG_LEVEL,
+	redact: {
+		censor: "[REDACTED]",
+		paths: [
+			"authorization",
+			"cookie",
+			"req.headers.authorization",
+			"req.headers.cookie",
+			"*.accessToken",
+			"*.defaultPassword",
+			"*.password",
+			"*.refreshToken",
+			"*.resetToken",
+			"*.token",
+			"*.tokenHash",
+			"*.verificationCode",
+		],
+	},
+	timestamp: pino.stdTimeFunctions.isoTime,
+} satisfies Parameters<typeof pino>[0];
+
+export const structuredLogger =
+	ENVIRONMENT.NODE_ENV === "development" ? pino(loggerOptions, prettyStream) : pino(loggerOptions);
+
+const getContextualLogger = (): typeof structuredLogger => {
+	try {
+		const ctx = requestContext.get();
+		const requestLogger = ctx.honoCtx.get("logger");
+		return (requestLogger ?? structuredLogger) as typeof structuredLogger;
+	} catch {
+		return structuredLogger;
+	}
+};
 
 type CriticalLogOptions = {
 	error?: unknown;
@@ -55,13 +86,33 @@ type CriticalLogOptions = {
 	meta?: Record<string, unknown>;
 };
 
+/**
+ * Unified application logger with automatic request-scoped context.
+ *
+ * Uses request-scoped logger (includes requestId, userId, workspaceId) in HTTP contexts,
+ * falls back to root logger otherwise.
+ */
 export const appLogger = {
+	child: (bindings: Record<string, unknown>) => {
+		return getContextualLogger().child(bindings);
+	},
+
 	critical: (options: CriticalLogOptions) => {
 		const { error, message, meta } = options;
 
-		structuredLogger.fatal({ err: error, ...meta }, message);
+		getContextualLogger().fatal({ err: error, ...meta }, message);
 		consola.error(error instanceof Error ? new Error(message, { cause: error }) : message, meta);
 	},
+
 	pretty: consola,
-	structured: structuredLogger,
+
+	structured: new Proxy(structuredLogger, {
+		get: (_target, prop: string) => {
+			const logger = getContextualLogger();
+			const value = logger[prop as keyof typeof logger];
+			return isFunction(value) ? value.bind(logger) : value;
+		},
+	}),
 };
+
+export type RequestLogger = PinoLogger;

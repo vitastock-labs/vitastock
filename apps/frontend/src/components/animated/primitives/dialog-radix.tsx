@@ -2,6 +2,7 @@
 "use client";
 
 import { createCustomContext, useControllableState } from "@zayne-labs/toolkit-react";
+import type { DiscriminatedRenderProps } from "@zayne-labs/toolkit-react/utils";
 import { AnimatePresence, motion, type HTMLMotionProps } from "motion/react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { useMemo } from "react";
@@ -46,6 +47,18 @@ function DialogRoot(props: DialogProps) {
 			/>
 		</DialogContextProvider>
 	);
+}
+
+type RenderFn = (props: DialogContextType) => React.ReactNode;
+
+function DialogContext(props: DiscriminatedRenderProps<RenderFn>) {
+	const { children, render } = props;
+
+	const dialogCtx = useDialogContext();
+
+	const selectedRenderFn = typeof children === "function" ? children : render;
+
+	return selectedRenderFn(dialogCtx);
 }
 
 type DialogTriggerProps = React.ComponentProps<typeof DialogPrimitive.Trigger>;
@@ -130,7 +143,7 @@ function DialogContent(props: DialogContentProps) {
 				animate={{
 					filter: "blur(0px)",
 					opacity: 1,
-					transform: `perspective(500px) ${rotateAxis}(0deg) scale(1)`,
+					transform: `perspective(500px) scale(1)`,
 				}}
 				exit={{
 					filter: "blur(4px)",
@@ -179,6 +192,7 @@ export {
 	DialogPortal as Portal,
 	DialogOverlay as Overlay,
 	DialogClose as Close,
+	DialogContext as Context,
 	DialogTrigger as Trigger,
 	DialogContent as Content,
 	DialogHeader as Header,

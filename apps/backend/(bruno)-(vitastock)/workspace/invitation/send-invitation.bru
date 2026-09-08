@@ -27,7 +27,7 @@ settings {
 docs {
   # Send Workspace Invitation
 
-  Sends an invitation to a pharmacist to join the current workspace. Only workspace owners and admins can send invitations.
+  Sends an invitation to join the current workspace. Owners may invite admins or pharmacists. Admins may invite pharmacists only.
 
   ## Authentication
 
@@ -37,8 +37,8 @@ docs {
 
   - `inviteeEmail` (string, required): Email address of the person being invited
   - `inviteeName` (string, required): Full name of the person being invited
-  - `role` (string, optional): Role for the invited user. Defaults to and currently only supports "pharmacist"
-  - `defaultPassword` (string, required): Default password the pharmacist will use for first sign in (minimum 8 characters)
+  - `role` (string, required): `admin` or `pharmacist`
+  - `defaultPassword` (string, required): Default password the invited member will use for first sign in
 
   ## Success Response (200 OK)
 
@@ -94,6 +94,6 @@ docs {
   - The default password is stored only as a hash; plaintext exists only in the request and outgoing email
   - Only one active invitation per email can exist per workspace at a time
   - The recipient must accept the invitation to create their account, then sign in with the default password
-  - Invited pharmacists must change their password before accessing workspace routes
+  - Invited members must change their password before accessing workspace routes
   - Rate limited to prevent abuse
 }

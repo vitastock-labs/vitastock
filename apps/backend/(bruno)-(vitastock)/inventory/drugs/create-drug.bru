@@ -1,0 +1,83 @@
+meta {
+  name: create-drug
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseURL}}/inventory/drugs
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "name": "Amoxil",
+    "genericName": "Amoxicillin",
+    "strength": "500mg",
+    "form": "Capsule",
+    "unit": "Pack"
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  # Create Drug
+
+  Adds a drug to the authenticated workspace's drug master. Brand name, generic name, strength, dosage form, and stock unit are stored separately.
+
+  ## Authorization
+
+  Requires an authenticated user with an active workspace membership.
+
+  ## Request Body
+
+  | Field | Type | Required | Description |
+  |-------|------|----------|-------------|
+  | `name` | string | Yes | Brand or trade name, for example `Amoxil`. |
+  | `genericName` | string | Yes | Active pharmaceutical ingredient, for example `Amoxicillin`. |
+  | `strength` | string | Yes | Strength label, for example `500 mg`. |
+  | `form` | string | Yes | Dosage form, for example `Capsule` or `Tablet`. |
+  | `unit` | string | Yes | Stock-counting unit, for example `Box`, `Pack`, or `Bottle`. |
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Drug created successfully",
+    "data": {
+      "drug": {
+        "id": "drug-uuid",
+        "name": "Amoxil",
+        "genericName": "Amoxicillin",
+        "strength": "500mg",
+        "form": "Capsule",
+        "unit": "Pack",
+        "isActive": true
+      }
+    }
+  }
+  ```
+
+  ## Persistence Rules
+
+  - `workspaceId` is supplied from the authenticated session, never from the request.
+  - New drugs are active by default.
+  - The database prevents duplicate `(workspaceId, name, genericName, strength, form, unit)` combinations.
+  - The returned `id` is used by stock movements and drug-management endpoints.
+
+  ## Errors
+
+  | Status | Description |
+  |--------|-------------|
+  | `401 Unauthorized` | Authentication is invalid or workspace access is suspended. |
+  | `422 Unprocessable Entity` | A required field is missing or empty. |
+  | `500 Internal Server Error` | The insert failed, including an unhandled database constraint failure. |
+}

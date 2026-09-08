@@ -76,7 +76,7 @@ export function DateTimePicker(props: DatePickerProps) {
 					type="button"
 					className={cnMerge(
 						shadcnButtonVariants({ variant: "outline" }),
-						"w-full justify-between text-[14px] font-medium text-black md:w-full",
+						"w-full justify-between text-[14px] font-medium text-black",
 						className
 					)}
 				>
@@ -88,7 +88,7 @@ export function DateTimePicker(props: DatePickerProps) {
 				</button>
 			</Popover.Trigger>
 
-			<Popover.Content className="flex w-fit rounded-[10px] border-[1.4px] border-shadcn-border p-0">
+			<Popover.Content className="flex w-fit rounded-[10px] p-0">
 				{showDatePicker && (
 					<Calendar
 						mode="single"
@@ -109,7 +109,8 @@ export function DateTimePicker(props: DatePickerProps) {
 									className={cnMerge(
 										`hover:bg-vitastock-primary-subtle/60 hover:text-vitastock-primary-dark
 										data-[selected-single=true]:bg-vitastock-primary-main
-										data-[selected-single=true]:text-white`,
+										data-[selected-single=true]:text-white
+										data-[selected-single=true]:hover:bg-vitastock-primary-main/80`,
 										innerProps.className
 									)}
 								/>
@@ -164,11 +165,11 @@ const resolveOrder = (
 
 	switch (selectedOrder) {
 		case "ascending": {
-			return selectedRange.toSorted((a, b) => a - b);
+			return [...selectedRange].sort((a, b) => a - b);
 		}
 
 		case "descending": {
-			return selectedRange.toSorted((a, b) => b - a);
+			return [...selectedRange].sort((a, b) => b - a);
 		}
 
 		case "preserve": {

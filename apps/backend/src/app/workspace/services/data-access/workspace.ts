@@ -13,7 +13,6 @@ export const getWorkspaceMemberForAction = async (options: { memberId: string; w
 			...pickKeys(users, ["email", "fullName", "id"]),
 			membershipId: workspaceMemberships.id,
 			role: workspaceMemberships.role,
-			status: workspaceMemberships.status,
 			suspendedAt: workspaceMemberships.suspendedAt,
 			workspaceId: workspaceMemberships.workspaceId,
 		})

@@ -12,6 +12,8 @@ docs {
 
   Endpoints for managing workspace user invitations.
 
-  - **Send Invitation**: Owner can invite a named pharmacist and set their default password (authenticated, owner role required)
-  - **Accept Invitation**: Accept an invitation and create the pharmacist account. The pharmacist then signs in with the default password and must change it before workspace access.
+  - **Send Invitation**: Owners can invite admins or pharmacists; admins can invite pharmacists.
+  - **Resend Invitation**: Rotate an active invitation's credentials and send it again.
+  - **Cancel Invitation**: Permanently cancel an unaccepted invitation.
+  - **Accept Invitation**: Create the invited member account and membership. The member then signs in with the default password and must change it before workspace access.
 }

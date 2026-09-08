@@ -1,0 +1,104 @@
+meta {
+  name: summary
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseURL}}/inventory/summary
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  # Inventory Summary
+
+  Returns one current inventory row per drug for the authenticated workspace. The summary is calculated from the drug master and stock batches at query time; it is not stored in a duplicate summary table.
+
+  ## Authorization
+
+  Requires an authenticated user with an active workspace membership.
+
+  ## Request
+
+  Optional `search` query searches brand, generic name, strength, form, and unit. No request body.
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Inventory summary fetched successfully",
+    "data": {
+      "stats": {
+        "criticalCount": 2,
+        "drugsInStockCount": 12
+      },
+      "rows": [
+        {
+          "drugId": "drug-uuid",
+          "drug": {
+            "id": "drug-uuid",
+            "name": "Amoxil",
+            "genericName": "Amoxicillin",
+            "strength": "500 mg",
+            "form": "Capsule",
+            "unit": "Capsule",
+            "isActive": true
+          },
+          "totalAvailable": 40,
+          "stockStatus": "normal",
+          "usableBatchCount": 2,
+          "usableExpiryDateCount": 2,
+          "expiredBatchCount": 1,
+          "nearExpiryBatchCount": 1,
+          "nearestExpiryDate": "2027-12-31",
+          "nearestBatch": {
+            "id": "batch-uuid",
+            "batchNumber": "BATCH-001",
+            "quantityAvailable": 40,
+            "expiryDate": "2027-12-31"
+          }
+        }
+      ]
+    }
+  }
+  ```
+
+  `stats.drugsInStockCount` counts distinct drugs with usable stock greater than zero; units from different medicines are never summed.
+
+  ## Derived Fields
+
+  | Field | Meaning |
+  |-------|---------|
+  | `totalAvailable` | Sum of usable quantity remaining across the drug's non-expired batches. |
+  | `nearestBatch` | Available, non-expired batch with the earliest expiry date. Omitted when no usable batch exists. |
+  | `nearestExpiryDate` | Expiry date of `nearestBatch`. Omitted when no usable batch exists. |
+  | `stockStatus` | Primary usable-stock state: `normal`, `low_stock`, or `out_of_stock`. |
+  | `usableBatchCount` | Positive-quantity batches whose expiry date is today or later in the workspace timezone. |
+  | `usableExpiryDateCount` | Distinct expiry dates represented by usable batches. Values above one indicate that FEFO physical-batch guidance is relevant. |
+  | `expiredBatchCount` | Positive-quantity batches whose expiry date is before today in the workspace timezone. |
+  | `nearExpiryBatchCount` | Usable batches expiring from today through the configured near-expiry date, inclusively. |
+
+  `criticalCount` counts each affected drug once when its stock status needs attention or it has expired or near-expiry batches.
+
+  ## Notes
+
+  - Conditions are independent. A drug can be low on usable stock while also having expired and near-expiry batches.
+  - Expiry values are ISO calendar dates (`YYYY-MM-DD`), not timestamps.
+  - Workspace isolation is enforced by the authenticated membership.
+
+  ## Errors
+
+  | Status | Description |
+  |--------|-------------|
+  | `401 Unauthorized` | Authentication is invalid or workspace access is suspended. |
+  | `500 Internal Server Error` | Inventory aggregation failed unexpectedly. |
+}

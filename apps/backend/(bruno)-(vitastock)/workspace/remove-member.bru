@@ -1,0 +1,78 @@
+meta {
+  name: remove-member
+  type: http
+  seq: 5
+}
+
+delete {
+  url: {{baseURL}}/workspace/member/{{memberId}}
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  # Permanently Remove Member
+
+  Permanently removes an eligible member from the workspace.
+
+  ## Authorization
+
+  Requires an authenticated `owner` or `admin`.
+
+  - Owners may remove admins and pharmacists.
+  - Admins may remove pharmacists only.
+  - Workspace owners cannot be removed.
+
+  ## Path Parameters
+
+  | Parameter | Type | Required | Description |
+  |-----------|------|----------|-------------|
+  | `memberId` | UUID | Yes | User ID returned by the workspace-members request. |
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Member permanently removed",
+    "data": null
+  }
+  ```
+
+  ## Destructive Side Effects
+
+  The endpoint deletes both the workspace-membership row and the user row in one database transaction. This is a permanent operation, not a suspension.
+
+  After deletion:
+
+  - The user's workspace access is removed.
+  - The user identity is deleted under the current single-workspace product rule.
+  - User and membership caches are cleared.
+  - A safe member-removal observability event is emitted.
+
+  Historical records that reference the user remain subject to their database foreign-key behavior.
+
+  ## Safety Rules
+
+  - A member cannot remove their own account.
+  - Workspace owners cannot be modified or removed.
+  - Admins cannot remove owners or other admins.
+  - The target lookup is constrained to the authenticated workspace.
+
+  ## Errors
+
+  | Status | Message / Description |
+  |--------|-----------------------|
+  | `400 Bad Request` | Self-target or workspace-owner target. |
+  | `401 Unauthorized` | Authentication is invalid or actor membership is suspended. |
+  | `403 Forbidden` | Actor lacks management permission for the target role. |
+  | `404 Not Found` | Target is outside the workspace or does not exist. |
+  | `422 Unprocessable Entity` | `memberId` is not a valid UUID. |
+}

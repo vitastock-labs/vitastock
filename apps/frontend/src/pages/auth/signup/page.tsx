@@ -4,6 +4,7 @@ import {
 	SignUpSchema as SignUpSchemaPrimitive,
 	withMatchingPasswordFields,
 } from "@vitastock/shared/validation/backendApiSchema";
+import { createSearchParamsString } from "@zayne-labs/toolkit-core";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router";
 import { Logo } from "@/components/common/Logo";
@@ -11,7 +12,9 @@ import { NavLink } from "@/components/common/NavLink";
 import { Button } from "@/components/ui";
 import { Form } from "@/components/ui/form";
 import { callBackendApiForQuery } from "@/lib/api/callBackendApi";
+import { posthog } from "@/lib/posthog";
 import { sessionQuery } from "@/lib/react-query/queryOptions";
+import { InputField } from "@/pages/(home)/-components/FormPartsShared";
 import { Main } from "../-components/Main";
 
 const SignUpSchema = withMatchingPasswordFields({
@@ -42,10 +45,16 @@ function SignupPage() {
 			body: data,
 
 			onSuccess: async (ctx) => {
+				const user = ctx.data.data.user;
+
+				posthog?.identify(user.id, { email: user.email, name: user.fullName, role: user.role });
+				posthog?.capture("account_registered");
+
 				await queryClient.invalidateQueries(sessionQuery());
-				void navigate(
-					`/auth/verify-email?${new URLSearchParams({ email: ctx.data.data.user.email })}`
-				);
+				void navigate({
+					pathname: "/auth/verify-email",
+					search: createSearchParamsString({ email: ctx.data.data.user.email }),
+				});
 			},
 		});
 	});
@@ -62,47 +71,38 @@ function SignupPage() {
 
 				<Form.Root form={form} onSubmit={(event) => void onSubmit(event)} className="w-full gap-8">
 					<div className="flex flex-col gap-4">
-						<Form.Field control={form.control} name="fullName">
-							<Form.Input
-								placeholder="Full Name"
-								className="h-[50px] rounded-[8px] bg-[hsl(210,9%,96%)] p-4"
-							/>
-							<Form.ErrorMessage />
-						</Form.Field>
-
-						<Form.Field control={form.control} name="pharmacyName">
-							<Form.Input
-								placeholder="Pharmacy Name"
-								className="h-[50px] rounded-[8px] bg-[hsl(210,9%,96%)] p-4"
-							/>
-							<Form.ErrorMessage />
-						</Form.Field>
-
-						<Form.Field control={form.control} name="email">
-							<Form.Input
-								placeholder="Email Address"
-								className="h-[50px] rounded-[8px] bg-[hsl(210,9%,96%)] p-4"
-							/>
-							<Form.ErrorMessage />
-						</Form.Field>
-
-						<Form.Field control={form.control} name="password">
-							<Form.Input
-								placeholder="Password"
-								type="password"
-								classNames={{ inputGroup: "h-[50px] rounded-[8px] bg-[hsl(210,9%,96%)] p-4" }}
-							/>
-							<Form.ErrorMessage />
-						</Form.Field>
-
-						<Form.Field control={form.control} name="confirmPassword">
-							<Form.Input
-								placeholder="Confirm Password"
-								type="password"
-								classNames={{ inputGroup: "h-[50px] rounded-[8px] bg-[hsl(210,9%,96%)] p-4" }}
-							/>
-							<Form.ErrorMessage />
-						</Form.Field>
+						<InputField
+							control={form.control}
+							name="fullName"
+							placeholder="Full Name"
+							classNames={{ input: "h-[50px] border-0 bg-[hsl(210,9%,96%)] p-4" }}
+						/>
+						<InputField
+							control={form.control}
+							name="pharmacyName"
+							placeholder="Pharmacy Name"
+							classNames={{ input: "h-[50px] border-0 bg-[hsl(210,9%,96%)] p-4" }}
+						/>
+						<InputField
+							control={form.control}
+							name="email"
+							placeholder="Email Address"
+							classNames={{ input: "h-[50px] border-0 bg-[hsl(210,9%,96%)] p-4" }}
+						/>
+						<InputField
+							control={form.control}
+							name="password"
+							placeholder="Password"
+							type="password"
+							classNames={{ inputGroup: "h-[50px] border-0 bg-[hsl(210,9%,96%)] p-4" }}
+						/>
+						<InputField
+							control={form.control}
+							name="confirmPassword"
+							placeholder="Confirm Password"
+							type="password"
+							classNames={{ inputGroup: "h-[50px] border-0 bg-[hsl(210,9%,96%)] p-4" }}
+						/>
 					</div>
 
 					<Form.Submit asChild={true}>

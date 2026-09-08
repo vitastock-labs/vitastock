@@ -1,3 +1,3 @@
-import { getBackendEnv } from "@vitastock/env/backend";
+import { getDatabaseEnv } from "@vitastock/env/backend";
 
-export const ENVIRONMENT = getBackendEnv();
+export const ENVIRONMENT = getDatabaseEnv();

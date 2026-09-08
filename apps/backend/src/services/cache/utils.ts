@@ -37,7 +37,7 @@ export const setCache = async (
 		...(ttl && { expiration: { type: "EX", value: ttl } }),
 	});
 
-	appLogger.pretty.debug(`[CACHE SET] for key ${key}`);
+	appLogger.structured.debug({ cacheKey: key }, "[CACHE SET]");
 };
 
 export const getFromCache = async <TCacheResult>(
@@ -62,12 +62,12 @@ export const getFromCache = async <TCacheResult>(
 		if (rawCachedData) {
 			const parsedCachedData = superjson.parse<TCacheResult>(rawCachedData);
 
-			appLogger.pretty.debug(`[CACHE HIT] for key ${key}`);
+			appLogger.structured.debug({ cacheKey: key }, "[CACHE HIT]");
 
 			return parsedCachedData;
 		}
 
-		appLogger.pretty.debug(`[CACHE MISS] for key ${key}`);
+		appLogger.structured.debug({ cacheKey: key }, "[CACHE MISS]");
 
 		const freshData = await onCacheMiss?.(key);
 
@@ -79,9 +79,13 @@ export const getFromCache = async <TCacheResult>(
 
 		return freshData;
 	} catch (error) {
-		appLogger.pretty.error(
-			`[CACHE ERROR] for key ${key}. Client Status: isOpen=${redisCacheClient.isOpen}, isReady=${redisCacheClient.isReady}`,
-			error
+		appLogger.structured.error(
+			{
+				cacheKey: key,
+				err: error,
+				redisStatus: { isOpen: redisCacheClient.isOpen, isReady: redisCacheClient.isReady },
+			},
+			"[CACHE ERROR]"
 		);
 
 		throw error;
@@ -96,9 +100,9 @@ export const removeFromCache = async (key: CacheKeyType) => {
 	const isDeleted = Boolean(await redisCacheClient.del(key));
 
 	if (!isDeleted) {
-		appLogger.pretty.debug(`[CACHE FAILED TO REMOVE] for key ${key}`);
+		appLogger.structured.debug({ cacheKey: key }, "[CACHE FAILED TO REMOVE]");
 		return;
 	}
 
-	appLogger.pretty.debug(`[CACHE REMOVED] for key ${key}`);
+	appLogger.structured.debug({ cacheKey: key }, "[CACHE REMOVED]");
 };

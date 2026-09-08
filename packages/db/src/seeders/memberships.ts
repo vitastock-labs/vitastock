@@ -33,31 +33,26 @@ const getMembershipSeedData = (options: {
 	return [
 		{
 			role: "owner",
-			status: "active",
 			userId: findUserId(`owner.${slug}@seeded.com`),
 			workspaceId,
 		},
 		{
 			role: "admin",
-			status: "active",
 			userId: findUserId(`admin.${slug}@seeded.com`),
 			workspaceId,
 		},
 		{
 			role: "pharmacist",
-			status: "active",
 			userId: findUserId(`pharmacist.${slug}@seeded.com`),
 			workspaceId,
 		},
 		...[...Array(5).keys()].map((index): InsertWorkspaceMembershipType => ({
 			role: "pharmacist",
-			status: "active",
 			userId: findUserId(`pharmacist.${index + 1}.${slug}@seeded.com`),
 			workspaceId,
 		})),
 		{
 			role: "pharmacist",
-			status: "suspended",
 			suspendedAt: new Date("2026-01-15T09:00:00.000Z"),
 			userId: findUserId(`suspended.${slug}@seeded.com`),
 			workspaceId,
@@ -85,11 +80,10 @@ export const seedWorkspaceMemberships = async (
 		.onConflictDoUpdate({
 			set: {
 				role: sql`excluded.role`,
-				status: sql`excluded.status`,
 				suspendedAt: sql`excluded.suspended_at`,
 				workspaceId: sql`excluded.workspace_id`,
 			},
-			target: [workspaceMemberships.userId, workspaceMemberships.workspaceId],
+			target: workspaceMemberships.userId,
 		})
 		.returning();
 

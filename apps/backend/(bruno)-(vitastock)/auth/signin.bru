@@ -25,7 +25,7 @@ settings {
 docs {
   # Sign In
 
-  Authenticates a verified owner or pharmacist and returns access/refresh tokens via cookies.
+  Authenticates a verified workspace member and returns access/refresh tokens via cookies.
 
   ## Request Body
 
@@ -41,7 +41,7 @@ docs {
     "data": {
       "user": {
         "id": "user-uuid",
-        "name": "John Doe",
+        "fullName": "John Doe",
         "email": "pharmacist@example.com",
         "role": "owner",
         "emailVerifiedAt": "2024-05-20T10:30:00Z",
@@ -52,6 +52,7 @@ docs {
         "id": "workspace-uuid",
         "name": "My Pharmacy",
         "alertEmail": "alerts@pharmacy.com",
+        "emailAlertDeliveryPolicy": "critical_immediate",
         "lowStockThreshold": 10,
         "nearExpiryDays": 30,
         "timezone": "UTC"
@@ -72,11 +73,11 @@ docs {
 
   ## Cookies Set
 
-  - `zayneVitaStockAccessToken`: Short-lived JWT (1 hour)
-  - `zayneVitaStockRefreshToken`: Long-lived JWT (7 days)
+  - `vitastockAccessToken`: Short-lived JWT
+  - `vitastockRefreshToken`: Long-lived JWT
 
   **Note**:
-  - Sets `zayneVitaStockAccessToken` and `zayneVitaStockRefreshToken` cookies
+  - Sets `vitastockAccessToken` and `vitastockRefreshToken` cookies
   - Resets login retry count to 0
   - Adds new refresh token to user's token array
   - If `mustChangePassword` is true, the frontend should show the forced password-change modal before routing to workspace screens

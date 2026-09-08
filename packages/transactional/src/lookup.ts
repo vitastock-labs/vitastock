@@ -30,6 +30,16 @@ const getTemplateFn =
 
 export const TEMPLATE_LOOKUP = defineEnumDeep(
 	{
+		inventoryAlert: {
+			from,
+			subject: "VitaStock inventory alert",
+			template: getTemplateFn(import("../emails/InventoryAlertEmail")),
+		},
+		inventoryAlertDigest: {
+			from,
+			subject: "VitaStock daily inventory alert digest",
+			template: getTemplateFn(import("../emails/InventoryAlertDigestEmail")),
+		},
 		passwordChanged: {
 			from,
 			subject: "Your VitaStock password was changed",

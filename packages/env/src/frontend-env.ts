@@ -6,7 +6,7 @@ export const frontendEnvSchema = sharedEnvSchema.extend({
 });
 
 export const getFrontendEnv = () => {
-	// NOTE - Due to Vite's build process, we can't use process.env.NODE_ENV directly, so we use import.meta.env.
+	// NOTE - Due to Vite's build process, we can't use process.env directly, so we use import.meta.env.
 	const result = frontendEnvSchema.safeParse(import.meta.env);
 
 	if (!result.success) {

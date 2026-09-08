@@ -22,7 +22,7 @@ docs {
 
   ## Authentication
 
-  Requires valid `zayneVitaStockAccessToken` and `zayneVitaStockRefreshToken` cookies.
+  Requires valid `vitastockAccessToken` and `vitastockRefreshToken` cookies.
 
   ## Success Response (200 OK)
 
@@ -36,12 +36,12 @@ docs {
 
   ## Cookies Cleared
 
-  - `zayneVitaStockAccessToken`
-  - `zayneVitaStockRefreshToken`
+  - `vitastockAccessToken`
+  - `vitastockRefreshToken`
 
   **Note**:
-  - Clears `zayneVitaStockAccessToken` cookie
-  - Clears `zayneVitaStockRefreshToken` cookie
+  - Clears `vitastockAccessToken` cookie
+  - Clears `vitastockRefreshToken` cookie
   - Removes the current refresh token from user's token array (invalidates this session)
   - Other active sessions remain valid
   - Cache entry for user is cleared
