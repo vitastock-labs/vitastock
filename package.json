@@ -3,9 +3,15 @@
 	"type": "module",
 	"version": "0.0.0",
 	"private": true,
-	"packageManager": "pnpm@11.26.0",
+	"packageManager": "pnpm@12.3.4",
+	"devEngines": {
+		"packageManager": {
+			"name": "pnpm",
+			"version": "12.3.4"
+		}
+	},
 	"engines": {
-		"node": ">=24.0.0"
+		"node": "24.x.x"
 	},
 	"scripts": {
 		"build": "turbo run build",
@@ -27,12 +33,6 @@
 		"lint:type-check": "turbo run lint:type-check",
 		"prepare": "husky || true",
 		"test:backend:integration": "pnpm db:test:start && pnpm --filter @vitastock/backend test:integration && pnpm db:test:stop"
-	},
-	"devEngines": {
-		"packageManager": {
-			"name": "pnpm",
-			"version": "11.26.0"
-		}
 	},
 	"devDependencies": {
 		"@eslint-react/eslint-plugin": "5.18.8",
