@@ -1,3 +1,4 @@
+import { ROLES } from "@vitastock/db/constants";
 import type { InsertUserType, SelectUserType } from "@vitastock/db/schema/auth";
 import {
 	INVENTORY_ALERT_STATUSES,
@@ -16,145 +17,40 @@ import {
 	type SelectWorkspaceMembershipType,
 	type SelectWorkspaceType,
 } from "@vitastock/db/schema/workspace";
-import { AUTH_ERROR_APP_CODES } from "@vitastock/shared/constants";
 import type { InferAllMainRouteKeys, InferAllMainRoutes } from "@zayne-labs/callapi";
 import { fallBackRouteSchemaKey } from "@zayne-labs/callapi/constants";
 import { defineSchema, defineSchemaRoutes } from "@zayne-labs/callapi/utils";
 import type { Prettify } from "@zayne-labs/toolkit-type-helpers";
 import { z } from "zod";
-
-export const INVENTORY_BULK_IMPORT_MAX_ROWS = 2000;
-
-export const INVENTORY_BULK_IMPORT_COLUMNS = {
-	"Dosage Form": "form",
-	"Drug Name": "name",
-	"Expiry Date": "expiryDate",
-	"Generic Name": "genericName",
-	Quantity: "quantity",
-	Strength: "strength",
-	Unit: "unit",
-} as const;
-
-export const INVENTORY_BULK_IMPORT_REQUIRED_HEADERS = [
-	"Drug Name",
-	"Expiry Date",
-	"Generic Name",
-	"Quantity",
-] as const;
-
-export const InventoryBulkImportHeadersSchema = z.array(z.string()).superRefine((headers, ctx) => {
-	const seenHeaders = new Set<string>();
-	const duplicateHeaders = new Set<string>();
-
-	for (const header of headers) {
-		if (!header) continue;
-
-		if (seenHeaders.has(header)) {
-			duplicateHeaders.add(header);
-		}
-
-		seenHeaders.add(header);
-	}
-
-	if (duplicateHeaders.size > 0) {
-		ctx.addIssue({
-			code: "custom",
-			message: `Duplicate columns: ${[...duplicateHeaders].join(", ")}`,
-		});
-	}
-
-	const unknownHeaders = headers.filter(
-		(header) => header.length > 0 && !(header in INVENTORY_BULK_IMPORT_COLUMNS)
-	);
-
-	if (unknownHeaders.length > 0) {
-		ctx.addIssue({
-			code: "custom",
-			message: `Unknown columns: ${unknownHeaders.join(", ")}`,
-		});
-	}
-
-	const missingHeaders = INVENTORY_BULK_IMPORT_REQUIRED_HEADERS.filter(
-		(header) => !seenHeaders.has(header)
-	);
-
-	if (missingHeaders.length > 0) {
-		ctx.addIssue({
-			code: "custom",
-			message: `Missing required columns: ${missingHeaders.join(", ")}`,
-		});
-	}
-});
-
-type InventoryBulkImportRowIdentity = {
-	expiryDate: string;
-	form?: string;
-	genericName: string;
-	name: string;
-	quantity: number;
-	strength?: string;
-	unit?: string;
-};
-
-export const createInventoryBulkImportRowKey = (row: InventoryBulkImportRowIdentity) => {
-	const drugIdentity = [row.name, row.genericName, row.strength, row.form, row.unit]
-		.map((value) => value?.trim().toLowerCase() ?? "")
-		.join("|");
-
-	return `${drugIdentity}|${row.expiryDate}|${row.quantity}`;
-};
-
-const BaseSuccessResponseSchema = z.object({
-	data: z.record(z.string(), z.unknown()),
-	message: z.string(),
-	status: z.literal("success"),
-});
-
-const BaseErrorResponseSchema = z.object({
-	appCode: z.literal(AUTH_ERROR_APP_CODES).optional(),
-	errors: z.record(z.string(), z.array(z.string())).optional(),
-	message: z.string(),
-	status: z.literal("error"),
-});
-
-export type BaseApiSuccessResponse<TData = z.infer<typeof BaseSuccessResponseSchema.shape.data>> = Omit<
-	z.infer<typeof BaseSuccessResponseSchema>,
-	"data"
-> & { data: TData };
-
-export type BaseApiErrorResponse<TErrors = z.infer<typeof BaseErrorResponseSchema>["errors"]> = Omit<
-	z.infer<typeof BaseErrorResponseSchema>,
-	"errors"
-> & { errors: TErrors };
-
-const withBaseSuccessResponse = <TDataSchema extends z.ZodType>(dataSchema: TDataSchema) => {
-	return BaseSuccessResponseSchema.extend({ data: dataSchema });
-};
-const withBaseErrorResponse = <
-	TErrorSchema extends z.ZodType = typeof BaseErrorResponseSchema.shape.errors,
->(
-	errorSchema?: TErrorSchema
-) => {
-	return BaseErrorResponseSchema.extend({
-		errors: (errorSchema ?? BaseErrorResponseSchema.shape.errors) as NonNullable<TErrorSchema>,
-	});
-};
+import {
+	createInventoryBulkImportRowKey,
+	INVENTORY_BULK_IMPORT_MAX_ROWS,
+} from "../inventoryBulkImportSchema";
+import {
+	STOCK_ADDITION_LOG_TYPES,
+	STOCK_MOVEMENT_LOG_TYPES,
+	STOCK_OUT_LOG_TYPES,
+	STOCK_REDUCTION_LOG_TYPES,
+} from "./constants";
+import {
+	stringWithDateValidation,
+	stringWithNumberValidation,
+	withBaseErrorResponse,
+	withBaseSuccessResponse,
+	withMatchingPasswordFields,
+} from "./utils";
 
 const PasswordSchema = z.string().min(8, "Password must be at least 8 characters long");
 
-export const WorkspaceRoleSchema = z.enum(["owner", "admin", "pharmacist"]);
+export const WorkspaceRoleSchema = z.enum(ROLES);
 export const EmailAlertDeliveryPolicySchema = z.enum(EMAIL_ALERT_DELIVERY_POLICIES);
 
 export const StockLogTypeSchema = z.enum(STOCK_LOG_TYPES);
 export const StockOutReasonSchema = z.enum(STOCK_OUT_REASONS);
-export const StockAdditionLogTypeSchema = z.enum([STOCK_LOG_TYPES[2], STOCK_LOG_TYPES[4]]);
-export const StockOutLogTypeSchema = z.enum([STOCK_LOG_TYPES[5]]);
-export const StockMovementLogTypeSchema = z.enum([STOCK_LOG_TYPES[4], STOCK_LOG_TYPES[5]]);
-export const StockReductionLogTypeSchema = z.enum([
-	STOCK_LOG_TYPES[0],
-	STOCK_LOG_TYPES[1],
-	STOCK_LOG_TYPES[5],
-]);
+export const StockAdditionLogTypeSchema = z.enum(STOCK_ADDITION_LOG_TYPES);
+export const StockOutLogTypeSchema = z.enum(STOCK_OUT_LOG_TYPES);
+export const StockMovementLogTypeSchema = z.enum(STOCK_MOVEMENT_LOG_TYPES);
+export const StockReductionLogTypeSchema = z.enum(STOCK_REDUCTION_LOG_TYPES);
 
 type SignUpPayloadType = Prettify<
 	Pick<InsertUserType, "email" | "fullName"> & {
@@ -162,80 +58,6 @@ type SignUpPayloadType = Prettify<
 		pharmacyName: InsertWorkspaceType["name"];
 	}
 >;
-type UserDetailsType = Prettify<
-	Pick<SelectUserType, "email" | "emailVerifiedAt" | "fullName" | "id" | "mustChangePassword"> & {
-		role: SelectWorkspaceMembershipType["role"];
-		workspaceId: SelectWorkspaceMembershipType["workspaceId"];
-	}
->;
-type WorkspaceDetailsType = Pick<
-	SelectWorkspaceType,
-	| "alertEmail"
-	| "emailAlertDeliveryPolicy"
-	| "id"
-	| "lowStockThreshold"
-	| "name"
-	| "nearExpiryDays"
-	| "timezone"
->;
-type WorkspaceInvitationRecordType = Pick<
-	SelectWorkspaceInvitationType,
-	"createdAt" | "expiresAt" | "id" | "inviteeEmail" | "inviteeName" | "role"
->;
-
-type DrugDetailsType = Pick<
-	SelectDrugType,
-	"form" | "genericName" | "id" | "isActive" | "name" | "strength" | "unit"
->;
-
-type RecentStockActivityType = Prettify<
-	Pick<SelectStockLogType, "createdAt" | "id" | "logType" | "quantity" | "stockTransactionId"> & {
-		batchCount: number;
-		drug: Pick<SelectDrugType, "genericName" | "id" | "name" | "strength">;
-		person: string;
-	}
->;
-
-type InventorySummaryRowType = {
-	drug: DrugDetailsType;
-	drugId: SelectDrugType["id"];
-	expiredBatchCount: number;
-	nearestBatch?: Pick<SelectStockBatchType, "batchNumber" | "expiryDate" | "id" | "quantityAvailable">;
-	nearestExpiryDate?: SelectStockBatchType["expiryDate"];
-	nearExpiryBatchCount: number;
-	stockStatus: typeof INVENTORY_STOCK_STATUS.$inferUnion;
-	totalAvailable: number;
-	usableBatchCount: number;
-	usableExpiryDateCount: number;
-};
-
-const IsoDateSchema = z.iso.date();
-
-const stringWithDateValidation = () => {
-	return z.preprocess((value: string) => new Date(value), z.date());
-};
-
-const stringWithNumberValidation = <TNumberSchema extends z.ZodNumber>(numberSchema: TNumberSchema) => {
-	return z.preprocess(
-		(value: number | string) => (value === "" ? undefined : Number(value)),
-		numberSchema
-	);
-};
-
-const optionalTrimmedStringSchema = z.preprocess(
-	(value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
-	z.string().trim().min(1).optional()
-);
-
-const nullableTrimmedStringSchema = z.preprocess(
-	(value) => (typeof value === "string" && value.trim() === "" ? null : value),
-	z.string().trim().min(1).nullable()
-);
-
-const TokenObjectSchema = z.object({
-	expiresAt: stringWithDateValidation(),
-	token: z.string(),
-});
 
 export const SignUpSchema = z.toZod<SignUpPayloadType>()(
 	z.object({
@@ -246,28 +68,12 @@ export const SignUpSchema = z.toZod<SignUpPayloadType>()(
 	})
 );
 
-export const withMatchingPasswordFields = <
-	TPasswordKey extends "newPassword" | "password",
-	TConfirmPasswordKey extends "confirmNewPassword" | "confirmPassword",
-	TSchema extends z.ZodObject<Record<TConfirmPasswordKey | TPasswordKey, z.ZodType>>,
->(options: {
-	confirmPasswordKey: TConfirmPasswordKey;
-	passwordKey: TPasswordKey;
-	schema: TSchema;
-}) => {
-	const { confirmPasswordKey, passwordKey, schema } = options;
-
-	return schema.refine((data) => data[passwordKey as never] === data[confirmPasswordKey as never], {
-		error: "Passwords do not match",
-		path: [confirmPasswordKey],
-	});
-};
-
-const defaultSchemaRoute = defineSchemaRoutes({
-	[fallBackRouteSchemaKey]: {
-		errorData: withBaseErrorResponse(),
-	},
-});
+type UserDetailsType = Prettify<
+	Pick<SelectUserType, "email" | "emailVerifiedAt" | "fullName" | "id" | "mustChangePassword"> & {
+		role: SelectWorkspaceMembershipType["role"];
+		workspaceId: SelectWorkspaceMembershipType["workspaceId"];
+	}
+>;
 
 const UserDetailsSchema = z.toZod<UserDetailsType>()(
 	z.object({
@@ -280,6 +86,17 @@ const UserDetailsSchema = z.toZod<UserDetailsType>()(
 		workspaceId: z.uuid(),
 	})
 );
+
+type WorkspaceDetailsType = Pick<
+	SelectWorkspaceType,
+	| "alertEmail"
+	| "emailAlertDeliveryPolicy"
+	| "id"
+	| "lowStockThreshold"
+	| "name"
+	| "nearExpiryDays"
+	| "timezone"
+>;
 
 const WorkspaceDetailsSchema = z.toZod<WorkspaceDetailsType>()(
 	z.object({
@@ -303,6 +120,11 @@ const AuthSuccessResponseSchema = withBaseSuccessResponse(AuthDataSchema);
 const NullSuccessResponseSchema = withBaseSuccessResponse(z.null());
 
 const authRoutes = () => {
+	const TokenObjectSchema = z.object({
+		expiresAt: stringWithDateValidation(),
+		token: z.string(),
+	});
+
 	const AuthTokensSchema = z.object({
 		access: TokenObjectSchema,
 		refresh: TokenObjectSchema,
@@ -382,6 +204,11 @@ const authRoutes = () => {
 };
 
 export const workspaceRoutes = () => {
+	type WorkspaceInvitationRecordType = Pick<
+		SelectWorkspaceInvitationType,
+		"createdAt" | "expiresAt" | "id" | "inviteeEmail" | "inviteeName" | "role"
+	>;
+
 	const ManageableWorkspaceRoleSchema = WorkspaceRoleSchema.exclude(["owner"]);
 
 	const InvitationRecordSchema = z.toZod<WorkspaceInvitationRecordType>()(
@@ -528,6 +355,11 @@ export const workspaceRoutes = () => {
 	});
 };
 
+type DrugDetailsType = Pick<
+	SelectDrugType,
+	"form" | "genericName" | "id" | "isActive" | "name" | "strength" | "unit"
+>;
+
 const DrugDetailsSchema = z.toZod<DrugDetailsType>()(
 	z.object({
 		form: z.string().nullable(),
@@ -541,6 +373,31 @@ const DrugDetailsSchema = z.toZod<DrugDetailsType>()(
 );
 
 const inventoryRoutes = () => {
+	type InventorySummaryRowType = {
+		drug: DrugDetailsType;
+		drugId: SelectDrugType["id"];
+		expiredBatchCount: number;
+		nearestBatch?: Pick<SelectStockBatchType, "batchNumber" | "expiryDate" | "id" | "quantityAvailable">;
+		nearestExpiryDate?: SelectStockBatchType["expiryDate"];
+		nearExpiryBatchCount: number;
+		stockStatus: typeof INVENTORY_STOCK_STATUS.$inferUnion;
+		totalAvailable: number;
+		usableBatchCount: number;
+		usableExpiryDateCount: number;
+	};
+
+	const IsoDateSchema = z.iso.date();
+
+	const optionalTrimmedStringSchema = z.preprocess(
+		(value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+		z.string().trim().min(1).optional()
+	);
+
+	const nullableTrimmedStringSchema = z.preprocess(
+		(value) => (typeof value === "string" && value.trim() === "" ? null : value),
+		z.string().trim().min(1).nullable()
+	);
+
 	const DrugCreateSchema = z.object({
 		form: optionalTrimmedStringSchema,
 		genericName: DrugDetailsSchema.shape.genericName.trim(),
@@ -873,6 +730,14 @@ const inventoryRoutes = () => {
 };
 
 const dashboardRoutes = () => {
+	type RecentStockActivityType = Prettify<
+		Pick<SelectStockLogType, "createdAt" | "id" | "logType" | "quantity" | "stockTransactionId"> & {
+			batchCount: number;
+			drug: Pick<SelectDrugType, "genericName" | "id" | "name" | "strength">;
+			person: string;
+		}
+	>;
+
 	const RecentStockActivitySchema = z.toZod<RecentStockActivityType>()(
 		z.object({
 			batchCount: z.number(),
@@ -907,9 +772,14 @@ const dashboardRoutes = () => {
 		},
 	});
 };
+
 export const backendApiSchema = defineSchema(
 	{
-		...defaultSchemaRoute,
+		...defineSchemaRoutes({
+			[fallBackRouteSchemaKey]: {
+				errorData: withBaseErrorResponse(),
+			},
+		}),
 		...authRoutes(),
 		...workspaceRoutes(),
 		...inventoryRoutes(),

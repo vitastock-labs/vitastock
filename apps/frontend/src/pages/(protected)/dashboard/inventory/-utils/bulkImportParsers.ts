@@ -3,7 +3,7 @@ import {
 	INVENTORY_BULK_IMPORT_COLUMNS,
 	INVENTORY_BULK_IMPORT_MAX_ROWS,
 	InventoryBulkImportHeadersSchema,
-} from "@vitastock/shared/validation/backendApiSchema";
+} from "@vitastock/shared/validation/inventoryBulkImportSchema";
 import { format, isValid, parse as parseDate } from "date-fns";
 import type { z } from "zod";
 import { backendApiSchemaRoutes } from "@/lib/api/callBackendApi/apiSchema";

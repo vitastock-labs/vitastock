@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	INVENTORY_BULK_IMPORT_COLUMNS,
 	INVENTORY_BULK_IMPORT_MAX_ROWS,
-} from "@vitastock/shared/validation/backendApiSchema";
+} from "@vitastock/shared/validation/inventoryBulkImportSchema";
 import { waitFor } from "@zayne-labs/toolkit-core";
 import type { ExtractUnion } from "@zayne-labs/toolkit-type-helpers";
 import { useMemo, useState } from "react";

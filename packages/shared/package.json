@@ -3,6 +3,7 @@
 	"type": "module",
 	"private": true,
 	"exports": {
+		"./validation/backendApiSchema": "./src/validation/backendApiSchema/index.ts",
 		"./*": "./src/*.ts"
 	},
 	"scripts": {

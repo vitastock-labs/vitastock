@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { INVENTORY_BULK_IMPORT_MAX_ROWS } from "@vitastock/shared/validation/backendApiSchema";
+import { INVENTORY_BULK_IMPORT_MAX_ROWS } from "@vitastock/shared/validation/inventoryBulkImportSchema";
 import { addDays, format, subDays } from "date-fns";
 import { expect, test } from "vitest";
 import { parseCsvFile, parseXlsxFile, validateBulkImportSheet } from "./bulkImportParsers";
