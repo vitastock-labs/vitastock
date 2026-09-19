@@ -428,10 +428,7 @@ function BatchExpiryEditor(props: { drug: Drug }) {
 			)}
 
 			{batchesQueryResult.isSuccess && batches.length === 0 && (
-				<p
-					className="mt-4 rounded-lg bg-shadcn-muted/60 p-3 text-[13px]
-						text-vitastock-body-color"
-				>
+				<p className="mt-4 rounded-lg bg-shadcn-muted/60 p-3 text-[13px] text-vitastock-body-color">
 					This drug has no batch with remaining stock.
 				</p>
 			)}

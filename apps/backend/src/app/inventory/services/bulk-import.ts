@@ -34,14 +34,7 @@ const createExactDrugIdentity = (identity: {
 
 type DrugResolutionCandidate = Pick<
 	typeof drugs.$inferSelect,
-	| "form"
-	| "genericName"
-	| "id"
-	| "isActive"
-	| "lowStockThreshold"
-	| "name"
-	| "strength"
-	| "unit"
+	"form" | "genericName" | "id" | "isActive" | "lowStockThreshold" | "name" | "strength" | "unit"
 >;
 
 const getDrugResolutionCandidates = (row: BulkImportRow, existingDrugs: DrugResolutionCandidate[]) => {
