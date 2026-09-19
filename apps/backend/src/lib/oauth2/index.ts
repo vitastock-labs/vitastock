@@ -8,6 +8,7 @@ export {
 	type OAuth2CallApiConfig,
 	type OAuth2ClientOptions,
 	type OAuth2ExtensionParameters,
+	type OAuth2ProviderProfile,
 	type CreateAuthorizationRequestOptions,
 	type CreateAuthorizationUrlOptions,
 	type ExchangeAuthorizationCodeOptions,
@@ -15,9 +16,11 @@ export {
 	type RevokeTokenOptions,
 } from "./client";
 export { OAuth2RequestError, OAuth2ResponseError, OAuth2TransportError } from "./errors";
+export * from "./providers";
 export {
 	createOAuth2Tokens,
 	decodeUnverifiedIdTokenPayload,
 	OAuth2TokenDataSchema,
 	type OAuth2Tokens,
+	type OAuth2TokenData,
 } from "./tokens";

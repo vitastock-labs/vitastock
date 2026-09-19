@@ -1,387 +1,221 @@
-# OAuth 2.0 Client
+# OAuth 2.0 Client And Provider Catalog
 
-A small authorization-code OAuth 2.0 client built on
-[`@zayne-labs/callapi`](https://www.npmjs.com/package/@zayne-labs/callapi).
+A copy-pasteable OAuth 2.0 authorization-code client built on
+[`@zayne-labs/callapi`](https://www.npmjs.com/package/@zayne-labs/callapi). It includes factory
+adapters for all 64 providers shipped by Arctic 3.7.0 while keeping every HTTP request inside
+CallApi.
 
-The library handles authorization URLs, secure state, PKCE with `S256`, code exchange, token
-refresh, token revocation, form-encoded requests, client authentication, and standard OAuth errors.
-
-Provider details stay in the application as configuration. This keeps endpoint and authentication
-differences visible instead of hiding them behind provider classes that can become outdated.
-
-## Supported Providers
-
-The client works with a provider when its documentation describes a standard authorization-code
-flow with:
-
-- an authorization endpoint;
-- a token endpoint that returns JSON;
-- `client_secret_basic`, `client_secret_post`, or a public client with no secret;
-- optional PKCE using `S256`.
-
-Providers may add fields such as `audience`, `resource`, or `token_type_hint`. Pass those through the
-appropriate `parameters` option.
-
-This client does not currently implement device authorization, client-credentials grants, JWT
-client assertions, token introspection, or cryptographic OpenID Connect verification.
+The catalog reproduces Arctic 3.7.0 behavior. Provider endpoints and requirements change, so check
+the current provider documentation before enabling an integration in production.
 
 ## Installation
 
-Copy this directory into the target project and install its dependencies:
-
 ```bash
-pnpm add @zayne-labs/callapi zod
+pnpm add @zayne-labs/callapi jsonwebtoken zod
+pnpm add -D @types/jsonwebtoken
 ```
 
-The implementation uses the standard `URL`, Web Crypto, `TextEncoder`, `TextDecoder`, `atob`, and
-`btoa` APIs.
+Copy the `oauth2` directory as a unit and import factories from its `index.ts` barrel.
 
-## Configure A Provider
-
-Read the provider's OAuth documentation and collect:
-
-1. The authorization endpoint.
-2. The token endpoint.
-3. The exact redirect URI registered for your application.
-4. Whether token requests use HTTP Basic authentication or body credentials.
-5. Whether the provider supports PKCE with `S256`.
-6. The scopes and any provider-specific parameters you need.
-7. The revocation endpoint, when one exists.
-
-Then create one client for that provider:
+## Standard Provider
 
 ```ts
-import { createOAuth2Client } from "./lib/oauth2";
+import { createGitHubOAuth2Client } from "./lib/oauth2";
 
-const oauth = createOAuth2Client({
-	authorizationEndpoint: "https://provider.example/oauth/authorize",
-	clientAuthentication: "client_secret_basic",
-	clientId: environment.OAUTH_CLIENT_ID,
-	clientSecret: environment.OAUTH_CLIENT_SECRET,
-	redirectUri: `${environment.APP_URL}/auth/provider/callback`,
-	revocationEndpoint: "https://provider.example/oauth/revoke",
-	tokenEndpoint: "https://provider.example/oauth/token",
-});
-```
-
-Do not guess endpoints or authentication modes from another provider. Use the current documentation
-for the provider being integrated.
-
-## Choose Client Authentication
-
-`clientAuthentication` controls how the client identifies itself at token and revocation endpoints.
-
-| Value                 | Behavior                                                   | Use when                                       |
-| --------------------- | ---------------------------------------------------------- | ---------------------------------------------- |
-| `client_secret_basic` | Sends the client ID and secret using HTTP Basic auth.      | The provider requires an Authorization header. |
-| `client_secret_post`  | Sends `client_id` and `client_secret` in the request body. | The provider requires body credentials.        |
-| `none`                | Sends only `client_id` in the request body.                | A public client has no client secret.          |
-
-When `clientAuthentication` is omitted, the client selects `client_secret_basic` when a secret is
-provided and `none` otherwise. Set it explicitly whenever the provider requires
-`client_secret_post`.
-
-## Start Authorization
-
-Use `createAuthorizationRequest()` when the provider supports PKCE:
-
-```ts
-const { codeVerifier, state, url } = await oauth.createAuthorizationRequest({
-	parameters: { audience: "https://provider.example/api" },
-	scopes: ["openid", "email", "profile"],
-});
-```
-
-Before redirecting the browser to `url`, store both `state` and `codeVerifier` in the user's
-server-side session or in encrypted, secure, HTTP-only cookies. They belong to this one login
-attempt and should expire quickly.
-
-```ts
-await session.set("oauthState", state);
-await session.set("oauthCodeVerifier", codeVerifier);
-
-redirect(url.toString());
-```
-
-Do not send the client secret, stored state, or code verifier to browser JavaScript.
-
-### Providers Without PKCE
-
-When a provider explicitly does not support PKCE, generate state and build the URL without a code
-verifier:
-
-```ts
-import { generateOAuth2State } from "./lib/oauth2";
-
-const state = generateOAuth2State();
-const url = await oauth.createAuthorizationUrl({
-	scopes: ["profile"],
-	state,
-});
-```
-
-State is still required for protecting the callback from cross-site request forgery.
-
-## Handle The Callback
-
-The provider redirects the user to your registered callback with `code` and `state` query
-parameters. The application must:
-
-1. Reject a missing `code`, callback `state`, stored state, or stored code verifier.
-2. Compare callback state with stored state using a constant-time comparison.
-3. Delete the one-time state and verifier after reading them.
-4. Exchange the code only after state validation succeeds.
-
-```ts
-const callbackState = requestUrl.searchParams.get("state");
-const authorizationCode = requestUrl.searchParams.get("code");
-const storedState = await session.get("oauthState");
-const storedCodeVerifier = await session.get("oauthCodeVerifier");
-
-assertValidOAuthCallback({
-	authorizationCode,
-	callbackState,
-	storedCodeVerifier,
-	storedState,
-});
-
-await session.delete("oauthState");
-await session.delete("oauthCodeVerifier");
-
-const tokens = await oauth.exchangeAuthorizationCode({
-	code: authorizationCode,
-	codeVerifier: storedCodeVerifier,
-});
-```
-
-`assertValidOAuthCallback()` represents application-owned validation. Callback storage and response
-handling depend on the web framework, so they are intentionally not part of this library.
-
-## Use Tokens
-
-The token endpoint must provide `access_token` and `token_type`. Other standard fields are optional.
-
-```ts
-const accessToken = tokens.accessToken();
-const tokenType = tokens.tokenType();
-
-if (tokens.hasAccessTokenExpiry()) {
-	const expiresAt = tokens.accessTokenExpiresAt();
-}
-
-if (tokens.hasRefreshToken()) {
-	const refreshToken = tokens.refreshToken();
-}
-
-if (tokens.hasScopes()) {
-	const scopes = tokens.scopes();
-}
-```
-
-`tokens.data` contains the complete validated token response, including provider-specific fields.
-The generic `scopes()` accessor handles the standard space-separated format. Read and normalize
-`tokens.data.scope` yourself when a provider returns another format, such as comma-separated scopes.
-
-## Refresh Tokens
-
-```ts
-const refreshedTokens = await oauth.refreshAccessToken({
-	refreshToken: tokens.refreshToken(),
-	scopes: ["openid", "email", "profile"],
-});
-```
-
-Only send `scopes` when the provider documents them for refresh requests. A provider may rotate the
-refresh token, so check `refreshedTokens.hasRefreshToken()` and persist the new value when present.
-
-## Revoke Tokens
-
-Configure `revocationEndpoint` before calling `revokeToken()`:
-
-```ts
-await oauth.revokeToken(tokens.accessToken(), {
-	parameters: { token_type_hint: "access_token" },
-});
-```
-
-The method throws when the client has no revocation endpoint. Provider-specific token-deletion APIs
-that use another HTTP method or URL shape should be called directly rather than forced through this
-method.
-
-## Provider Extensions
-
-Authorization, exchange, refresh, and revocation methods accept extra string parameters:
-
-```ts
-const authorization = await oauth.createAuthorizationRequest({
-	parameters: { access_type: "offline", prompt: "consent" },
-	scopes: ["openid", "email"],
-});
-
-const tokens = await oauth.exchangeAuthorizationCode({
-	code: authorizationCode,
-	codeVerifier: storedCodeVerifier,
-	parameters: { audience: "https://provider.example/api" },
-});
-```
-
-Reserved protocol fields cannot be overridden through `parameters`. This prevents accidental
-replacement of values such as `state`, `code`, `grant_type`, `client_id`, or `client_secret`.
-
-## ID Tokens
-
-`decodeUnverifiedIdToken()` decodes the JWT payload and validates its data shape with Zod:
-
-```ts
-import { z } from "zod";
-
-const claims = tokens.decodeUnverifiedIdToken(
-	z.object({
-		email: z.email(),
-		email_verified: z.boolean(),
-		sub: z.string(),
-	})
-);
-```
-
-This does **not** verify the signature, issuer, audience, nonce, or expiry. Never authenticate a user
-from these decoded claims alone. Use a maintained OpenID Connect or JWT verification library with
-the provider's discovery metadata and JSON Web Key Set before trusting the identity.
-
-OAuth-only providers may not issue ID tokens. Fetch the authenticated user's profile from the
-provider's API using the access token instead.
-
-## Error Handling
-
-```ts
-import { OAuth2RequestError, OAuth2ResponseError, OAuth2TransportError } from "./lib/oauth2";
-
-try {
-	const tokens = await oauth.exchangeAuthorizationCode({
-		code: authorizationCode,
-		codeVerifier: storedCodeVerifier,
-	});
-} catch (error) {
-	if (error instanceof OAuth2RequestError) {
-		console.error(error.code, error.description, error.status);
-	} else if (error instanceof OAuth2ResponseError) {
-		console.error(error.status, error.body);
-	} else if (error instanceof OAuth2TransportError) {
-		console.error(error.cause);
-	} else {
-		throw error;
-	}
-}
-```
-
-- `OAuth2RequestError`: the provider returned a standard OAuth error object.
-- `OAuth2ResponseError`: the provider responded, but the response was unexpected or invalid.
-- `OAuth2TransportError`: no usable HTTP response was received.
-
-Do not return raw provider error bodies, tokens, or secrets to users or application logs.
-
-## CallApi Configuration
-
-Use `callApiConfig` for transport-level behavior:
-
-```ts
-const oauth = createOAuth2Client({
-	authorizationEndpoint,
-	callApiConfig: {
-		retryAttempts: 2,
-		timeout: 10_000,
-	},
-	clientId,
-	clientSecret,
-	redirectUri,
-	tokenEndpoint,
-});
-```
-
-It supports CallApi hooks, middleware, plugins, custom fetch implementations, headers, metadata,
-timeouts, and retries. The OAuth client owns request serialization, response schemas, error mode,
-and request deduplication because those are protocol invariants.
-
-Be conservative with retries. Authorization codes are one-time credentials, and a timed-out request
-may have reached the provider even when the application did not receive its response.
-
-## Examples
-
-### GitHub OAuth App
-
-```ts
-const github = createOAuth2Client({
-	authorizationEndpoint: "https://github.com/login/oauth/authorize",
-	clientAuthentication: "client_secret_post",
+const github = createGitHubOAuth2Client({
 	clientId: environment.GITHUB_CLIENT_ID,
 	clientSecret: environment.GITHUB_CLIENT_SECRET,
 	redirectUri: `${environment.APP_URL}/auth/github/callback`,
-	tokenEndpoint: "https://github.com/login/oauth/access_token",
 });
 
 const authorization = await github.createAuthorizationRequest({
 	scopes: ["read:user", "user:email"],
 });
+
+const tokens = await github.exchangeAuthorizationCode({
+	code: callbackCode,
+	codeVerifier: authorization.codeVerifier,
+});
 ```
 
-GitHub's JSON token response can omit `expires_in`, and its scope string may be comma-separated.
-GitHub token deletion uses provider-specific APIs, so no generic revocation endpoint is configured.
-
-### Spotify Confidential Client
+Authorization is normalized for every provider:
 
 ```ts
-const spotify = createOAuth2Client({
-	authorizationEndpoint: "https://accounts.spotify.com/authorize",
+type OAuth2ProviderAuthorization = {
+	codeVerifier: string | null;
+	state: string;
+	url: URL;
+};
+```
+
+Store state and the verifier against this one login attempt in a server-side session or encrypted,
+secure, HTTP-only cookie. On callback, compare state before exchanging the code, consume both stored
+values once, and reject missing or mismatched values.
+
+## Public And Optional-PKCE Clients
+
+```ts
+const spotify = createSpotifyOAuth2Client({
 	clientId: environment.SPOTIFY_CLIENT_ID,
-	clientSecret: environment.SPOTIFY_CLIENT_SECRET,
 	redirectUri: `${environment.APP_URL}/auth/spotify/callback`,
-	tokenEndpoint: "https://accounts.spotify.com/api/token",
 });
 
 const authorization = await spotify.createAuthorizationRequest({
-	parameters: { show_dialog: "false" },
 	scopes: ["user-read-email", "user-read-private"],
 });
 ```
 
-Spotify uses HTTP Basic authentication for a confidential authorization-code client, so the default
-authentication mode is correct.
+Optional-PKCE providers use PKCE by default. Pass `usePkce: false` only when integrating a
+confidential application that cannot use PKCE. Required-PKCE providers reject opt-out and
+non-PKCE providers reject opt-in.
 
-### Google
+## Dynamic Providers
+
+Dynamic factories validate their URL input immediately and join endpoint paths with `URL`.
 
 ```ts
-const google = createOAuth2Client({
-	authorizationEndpoint: "https://accounts.google.com/o/oauth2/v2/auth",
-	clientAuthentication: "client_secret_post",
-	clientId: environment.GOOGLE_CLIENT_ID,
-	clientSecret: environment.GOOGLE_CLIENT_SECRET,
-	redirectUri: `${environment.APP_URL}/auth/google/callback`,
-	revocationEndpoint: "https://oauth2.googleapis.com/revoke",
-	tokenEndpoint: "https://oauth2.googleapis.com/token",
+const microsoft = createMicrosoftEntraIdOAuth2Client({
+	clientId: environment.MICROSOFT_CLIENT_ID,
+	clientSecret: environment.MICROSOFT_CLIENT_SECRET,
+	redirectUri: `${environment.APP_URL}/auth/microsoft/callback`,
+	tenant: environment.MICROSOFT_TENANT_ID,
 });
 
-const authorization = await google.createAuthorizationRequest({
-	parameters: { access_type: "offline", prompt: "consent" },
-	scopes: ["openid", "email", "profile"],
+const mastodon = createMastodonOAuth2Client({
+	baseUrl: "https://mastodon.social",
+	clientId: environment.MASTODON_CLIENT_ID,
+	clientSecret: environment.MASTODON_CLIENT_SECRET,
+	redirectUri: `${environment.APP_URL}/auth/mastodon/callback`,
 });
 ```
 
-## Why There Is No Provider Catalog
+Use `baseUrl` for Authentik, Gitea, GitLab, Keycloak realm URLs, Mastodon, and Synology. Use
+`domain` for Amazon Cognito, Auth0, Salesforce, and Okta. Okta also accepts
+`authorizationServerId`.
 
-OAuth providers change endpoints, parameters, response formats, and authentication rules
-independently. A large built-in catalog creates the impression that every adapter remains actively
-verified. Keeping provider configuration beside the consuming application makes its assumptions
-reviewable and allows each integration to follow current provider documentation.
+## Apple
 
-If several projects use the same provider, share a small provider-specific factory in its own module
-or package. Keep that adapter focused on one provider rather than adding it to this protocol core.
+Apple creates a fresh five-minute ES256 client secret for every token request.
+
+```ts
+const apple = createAppleOAuth2Client({
+	clientId: environment.APPLE_CLIENT_ID,
+	keyId: environment.APPLE_KEY_ID,
+	privateKey: environment.APPLE_PRIVATE_KEY,
+	redirectUri: `${environment.APP_URL}/auth/apple/callback`,
+	teamId: environment.APPLE_TEAM_ID,
+});
+
+const authorization = await apple.createAuthorizationRequest({ scopes: ["email", "name"] });
+const tokens = await apple.exchangeAuthorizationCode({ code: callbackCode });
+```
+
+Keep the Apple private key server-side and preserve its PEM newlines when loading it from an
+environment variable or secret manager.
+
+## CallApi Configuration
+
+Every factory forwards `callApiConfig` unchanged to the underlying client.
+
+```ts
+const google = createGoogleOAuth2Client({
+	callApiConfig: { retryAttempts: 1, timeout: 10_000 },
+	clientId: environment.GOOGLE_CLIENT_ID,
+	clientSecret: environment.GOOGLE_CLIENT_SECRET,
+	redirectUri: `${environment.APP_URL}/auth/google/callback`,
+});
+```
+
+Authorization codes are one-time credentials. Use retries conservatively because a timed-out token
+request may still have reached the provider.
+
+## Provider Matrix
+
+`Secret` follows Arctic's constructor. Optional providers support public clients. Every provider
+supports token refresh when the provider issues a refresh token. Figma and Start.gg use separate
+refresh endpoints.
+
+| Provider           | Factory                              | PKCE     | Secret    | Revoke | Dynamic input       |
+| ------------------ | ------------------------------------ | -------- | --------- | ------ | ------------------- |
+| 42                 | `createFortyTwoOAuth2Client`         | No       | Required  | No     | -                   |
+| Amazon Cognito     | `createAmazonCognitoOAuth2Client`    | Required | Optional  | Yes    | `domain`            |
+| AniList            | `createAniListOAuth2Client`          | No       | Required  | No     | -                   |
+| Apple              | `createAppleOAuth2Client`            | No       | Generated | No     | Apple keys          |
+| Atlassian          | `createAtlassianOAuth2Client`        | No       | Required  | No     | -                   |
+| Auth0              | `createAuth0OAuth2Client`            | Optional | Optional  | Yes    | `domain`            |
+| Authentik          | `createAuthentikOAuth2Client`        | Required | Optional  | Yes    | `baseUrl`           |
+| Autodesk           | `createAutodeskOAuth2Client`         | Required | Optional  | Yes    | -                   |
+| Battle.net         | `createBattleNetOAuth2Client`        | No       | Required  | No     | -                   |
+| Bitbucket          | `createBitbucketOAuth2Client`        | No       | Required  | No     | -                   |
+| Box                | `createBoxOAuth2Client`              | No       | Required  | Yes    | -                   |
+| Bungie             | `createBungieOAuth2Client`           | No       | Optional  | No     | -                   |
+| Coinbase           | `createCoinbaseOAuth2Client`         | No       | Required  | Yes    | -                   |
+| Discord            | `createDiscordOAuth2Client`          | Optional | Optional  | Yes    | -                   |
+| DonationAlerts     | `createDonationAlertsOAuth2Client`   | No       | Required  | No     | -                   |
+| Dribbble           | `createDribbbleOAuth2Client`         | No       | Required  | No     | -                   |
+| Dropbox            | `createDropboxOAuth2Client`          | No       | Required  | Yes    | -                   |
+| Epic Games         | `createEpicGamesOAuth2Client`        | No       | Required  | Yes    | -                   |
+| Etsy               | `createEtsyOAuth2Client`             | Required | None      | No     | -                   |
+| Facebook           | `createFacebookOAuth2Client`         | No       | Required  | No     | -                   |
+| Figma              | `createFigmaOAuth2Client`            | No       | Required  | No     | -                   |
+| Gitea              | `createGiteaOAuth2Client`            | Required | Optional  | No     | `baseUrl`           |
+| GitHub             | `createGitHubOAuth2Client`           | No       | Required  | No     | -                   |
+| GitLab             | `createGitLabOAuth2Client`           | No       | Optional  | Yes    | `baseUrl`           |
+| Google             | `createGoogleOAuth2Client`           | Required | Required  | Yes    | -                   |
+| Intuit             | `createIntuitOAuth2Client`           | No       | Required  | Yes    | -                   |
+| Kakao              | `createKakaoOAuth2Client`            | No       | Required  | No     | -                   |
+| Keycloak           | `createKeycloakOAuth2Client`         | Required | Optional  | Yes    | realm `baseUrl`     |
+| Kick               | `createKickOAuth2Client`             | Required | Required  | Yes    | -                   |
+| Lichess            | `createLichessOAuth2Client`          | Required | None      | No     | -                   |
+| Line               | `createLineOAuth2Client`             | Required | Required  | No     | -                   |
+| Linear             | `createLinearOAuth2Client`           | No       | Required  | No     | -                   |
+| LinkedIn           | `createLinkedInOAuth2Client`         | No       | Required  | No     | -                   |
+| Mastodon           | `createMastodonOAuth2Client`         | Required | Required  | Yes    | `baseUrl`           |
+| Mercado Libre      | `createMercadoLibreOAuth2Client`     | Required | Required  | No     | -                   |
+| Mercado Pago       | `createMercadoPagoOAuth2Client`      | Required | Required  | No     | -                   |
+| Microsoft Entra ID | `createMicrosoftEntraIdOAuth2Client` | Required | Optional  | No     | `tenant`            |
+| MyAnimeList        | `createMyAnimeListOAuth2Client`      | Required | Required  | No     | -                   |
+| Naver              | `createNaverOAuth2Client`            | No       | Required  | No     | -                   |
+| Notion             | `createNotionOAuth2Client`           | No       | Required  | No     | -                   |
+| Okta               | `createOktaOAuth2Client`             | Required | Optional  | Yes    | `domain`, server ID |
+| osu!               | `createOsuOAuth2Client`              | No       | Required  | No     | -                   |
+| Patreon            | `createPatreonOAuth2Client`          | No       | Required  | No     | -                   |
+| Polar              | `createPolarOAuth2Client`            | Required | Optional  | Yes    | -                   |
+| Reddit             | `createRedditOAuth2Client`           | No       | Required  | No     | -                   |
+| Roblox             | `createRobloxOAuth2Client`           | Required | Optional  | Yes    | -                   |
+| Salesforce         | `createSalesforceOAuth2Client`       | Required | Optional  | Yes    | `domain`            |
+| Shikimori          | `createShikimoriOAuth2Client`        | No       | Required  | No     | -                   |
+| Slack              | `createSlackOAuth2Client`            | No       | Required  | No     | -                   |
+| Spotify            | `createSpotifyOAuth2Client`          | Optional | Optional  | No     | -                   |
+| Start.gg           | `createStartGGOAuth2Client`          | No       | Required  | No     | -                   |
+| Strava             | `createStravaOAuth2Client`           | No       | Required  | No     | -                   |
+| Synology           | `createSynologyOAuth2Client`         | Required | Required  | No     | `baseUrl`           |
+| TikTok             | `createTikTokOAuth2Client`           | Required | Required  | Yes    | -                   |
+| Tiltify            | `createTiltifyOAuth2Client`          | No       | Required  | No     | -                   |
+| Tumblr             | `createTumblrOAuth2Client`           | No       | Required  | No     | -                   |
+| Twitch             | `createTwitchOAuth2Client`           | No       | Required  | No     | -                   |
+| Twitter            | `createTwitterOAuth2Client`          | Required | Optional  | Yes    | -                   |
+| VK                 | `createVKOAuth2Client`               | No       | Required  | No     | -                   |
+| Withings           | `createWithingsOAuth2Client`         | No       | Required  | No     | -                   |
+| WorkOS             | `createWorkOSOAuth2Client`           | Optional | Optional  | No     | -                   |
+| Yahoo              | `createYahooOAuth2Client`            | No       | Required  | No     | -                   |
+| Yandex             | `createYandexOAuth2Client`           | No       | Required  | No     | -                   |
+| Zoom               | `createZoomOAuth2Client`             | Required | Required  | Yes    | -                   |
+
+`revokeToken()` throws when the provider has no catalogued revocation endpoint.
+
+## Generic Client And Extensions
+
+Use `createOAuth2Client()` directly for a provider outside the catalog. Its generic behavior remains
+unchanged. Authorization, exchange, refresh, and revocation calls accept extension parameters, but
+cannot override protocol fields, credentials, or provider-fixed parameters.
+
+Token helpers expose access, refresh, ID-token, expiry, and scope data. Decoding an ID token does
+not verify its signature, issuer, audience, nonce, or expiry; use a maintained OIDC/JWT verifier
+before trusting identity claims.
 
 ## Attribution
 
-This implementation was informed by Arctic 3.7.0, Copyright (c) 2023 pilcrowOnPaper, and Arctic's
-post-deprecation protocol examples.
-
-Arctic 3.7.0 is distributed under the MIT License. Arctic's replacement examples are distributed
-under the Zero-Clause BSD License. This implementation has been reorganized and rewritten around
-factory functions, injectable CallApi transport, Web Crypto, PKCE-S256, protected extension
-parameters, Zod schemas, and structured errors.
+Provider definitions were adapted from Arctic 3.7.0, Copyright (c) 2023 pilcrowOnPaper, distributed
+under the MIT License. This implementation is reorganized around factory functions, CallApi,
+provider profiles, Zod validation, and normalized PKCE authorization results.

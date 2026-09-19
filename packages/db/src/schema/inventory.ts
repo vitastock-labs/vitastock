@@ -17,6 +17,7 @@ export const drugs = pg.pgTable(
 		genericName: pg.text().notNull(),
 		id: pg.uuid().defaultRandom().primaryKey(),
 		isActive: pg.boolean().notNull().default(true),
+		lowStockThreshold: pg.integer(),
 		name: pg.text().notNull(),
 		strength: pg.text(),
 		unit: pg.text(),
@@ -42,6 +43,7 @@ export const drugs = pg.pgTable(
 				sql`coalesce(lower(btrim(${table.form})), '')`,
 				sql`coalesce(lower(btrim(${table.unit})), '')`
 			),
+		pg.check("drug_low_stock_threshold_nonnegative_check", sql`${table.lowStockThreshold} >= 0`),
 	]
 );
 

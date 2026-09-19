@@ -378,15 +378,19 @@ const getConfigItemFromPayload = (config: ChartConfig, payload: unknown, key: st
 
 	let configLabelKey = key;
 
-	if (key in payload && typeof payload[key as never] === "string") {
+	if (Object.hasOwn(payload, key) && typeof payload[key as never] === "string") {
 		configLabelKey = payload[key as never];
 	}
 
-	if (payloadPayload && key in payloadPayload && typeof payloadPayload[key as never] === "string") {
+	if (
+		payloadPayload
+		&& Object.hasOwn(payloadPayload, key)
+		&& typeof payloadPayload[key as never] === "string"
+	) {
 		configLabelKey = payloadPayload[key as never];
 	}
 
-	return configLabelKey in config ? config[configLabelKey] : config[key];
+	return config[Object.hasOwn(config, configLabelKey) ? configLabelKey : key];
 };
 
 export {

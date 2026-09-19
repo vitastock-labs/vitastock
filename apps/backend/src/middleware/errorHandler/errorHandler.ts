@@ -5,7 +5,7 @@ import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { errorCodes } from "@/constants";
 import { appLogger } from "@/lib/logger";
 import type { HonoAppBindings } from "@/lib/types/common";
-import { AppError } from "@/lib/utils";
+import { AppError, getClientIp } from "@/lib/utils";
 import { transformError } from "./transformError";
 
 const errorHandler: ErrorHandler<HonoAppBindings> = (error: AppError | Error | HTTPException, ctx) => {
@@ -28,17 +28,25 @@ const errorHandler: ErrorHandler<HonoAppBindings> = (error: AppError | Error | H
 
 	const errorLogInfo = {
 		...errorInfo,
+		clientIp: getClientIp(ctx),
 		...(requestStartedAt !== undefined && {
 			durationMs: Math.round((performance.now() - requestStartedAt) * 100) / 100,
 		}),
 		method: ctx.req.method,
+		origin: ctx.req.header("origin"),
 		path: ctx.req.path,
+		referer: ctx.req.header("referer"),
 		requestId,
+		userEmail: currentUser?.email,
 		userId: currentUser?.id,
+		userName: currentUser?.fullName,
+		userRole: currentUser?.role,
 		...(Boolean(modifiedError.realReason) && pickKeys(modifiedError, ["realReason"])),
 		...(Boolean(modifiedError.cause) && pickKeys(modifiedError, ["cause"])),
 		statusCode: modifiedError.statusCode,
+		userAgent: ctx.req.header("user-agent"),
 		workspaceId: currentWorkspace?.id,
+		workspaceName: currentWorkspace?.name,
 	};
 
 	appLogger.pretty.error(`${error.name}: ${errorLogInfo.message}\n`, error, errorLogInfo);

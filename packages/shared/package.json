@@ -6,6 +6,9 @@
 		"./validation/backendApiSchema": "./src/validation/backendApiSchema/index.ts",
 		"./*": "./src/*.ts"
 	},
+	"engines": {
+		"node": "24.x.x"
+	},
 	"scripts": {
 		"build": "tsdown",
 		"lint:eslint": "eslint . --max-warnings 0",
@@ -15,15 +18,15 @@
 	"dependencies": {
 		"@vitastock/db": "workspace:*",
 		"@vitastock/env": "workspace:*",
-		"@zayne-labs/callapi": "1.14.2",
+		"@zayne-labs/callapi": "1.15.0",
 		"@zayne-labs/toolkit-core": "^0.12.59",
 		"@zayne-labs/toolkit-type-helpers": "^0.12.59",
 		"consola": "3.4.2",
-		"zod": "4.5.4"
+		"zod": "4.6.5"
 	},
 	"devDependencies": {
 		"@total-typescript/ts-reset": "0.6.1",
-		"@zayne-labs/tsconfig": "^0.13.14",
+		"@zayne-labs/tsconfig": "^0.13.19",
 		"tsdown": "0.23.0",
 		"typescript": "6.0.3"
 	}

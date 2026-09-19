@@ -87,6 +87,7 @@ const parseEnvironment = <Schema extends z.ZodType>(schema: Schema): z.infer<Sch
 
 		const error = new Error(errorMessage, { cause: z.flattenError(result.error).fieldErrors });
 
+		// eslint-disable-next-line unicorn/no-error-property-assignment -- Needed here
 		error.stack = "";
 
 		consola.error(error);

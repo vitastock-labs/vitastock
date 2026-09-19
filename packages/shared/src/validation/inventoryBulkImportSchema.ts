@@ -8,6 +8,7 @@ export const INVENTORY_BULK_IMPORT_COLUMNS = defineEnum({
 	"Drug Name": "name",
 	"Expiry Date": "expiryDate",
 	"Generic Name": "genericName",
+	"Low Stock Threshold": "lowStockThreshold",
 	Quantity: "quantity",
 	Strength: "strength",
 	Unit: "unit",
@@ -40,7 +41,7 @@ export const InventoryBulkImportHeadersSchema = z.array(z.string()).superRefine(
 	}
 
 	const unknownHeaders = headers.filter(
-		(header) => header.length > 0 && !(header in INVENTORY_BULK_IMPORT_COLUMNS)
+		(header) => header.length > 0 && !Object.hasOwn(INVENTORY_BULK_IMPORT_COLUMNS, header)
 	);
 
 	if (unknownHeaders.length > 0) {
@@ -66,6 +67,7 @@ export const createInventoryBulkImportRowKey = (row: {
 	expiryDate: string;
 	form?: string;
 	genericName: string;
+	lowStockThreshold?: number;
 	name: string;
 	quantity: number;
 	strength?: string;

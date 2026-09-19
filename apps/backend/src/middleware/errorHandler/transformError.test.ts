@@ -18,6 +18,7 @@ test("Error transformation - preserves intentional application errors", () => {
 
 test("Error transformation - hides PostgreSQL details from the client-facing message", () => {
 	const error = new Error('duplicate key value violates unique constraint "users_email_unique"');
+	// eslint-disable-next-line unicorn/no-error-property-assignment
 	error.name = "PostgresError";
 
 	const transformedError = transformError(error);

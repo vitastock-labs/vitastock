@@ -374,6 +374,12 @@ const bulkImportPreviewColumns = bulkImportPreviewColumnHelper.columns([
 		meta: { classNames: { column: "min-w-28" } },
 	}),
 	bulkImportPreviewColumnHelper.display({
+		cell: ({ row }) => <BulkImportPreviewCell field="lowStockThreshold" result={row.original} />,
+		header: () => "Low Stock Threshold",
+		id: "lowStockThreshold",
+		meta: { classNames: { column: "min-w-40" } },
+	}),
+	bulkImportPreviewColumnHelper.display({
 		cell: ({ row }) => <BulkImportPreviewCell field="quantity" result={row.original} />,
 		header: () => "Quantity",
 		id: "quantity",
@@ -737,7 +743,7 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 													>
 														<li className="flex items-center gap-2">
 															<span className="size-1.5 rounded-full bg-shadcn-border" />
-															Strength, Dosage Form, Unit
+															Strength, Dosage Form, Unit, Low Stock Threshold
 														</li>
 													</ul>
 												</div>

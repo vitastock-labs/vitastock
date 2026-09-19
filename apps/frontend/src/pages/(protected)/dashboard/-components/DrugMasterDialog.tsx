@@ -2,11 +2,13 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { addYears, endOfYear, startOfYear, subYears } from "date-fns";
 import { parseAsString, useQueryState } from "nuqs";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useForm, useFormContext, type FieldValues, type UseFormReturn } from "react-hook-form";
 import { useDialogContext } from "@/components/animated/primitives/dialog-radix";
 import { DialogAnimated } from "@/components/animated/ui";
+import { For } from "@/components/common/for";
 import { IconBox } from "@/components/common/IconBox";
 import { Badge } from "@/components/ui";
 import { Button } from "@/components/ui/button";
@@ -18,7 +20,9 @@ import {
 	useDataTableQueryState,
 	type DataTableQueryKeys,
 } from "@/components/ui/data-table";
+import { DateTimePicker } from "@/components/ui/datetime-picker";
 import { Form } from "@/components/ui/form";
+import * as ScrollArea from "@/components/ui/scroll-area";
 import { callBackendApiForQuery } from "@/lib/api/callBackendApi";
 import { backendApiSchemaRoutes } from "@/lib/api/callBackendApi/apiSchema";
 import { posthog } from "@/lib/posthog";
@@ -27,20 +31,32 @@ import {
 	dashboardOverviewQuery,
 	inventoryAlertsQuery,
 	inventoryAlertsStatusQuery,
+	inventoryDrugBatchesQuery,
 	inventoryDrugsQuery,
 	inventorySummaryQuery,
+	sessionQuery,
+	type InventoryDrugBatchesQueryResultType,
 	type InventoryDrugsQueryResultType,
 } from "@/lib/react-query/queryOptions";
 import { cnJoin } from "@/lib/utils/cn";
-import { formatDrugLabel } from "@/lib/utils/formatters";
+import { formatDate, formatDrugLabel } from "@/lib/utils/formatters";
 import { InputField } from "@/pages/(home)/-components/FormPartsShared";
 import { EMPTY_DISPLAY_VALUE } from "./constants";
 import { DashboardDataTable } from "./DashboardDataTableShared";
 
 type Drug = InventoryDrugsQueryResultType["drugs"][number];
+type DrugBatch = InventoryDrugBatchesQueryResultType["batches"][number];
 
 const EMPTY_DRUGS: Drug[] = [];
 const drugColumnHelper = createDataTableColumnHelper<Drug>();
+const batchExpiryDatePickerRange = (() => {
+	const today = new Date();
+
+	return {
+		endMonth: endOfYear(addYears(today, 20)),
+		startMonth: startOfYear(subYears(today, 20)),
+	};
+})();
 
 const DrugCreateSchema = backendApiSchemaRoutes["@post/inventory/drugs"].body;
 const DrugUpdateSchema = backendApiSchemaRoutes["@patch/inventory/drugs/:drugId"].body.required();
@@ -148,7 +164,7 @@ export function DrugMasterDialog() {
 		<>
 			<DialogAnimated.Content
 				withCloseButton={false}
-				className="flex max-h-[calc(100svh-100px)] max-w-[820px] flex-col gap-0 overflow-hidden
+				className="flex h-[min(720px,calc(100svh-32px))] max-w-[820px] flex-col gap-0 overflow-hidden
 					rounded-xl border-shadcn-border bg-white p-0 shadow-2xl"
 			>
 				<header
@@ -179,8 +195,10 @@ export function DrugMasterDialog() {
 					errorMessage="Failed to load Drug Master records."
 					totalRows={result?.pagination?.total}
 					classNames={{
-						base: "min-h-0 grow",
-						tableContainer: "min-h-0 grow",
+						base: "min-h-0 flex-1",
+						pagination: "shrink-0",
+						tableContainer: "min-h-0 flex-1",
+						tableRoot: "min-w-[720px]",
 					}}
 				>
 					<DataTableQueryToolbar
@@ -220,6 +238,7 @@ export function CreateDrugDialog(props: { initialName?: string; onComplete?: (dr
 		defaultValues: {
 			form: "",
 			genericName: "",
+			lowStockThreshold: "",
 			name: initialName,
 			strength: "",
 			unit: "",
@@ -266,6 +285,7 @@ export function EditDrugDialog(props: { drug: Drug; onComplete: () => void }) {
 		defaultValues: {
 			form: drug.form ?? "",
 			genericName: drug.genericName,
+			lowStockThreshold: drug.lowStockThreshold ?? "",
 			name: drug.name,
 			strength: drug.strength ?? "",
 			unit: drug.unit ?? "",
@@ -297,6 +317,7 @@ export function EditDrugDialog(props: { drug: Drug; onComplete: () => void }) {
 
 	return (
 		<DrugFormDialog
+			batchExpiryEditor={<BatchExpiryEditor drug={drug} />}
 			description="Update the Drug Master record used by inventory movements."
 			form={form}
 			submitLabel="Save Changes"
@@ -307,19 +328,23 @@ export function EditDrugDialog(props: { drug: Drug; onComplete: () => void }) {
 }
 
 function DrugFormDialog<TFieldValues extends FieldValues, TTransformedValues extends FieldValues>(props: {
+	batchExpiryEditor?: ReactNode;
 	description: string;
 	form: UseFormReturn<TFieldValues, unknown, TTransformedValues>;
 	onSubmit: (event?: React.BaseSyntheticEvent) => Promise<void>;
 	submitLabel: string;
 	title: string;
 }) {
-	const { description, form, onSubmit, submitLabel, title } = props;
+	const { batchExpiryEditor, description, form, onSubmit, submitLabel, title } = props;
 
 	return (
 		<DialogAnimated.Content
 			withCloseButton={false}
-			className="max-w-[430px] gap-0 overflow-hidden rounded-xl border-shadcn-border bg-white p-0
-				shadow-2xl"
+			className={cnJoin(
+				`flex max-h-[calc(100svh-32px)] max-w-[560px] flex-col gap-0 overflow-hidden rounded-xl
+				border-shadcn-border bg-white p-0 shadow-2xl`,
+				batchExpiryEditor && "h-[min(760px,calc(100svh-32px))]"
+			)}
 		>
 			<header
 				className="flex items-start justify-between gap-6 border-b border-shadcn-border/70 px-5 py-4"
@@ -340,8 +365,15 @@ function DrugFormDialog<TFieldValues extends FieldValues, TTransformedValues ext
 				</DialogAnimated.Close>
 			</header>
 
-			<Form.Root form={form} onSubmit={(event) => void onSubmit(event)}>
-				<DrugFormFields />
+			<Form.Root
+				form={form}
+				className="flex min-h-0 flex-1 flex-col"
+				onSubmit={(event) => void onSubmit(event)}
+			>
+				<ScrollArea.Root classNames={{ base: "min-h-0 flex-1" }}>
+					<DrugFormFields />
+					{batchExpiryEditor}
+				</ScrollArea.Root>
 
 				<DialogAnimated.Footer
 					className="flex-row justify-end gap-3 border-t border-shadcn-border/70 bg-shadcn-muted/30
@@ -369,8 +401,127 @@ function DrugFormDialog<TFieldValues extends FieldValues, TTransformedValues ext
 	);
 }
 
+function BatchExpiryEditor(props: { drug: Drug }) {
+	const { drug } = props;
+	const batchesQuery = inventoryDrugBatchesQuery({ drugId: drug.id }, { availability: "all" });
+	const batchesQueryResult = useQuery(batchesQuery);
+	const batches = batchesQueryResult.data?.batches ?? [];
+
+	return (
+		<div className="border-t border-shadcn-border/70 px-5 py-4">
+			<div className="flex flex-col gap-1">
+				<h3 className="text-[14px] font-bold text-black">Batch Expiry Dates</h3>
+				<p className="text-[12px]/5 text-vitastock-body-color">
+					Update an expiry date by matching the batch number and remaining quantity with the physical
+					stock.
+				</p>
+			</div>
+
+			{batchesQueryResult.isLoading && (
+				<p className="mt-4 text-[13px] text-vitastock-body-color">Loading stocked batches...</p>
+			)}
+
+			{batchesQueryResult.isError && (
+				<p className="mt-4 text-[13px] text-shadcn-destructive">
+					Unable to load stocked batches. Try reopening this dialog.
+				</p>
+			)}
+
+			{batchesQueryResult.isSuccess && batches.length === 0 && (
+				<p
+					className="mt-4 rounded-lg bg-shadcn-muted/60 p-3 text-[13px]
+						text-vitastock-body-color"
+				>
+					This drug has no batch with remaining stock.
+				</p>
+			)}
+
+			<div className="mt-4 flex flex-col gap-3">
+				<For
+					each={batches}
+					renderItem={(batch) => (
+						<BatchExpiryRow key={batch.id} batch={batch} drugId={drug.id} drugUnit={drug.unit} />
+					)}
+				/>
+			</div>
+		</div>
+	);
+}
+
+function BatchExpiryRow(props: { batch: DrugBatch; drugId: string; drugUnit: string | null }) {
+	const { batch, drugId, drugUnit } = props;
+	const queryClient = useQueryClient();
+	const [expiryDate, setExpiryDate] = useState(batch.expiryDate);
+	const mutation = useMutation({
+		mutationFn: () =>
+			callBackendApiForQuery("@patch/inventory/batches/:batchId", {
+				body: { expiryDate },
+				meta: { toast: { success: true } },
+				params: { batchId: batch.id },
+			}),
+		onSuccess: (result) => {
+			setExpiryDate(result.data.batch.expiryDate);
+			posthog?.capture("inventory_batch_expiry_corrected");
+
+			void Promise.all([
+				queryClient.invalidateQueries(inventoryDrugBatchesQuery({ drugId }, { availability: "all" })),
+				queryClient.invalidateQueries(inventorySummaryQuery()),
+				queryClient.invalidateQueries(dashboardOverviewQuery()),
+				queryClient.invalidateQueries({ queryKey: inventoryAlertsQuery().queryKey.slice(0, -1) }),
+				queryClient.invalidateQueries(inventoryAlertsStatusQuery()),
+			]);
+		},
+	});
+
+	return (
+		<article className="rounded-lg border border-shadcn-border/70 bg-shadcn-muted/25 p-3">
+			<div className="flex flex-wrap items-start justify-between gap-2">
+				<div>
+					<p className="text-[13px] font-bold text-black">
+						{batch.batchNumber ?? "Unnumbered batch"}
+					</p>
+					<p className="mt-0.5 text-[12px] text-vitastock-body-color">
+						{batch.quantityAvailable.toLocaleString()} {drugUnit ?? "units"} remaining · Recorded
+						expiry: {formatDate(batch.expiryDate)}
+					</p>
+				</div>
+			</div>
+
+			<div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+				<DateTimePicker
+					variant="date"
+					dateString={expiryDate}
+					placeholder="Select corrected expiry date"
+					dateFormats={{ onChangeDate: "yyyy-MM-dd", visibleDate: "MMM d, yyyy" }}
+					datePickerProps={batchExpiryDatePickerRange}
+					className="h-10 min-w-0 rounded-lg border border-shadcn-border bg-white px-3 sm:flex-1"
+					onDateStringChange={(value) => setExpiryDate(value ?? "")}
+				/>
+				<Button
+					type="button"
+					isDisabled={!expiryDate || expiryDate === batch.expiryDate || mutation.isPending}
+					isLoading={mutation.isPending}
+					className="h-10 shrink-0 px-4"
+					onClick={() => mutation.mutate()}
+				>
+					Update expiry
+				</Button>
+			</div>
+		</article>
+	);
+}
+
 function DrugFormFields() {
 	const form = useFormContext();
+	const sessionQueryResult = useQuery(sessionQuery());
+	const workspaceDefault = sessionQueryResult.data?.workspace.lowStockThreshold;
+	const lowStockThresholdDescription = (() => {
+		if (workspaceDefault === undefined) {
+			return "Leave blank to use the workspace default.";
+		}
+
+		return `Leave blank to use the workspace default of ${workspaceDefault}.`;
+	})();
 
 	return (
 		<div className="grid gap-4 p-5 sm:grid-cols-2">
@@ -401,6 +552,18 @@ function DrugFormFields() {
 				placeholder="e.g. Tablet"
 			/>
 			<InputField control={form.control} name="unit" label="Unit (Optional)" placeholder="e.g. Box" />
+			<InputField
+				control={form.control}
+				name="lowStockThreshold"
+				type="number"
+				inputMode="numeric"
+				min={0}
+				step={1}
+				label="Low Stock Threshold (Optional)"
+				description={lowStockThresholdDescription}
+				placeholder={workspaceDefault?.toString() ?? "e.g. 10"}
+				classNames={{ base: "sm:col-span-2" }}
+			/>
 		</div>
 	);
 }

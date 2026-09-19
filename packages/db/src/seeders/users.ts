@@ -49,16 +49,19 @@ const getUsersSeedData = (options: { passwordHash: string; workspaceName: string
 		passwordHash,
 	};
 
-	const extraPharmacists = [...Array(5).keys()].map((index): InsertUserType => {
-		const pharmacistNumber = index + 1;
+	const extraPharmacists = Array(5)
+		.keys()
+		.map((index): InsertUserType => {
+			const pharmacistNumber = index + 1;
 
-		return {
-			email: `pharmacist.${pharmacistNumber}.${slug}@seeded.com`,
-			emailVerifiedAt: new Date(),
-			fullName: `${workspaceName} Pharmacist ${pharmacistNumber}`,
-			passwordHash,
-		};
-	});
+			return {
+				email: `pharmacist.${pharmacistNumber}.${slug}@seeded.com`,
+				emailVerifiedAt: new Date(),
+				fullName: `${workspaceName} Pharmacist ${pharmacistNumber}`,
+				passwordHash,
+			};
+		})
+		.toArray();
 
 	const suspendedPharmacist: InsertUserType = {
 		email: `suspended.${slug}@seeded.com`,

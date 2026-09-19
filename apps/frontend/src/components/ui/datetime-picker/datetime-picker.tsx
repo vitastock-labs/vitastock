@@ -2,6 +2,7 @@ import { useControllableState } from "@zayne-labs/toolkit-react";
 import type { InferProps } from "@zayne-labs/toolkit-react/utils";
 import { isFunction } from "@zayne-labs/toolkit-type-helpers";
 import { format } from "date-fns";
+import { useState } from "react";
 import { ForWithWrapper } from "@/components/common/for";
 import { IconBox } from "@/components/common/IconBox";
 import { cnJoin, cnMerge } from "@/lib/utils/cn";
@@ -62,6 +63,7 @@ export function DateTimePicker(props: DatePickerProps) {
 		onChange: onDateStringChangeProp,
 		prop: dateStringProp,
 	});
+	const [isOpen, setIsOpen] = useState(false);
 
 	const date = getDateFromString(dateString);
 
@@ -70,7 +72,7 @@ export function DateTimePicker(props: DatePickerProps) {
 	const showDatePicker = variant === "date" || variant === "datetime";
 
 	return (
-		<Popover.Root>
+		<Popover.Root open={isOpen} onOpenChange={setIsOpen}>
 			<Popover.Trigger asChild={true}>
 				<button
 					type="button"
@@ -93,6 +95,7 @@ export function DateTimePicker(props: DatePickerProps) {
 					<Calendar
 						mode="single"
 						captionLayout="dropdown"
+						defaultMonth={date}
 						classNames={{
 							button_next: "hover:bg-vitastock-primary-subtle/60 hover:text-vitastock-primary-dark",
 							button_previous:
@@ -123,6 +126,10 @@ export function DateTimePicker(props: DatePickerProps) {
 							if (!selectedDate) return;
 
 							setDateString(format(selectedDate, dateFormats?.onChangeDate ?? "dd-MM-yyyy"));
+
+							if (variant === "date") {
+								setIsOpen(false);
+							}
 						}}
 						{...restOfCalenderProps}
 					/>
@@ -196,8 +203,10 @@ function TimePicker(props: TimePickerProps) {
 		minuteOrder = "preserve",
 	} = timeSettings ?? {};
 
+	// eslint-disable-next-line unicorn/prefer-iterator-to-array
 	const hourRange = timeSettings?.hourRange ?? [...Array(24).keys()];
 
+	// eslint-disable-next-line unicorn/prefer-iterator-to-array
 	const minuteRange = timeSettings?.minuteRange ?? [...Array(60).keys()];
 
 	function handleTimeChange(variant: "am-pm" | "hour" | "minute", value: number | string) {
@@ -287,6 +296,7 @@ function TimePicker(props: TimePickerProps) {
 							key={hour}
 							type="button"
 							data-selected={
+								// eslint-disable-next-line unicorn/prefer-minimal-ternary
 								hourVariant === "12-hour" ?
 									resolve12HourVariant(dateValue.getHours()) === hour
 								:	dateValue.getHours() === hour

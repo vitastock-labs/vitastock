@@ -155,9 +155,9 @@ function AlertSettingsSection() {
 			<Form.Root form={form} onSubmit={(event) => void onSubmit(event)} className="flex flex-col p-6">
 				<article className="flex items-center justify-between border-b border-shadcn-border/50 pb-6">
 					<div className="flex flex-col gap-1">
-						<h3 className="text-[14.5px] font-bold text-black">Low Stock Threshold</h3>
+						<h3 className="text-[14.5px] font-bold text-black">Default Low Stock Threshold</h3>
 						<p className="text-[13.5px] font-medium text-vitastock-body-color/80">
-							Trigger alert when item quantity falls below this number.
+							Applies to drugs without an individual low stock threshold.
 						</p>
 					</div>
 

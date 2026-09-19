@@ -18,24 +18,24 @@ type InventoryActivityQuery = z.infer<
 export const INVENTORY_ACTIVITY_EXPORT_MAX_ROWS = 10_000;
 
 const activityId = sql<string>`
-  concat(
-    ${stockLogs.stockTransactionId}::text,
-    ':',
-    ${stockLogs.drugId}::text,
-    ':',
-    ${stockLogs.logType},
-    ':',
-    coalesce(${stockLogs.reason}, '')
-  )
+	concat(
+	  ${stockLogs.stockTransactionId}::text,
+	  ':',
+	  ${stockLogs.drugId}::text,
+	  ':',
+	  ${stockLogs.logType},
+	  ':',
+	  coalesce(${stockLogs.reason}, '')
+	)
 `;
 
 const logicalMovementCount = sql<number>`
-  count(distinct (
-    ${stockLogs.stockTransactionId},
-    ${stockLogs.drugId},
-    ${stockLogs.logType},
-    ${stockLogs.reason}
-  ))
+	count(distinct (
+	  ${stockLogs.stockTransactionId},
+	  ${stockLogs.drugId},
+	  ${stockLogs.logType},
+	  ${stockLogs.reason}
+	))
 `.mapWith(Number);
 
 const getLogicalActivityRows = (options: {

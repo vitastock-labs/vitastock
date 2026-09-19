@@ -16,6 +16,7 @@ export const getFrontendEnv = () => {
 
 		const error = new Error(errorMessage, { cause: z.flattenError(result.error).fieldErrors });
 
+		// eslint-disable-next-line unicorn/no-error-property-assignment -- Needed here
 		error.stack = "";
 
 		console.error(error);

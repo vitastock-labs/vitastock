@@ -1,14 +1,15 @@
-import { createFetchClient, type BaseCallApiConfig } from "@zayne-labs/callapi";
+import { createFetchClient, type BaseCallApiExtraOptions } from "@zayne-labs/callapi";
 import { fallBackRouteSchemaKey } from "@zayne-labs/callapi/constants";
 import { defineSchema, toSearchParams } from "@zayne-labs/callapi/utils";
+import type { Awaitable } from "@zayne-labs/toolkit-type-helpers";
 import { z } from "zod";
 import { OAuth2RequestError, OAuth2ResponseError, OAuth2TransportError } from "./errors";
-import { createOAuth2Tokens, OAuth2TokenDataSchema } from "./tokens";
+import { createOAuth2Tokens, OAuth2TokenDataSchema, type OAuth2TokenData } from "./tokens";
 
 export type OAuth2ClientAuthentication = "client_secret_basic" | "client_secret_post" | "none";
 
 export type OAuth2CallApiConfig = Omit<
-	BaseCallApiConfig,
+	BaseCallApiExtraOptions,
 	| "auth"
 	| "bodyTransformer"
 	| "dedupeStrategy"
@@ -21,12 +22,35 @@ export type OAuth2CallApiConfig = Omit<
 type OAuth2RequestBody = Record<string, string>;
 export type OAuth2ExtensionParameters = Record<string, string>;
 
+export type OAuth2ProviderProfile = {
+	authorization?: {
+		clientIdParameter?: string;
+		parameters?: OAuth2ExtensionParameters;
+		scopeSeparator?: string;
+	};
+	clientCredentials?: {
+		clientIdParameter?: string;
+		clientSecretParameter?: string;
+		resolveClientSecret?: () => Awaitable<string>;
+	};
+	exchange?: { parameters?: OAuth2ExtensionParameters; scopeSeparator?: string };
+	refresh?: {
+		endpoint?: string;
+		parameters?: OAuth2ExtensionParameters;
+		scopeSeparator?: string;
+	};
+	requestHeaders?: Record<string, string>;
+	revocation?: { parameters?: OAuth2ExtensionParameters };
+	tokenResponseSchema?: z.ZodType<OAuth2TokenData>;
+};
+
 export type OAuth2ClientOptions = {
 	authorizationEndpoint: string;
 	callApiConfig?: OAuth2CallApiConfig;
 	clientAuthentication?: OAuth2ClientAuthentication;
 	clientId: string;
 	clientSecret?: string;
+	providerProfile?: OAuth2ProviderProfile;
 	redirectUri?: string;
 	revocationEndpoint?: string;
 	tokenEndpoint: string;
@@ -48,6 +72,7 @@ export type ExchangeAuthorizationCodeOptions = {
 	code: string;
 	codeVerifier?: string;
 	parameters?: OAuth2ExtensionParameters;
+	scopes?: string[];
 };
 
 export type RefreshAccessTokenOptions = {
@@ -62,6 +87,7 @@ export type RevokeTokenOptions = {
 
 const OAuth2ResponseDataSchema = z.record(z.string(), z.unknown());
 const OAuth2RequestBodySchema = z.record(z.string(), z.string());
+
 const reservedAuthorizationParameters = new Set([
 	"client_id",
 	"code_challenge",
@@ -70,7 +96,9 @@ const reservedAuthorizationParameters = new Set([
 	"response_type",
 	"state",
 ]);
+
 const reservedClientParameters = new Set(["client_id", "client_secret"]);
+
 const reservedExchangeParameters = new Set([
 	...reservedClientParameters,
 	"code",
@@ -78,12 +106,14 @@ const reservedExchangeParameters = new Set([
 	"grant_type",
 	"redirect_uri",
 ]);
+
 const reservedRefreshParameters = new Set([
 	...reservedClientParameters,
 	"grant_type",
 	"refresh_token",
 	"scope",
 ]);
+
 const reservedRevocationParameters = new Set([...reservedClientParameters, "token"]);
 
 const encodeFormComponent = (value: string) => {
@@ -105,13 +135,18 @@ const addExtensionParameters = (
 	parameters: OAuth2ExtensionParameters | undefined,
 	reservedParameters: ReadonlySet<string>
 ) => {
-	for (const key of Object.keys(parameters ?? {})) {
+	const parameterKeys = Object.keys(parameters ?? {});
+
+	for (const key of parameterKeys) {
 		if (reservedParameters.has(key)) {
 			throw new TypeError(`OAuth 2.0 extension parameter cannot override ${key}`);
 		}
 	}
 
-	return { ...body, ...parameters };
+	return {
+		...body,
+		...parameters,
+	};
 };
 
 const createResponseError = (status: number, body: unknown) => {
@@ -147,27 +182,42 @@ export const createS256CodeChallenge = async (codeVerifier: string) => {
 
 export const createOAuth2Client = (options: OAuth2ClientOptions) => {
 	const clientSecret = options.clientSecret ?? null;
+	const providerProfile = options.providerProfile ?? {};
+	const providerCredentialParameters = [
+		providerProfile.clientCredentials?.clientIdParameter ?? "client_id",
+		providerProfile.clientCredentials?.clientSecretParameter ?? "client_secret",
+	];
 
 	const clientAuthentication =
 		options.clientAuthentication ?? (clientSecret ? "client_secret_basic" : "none");
 
-	if (clientAuthentication !== "none" && !clientSecret) {
+	if (
+		clientAuthentication !== "none"
+		&& !clientSecret
+		&& !providerProfile.clientCredentials?.resolveClientSecret
+	) {
 		throw new TypeError(`${clientAuthentication} requires a clientSecret`);
 	}
 
-	const requireClientSecret = () => {
-		if (!clientSecret) {
+	const resolveClientSecret = async () => {
+		const resolvedClientSecret =
+			(await providerProfile.clientCredentials?.resolveClientSecret?.()) ?? clientSecret;
+
+		if (!resolvedClientSecret) {
 			throw new TypeError(`${clientAuthentication} requires a clientSecret`);
 		}
 
-		return clientSecret;
+		return resolvedClientSecret;
 	};
 
 	const getBaseAuth = () => {
 		if (clientAuthentication !== "client_secret_basic") return;
+		if (!clientSecret) {
+			throw new TypeError("Generated client secrets require client_secret_post authentication");
+		}
 
 		return {
-			password: () => encodeFormComponent(requireClientSecret()),
+			password: () => encodeFormComponent(clientSecret),
 			type: "Basic" as const,
 			username: () => encodeFormComponent(options.clientId),
 		};
@@ -189,9 +239,12 @@ export const createOAuth2Client = (options: OAuth2ClientOptions) => {
 	const createAuthorizationUrl = async (authorizationOptions: CreateAuthorizationUrlOptions) => {
 		const { codeVerifier, parameters = {}, scopes = [], state } = authorizationOptions;
 		const url = new URL(options.authorizationEndpoint);
+		const authorizationProfile = providerProfile.authorization ?? {};
+		const fixedParameters = authorizationProfile.parameters ?? {};
+		const clientIdParameter = authorizationProfile.clientIdParameter ?? "client_id";
 
 		url.searchParams.set("response_type", "code");
-		url.searchParams.set("client_id", options.clientId);
+		url.searchParams.set(clientIdParameter, options.clientId);
 		url.searchParams.set("state", state);
 
 		if (options.redirectUri) {
@@ -199,7 +252,7 @@ export const createOAuth2Client = (options: OAuth2ClientOptions) => {
 		}
 
 		if (scopes.length > 0) {
-			url.searchParams.set("scope", scopes.join(" "));
+			url.searchParams.set("scope", scopes.join(authorizationProfile.scopeSeparator ?? " "));
 		}
 
 		if (codeVerifier) {
@@ -207,8 +260,16 @@ export const createOAuth2Client = (options: OAuth2ClientOptions) => {
 			url.searchParams.set("code_challenge", await createS256CodeChallenge(codeVerifier));
 		}
 
+		for (const [key, value] of Object.entries(fixedParameters)) {
+			url.searchParams.set(key, value);
+		}
+
 		for (const [key, value] of Object.entries(parameters)) {
-			if (reservedAuthorizationParameters.has(key)) {
+			if (
+				reservedAuthorizationParameters.has(key)
+				|| key === clientIdParameter
+				|| Object.hasOwn(fixedParameters, key)
+			) {
 				throw new TypeError(`Authorization parameter cannot override ${key}`);
 			}
 
@@ -228,13 +289,21 @@ export const createOAuth2Client = (options: OAuth2ClientOptions) => {
 		return { codeVerifier, state, url };
 	};
 
-	const addClientCredentials = (body: OAuth2RequestBody) => {
+	const addClientCredentials = async (body: OAuth2RequestBody) => {
+		const clientIdParameter = providerProfile.clientCredentials?.clientIdParameter ?? "client_id";
+		const clientSecretParameter =
+			providerProfile.clientCredentials?.clientSecretParameter ?? "client_secret";
+
 		if (clientAuthentication === "client_secret_post") {
-			return { ...body, client_id: options.clientId, client_secret: requireClientSecret() };
+			return {
+				...body,
+				[clientIdParameter]: options.clientId,
+				[clientSecretParameter]: await resolveClientSecret(),
+			};
 		}
 
 		if (clientAuthentication === "none") {
-			return { ...body, client_id: options.clientId };
+			return { ...body, [clientIdParameter]: options.clientId };
 		}
 
 		return body;
@@ -247,7 +316,8 @@ export const createOAuth2Client = (options: OAuth2ClientOptions) => {
 		responseType?: "text"
 	) => {
 		const result = await callOAuth2Api(endpoint, {
-			body: addClientCredentials(body),
+			body: await addClientCredentials(body),
+			headers: providerProfile.requestHeaders,
 			method: "POST",
 			responseType,
 			schema: ({ currentRouteSchema }) => ({ ...currentRouteSchema, data: dataSchema }),
@@ -268,8 +338,12 @@ export const createOAuth2Client = (options: OAuth2ClientOptions) => {
 		throw new OAuth2ResponseError(result.response.status, result.error.errorData);
 	};
 
-	const requestTokens = async (body: OAuth2RequestBody) => {
-		const tokenData = await sendRequest(options.tokenEndpoint, body, OAuth2TokenDataSchema);
+	const requestTokens = async (body: OAuth2RequestBody, endpoint = options.tokenEndpoint) => {
+		const tokenData = await sendRequest(
+			endpoint,
+			body,
+			providerProfile.tokenResponseSchema ?? OAuth2TokenDataSchema
+		);
 
 		return createOAuth2Tokens(tokenData);
 	};
@@ -285,8 +359,21 @@ export const createOAuth2Client = (options: OAuth2ClientOptions) => {
 			body.code_verifier = exchangeOptions.codeVerifier;
 		}
 
+		if (exchangeOptions.scopes?.length) {
+			body.scope = exchangeOptions.scopes.join(providerProfile.exchange?.scopeSeparator ?? " ");
+		}
+
+		const providerParameters = providerProfile.exchange?.parameters ?? {};
 		return requestTokens(
-			addExtensionParameters(body, exchangeOptions.parameters, reservedExchangeParameters)
+			addExtensionParameters(
+				{ ...body, ...providerParameters },
+				exchangeOptions.parameters,
+				new Set([
+					...reservedExchangeParameters,
+					...providerCredentialParameters,
+					...Object.keys(providerParameters),
+				])
+			)
 		);
 	};
 
@@ -297,11 +384,21 @@ export const createOAuth2Client = (options: OAuth2ClientOptions) => {
 		};
 
 		if (refreshOptions.scopes?.length) {
-			body.scope = refreshOptions.scopes.join(" ");
+			body.scope = refreshOptions.scopes.join(providerProfile.refresh?.scopeSeparator ?? " ");
 		}
 
+		const providerParameters = providerProfile.refresh?.parameters ?? {};
 		return requestTokens(
-			addExtensionParameters(body, refreshOptions.parameters, reservedRefreshParameters)
+			addExtensionParameters(
+				{ ...body, ...providerParameters },
+				refreshOptions.parameters,
+				new Set([
+					...reservedRefreshParameters,
+					...providerCredentialParameters,
+					...Object.keys(providerParameters),
+				])
+			),
+			providerProfile.refresh?.endpoint
 		);
 	};
 
@@ -310,10 +407,15 @@ export const createOAuth2Client = (options: OAuth2ClientOptions) => {
 			throw new TypeError("This OAuth 2.0 provider does not define a revocation endpoint");
 		}
 
+		const providerParameters = providerProfile.revocation?.parameters ?? {};
 		const body = addExtensionParameters(
-			{ token },
+			{ token, ...providerParameters },
 			revokeOptions.parameters,
-			reservedRevocationParameters
+			new Set([
+				...reservedRevocationParameters,
+				...providerCredentialParameters,
+				...Object.keys(providerParameters),
+			])
 		);
 
 		await sendRequest(options.revocationEndpoint, body, z.string(), "text");

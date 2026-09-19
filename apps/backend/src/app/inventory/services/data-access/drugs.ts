@@ -79,13 +79,14 @@ type CreateDrugBody = z.infer<(typeof backendApiSchemaRoutes)["@post/inventory/d
 type UpdateDrugBody = z.infer<(typeof backendApiSchemaRoutes)["@patch/inventory/drugs/:drugId"]["body"]>;
 
 export const createDrugForWorkspace = async (options: CreateDrugBody & { workspaceId: string }) => {
-	const { form, genericName, name, strength, unit, workspaceId } = options;
+	const { form, genericName, lowStockThreshold, name, strength, unit, workspaceId } = options;
 
 	const result = db
 		.insert(drugs)
 		.values({
 			form,
 			genericName,
+			lowStockThreshold,
 			name,
 			strength,
 			unit,
@@ -105,13 +106,14 @@ export const createDrugForWorkspace = async (options: CreateDrugBody & { workspa
 	return drug;
 };
 export const updateDrug = async (options: UpdateDrugBody & { drugId: string; workspaceId: string }) => {
-	const { drugId, form, genericName, name, strength, unit, workspaceId } = options;
+	const { drugId, form, genericName, lowStockThreshold, name, strength, unit, workspaceId } = options;
 
 	const [drug] = await db
 		.update(drugs)
 		.set({
 			...(form !== undefined && { form }),
 			...(genericName !== undefined && { genericName }),
+			...(lowStockThreshold !== undefined && { lowStockThreshold }),
 			...(name !== undefined && { name }),
 			...(strength !== undefined && { strength }),
 			...(unit !== undefined && { unit }),

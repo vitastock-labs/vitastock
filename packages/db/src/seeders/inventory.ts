@@ -40,7 +40,7 @@ const BATCH_SEED_IDS_BY_WORKSPACE = {
 const isSeedWorkspaceName = (
 	workspaceName: string
 ): workspaceName is keyof typeof BATCH_SEED_IDS_BY_WORKSPACE => {
-	return workspaceName in BATCH_SEED_IDS_BY_WORKSPACE;
+	return Object.hasOwn(BATCH_SEED_IDS_BY_WORKSPACE, workspaceName);
 };
 
 const getDrugSeedData = (workspaceId: string) => {
@@ -48,6 +48,7 @@ const getDrugSeedData = (workspaceId: string) => {
 		{
 			form: "Capsule",
 			genericName: "Amoxicillin",
+			lowStockThreshold: 50,
 			name: "Amoxil",
 			strength: "500mg",
 			unit: "Pack",
@@ -56,6 +57,7 @@ const getDrugSeedData = (workspaceId: string) => {
 		{
 			form: "Tablet",
 			genericName: "Lisinopril",
+			lowStockThreshold: 100,
 			name: "Zestril",
 			strength: "10mg",
 			unit: "Box",
@@ -64,6 +66,7 @@ const getDrugSeedData = (workspaceId: string) => {
 		{
 			form: "Tablet",
 			genericName: "Metformin",
+			lowStockThreshold: 5,
 			name: "Glucophage",
 			strength: "1000mg",
 			unit: "Pack",
@@ -72,6 +75,7 @@ const getDrugSeedData = (workspaceId: string) => {
 		{
 			form: "Tablet",
 			genericName: "Atorvastatin",
+			lowStockThreshold: 0,
 			name: "Lipitor",
 			strength: "20mg",
 			unit: "Box",
@@ -204,7 +208,7 @@ export const seedInventory = async (
 	consola.info(`Seeding inventory for ${seededWorkspaces.length} workspaces...`);
 
 	const allDrugSeeds = seededWorkspaces.flatMap((workspace) => getDrugSeedData(workspace.id));
-	const seededDrugIdentityKeys = new Set(allDrugSeeds.map((drug) => getDrugIdentityKey(drug)));
+	const drugSeedByIdentityKey = new Map(allDrugSeeds.map((drug) => [getDrugIdentityKey(drug), drug]));
 	const seededWorkspaceIds = seededWorkspaces.map((workspace) => workspace.id);
 
 	await db
@@ -218,13 +222,24 @@ export const seedInventory = async (
 		.from(drugs)
 		.where(inArray(drugs.workspaceId, seededWorkspaceIds));
 	const seededDrugIds = persistedWorkspaceDrugs
-		.filter((drug) => seededDrugIdentityKeys.has(getDrugIdentityKey(drug)))
+		.filter((drug) => drugSeedByIdentityKey.has(getDrugIdentityKey(drug)))
 		.map((drug) => drug.id);
-	const seededDrugs = await db
-		.update(drugs)
-		.set({ isActive: true })
-		.where(inArray(drugs.id, seededDrugIds))
-		.returning();
+	await Promise.all(
+		persistedWorkspaceDrugs.map((drug) => {
+			const seed = drugSeedByIdentityKey.get(getDrugIdentityKey(drug));
+
+			if (!seed) {
+				return Promise.resolve();
+			}
+
+			return db
+				.update(drugs)
+				.set({ isActive: true, lowStockThreshold: seed.lowStockThreshold ?? null })
+				.where(eq(drugs.id, drug.id));
+		})
+	);
+
+	const seededDrugs = await db.select().from(drugs).where(inArray(drugs.id, seededDrugIds));
 
 	const allBatchSeeds = seededWorkspaces.flatMap((workspace) => {
 		if (!isSeedWorkspaceName(workspace.name)) {

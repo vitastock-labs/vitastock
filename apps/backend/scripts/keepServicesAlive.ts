@@ -22,6 +22,7 @@ try {
 		redisClients,
 	});
 
+	// eslint-disable-next-line unicorn/no-nonstandard-builtin-properties
 	consola.success("Brevo and Redis keepalive completed successfully!".green.italic);
 } catch (error) {
 	consola.error(new Error("Brevo or Redis keepalive failed", { cause: error }));

@@ -55,7 +55,7 @@ test("Bulk import integration - creates a drug, batch, and opening-stock log per
 
 	const result = await createInventoryBulkImport({
 		idempotencyKey: randomUUID(),
-		rows: [buildRow()],
+		rows: [buildRow({ lowStockThreshold: 25 })],
 		timezone: fixture.workspace.timezone,
 		userId: fixture.user.id,
 		workspaceId: fixture.workspace.id,
@@ -64,6 +64,7 @@ test("Bulk import integration - creates a drug, batch, and opening-stock log per
 	expect(result.importedCount).toBe(1);
 
 	const drug = await getDrugByName(fixture.workspace.id, "Ibuprofen");
+	expect(drug.lowStockThreshold).toBe(25);
 
 	const batches = await db.select().from(stockBatches).where(eq(stockBatches.drugId, drug.id));
 

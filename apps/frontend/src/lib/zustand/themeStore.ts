@@ -24,6 +24,7 @@ type ThemeStore = {
 
 const getSystemThemeMq = () => {
 	if (!isBrowser()) return;
+
 	return globalThis.matchMedia("(prefers-color-scheme: dark)");
 };
 

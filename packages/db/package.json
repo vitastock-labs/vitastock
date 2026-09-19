@@ -7,6 +7,9 @@
 		"./constants": "./src/constants.ts",
 		"./schema/*": "./src/schema/*.ts"
 	},
+	"engines": {
+		"node": "24.x.x"
+	},
 	"scripts": {
 		"build": "tsdown",
 		"db:generate": "drizzle-kit generate",
@@ -25,10 +28,10 @@
 	},
 	"dependencies": {
 		"@faker-js/faker": "^10.6.0",
-		"@node-rs/argon2": "^2.2.0",
+		"@node-rs/argon2": "^2.2.1",
 		"@vitastock/env": "workspace:*",
 		"@zayne-labs/toolkit-type-helpers": "^0.12.59",
-		"@zayne-labs/tsconfig": "0.13.14",
+		"@zayne-labs/tsconfig": "0.13.19",
 		"consola": "3.4.2",
 		"cross-env": "^10.1.0",
 		"date-fns": "4.4.0",
@@ -37,7 +40,7 @@
 		"drizzle-zod": "^0.8.3",
 		"pg": "8.23.0",
 		"tsx": "4.23.13",
-		"zod": "4.5.4"
+		"zod": "4.6.5"
 	},
 	"devDependencies": {
 		"@total-typescript/ts-reset": "0.6.1",

@@ -18,8 +18,7 @@ import {
 	type SelectWorkspaceType,
 } from "@vitastock/db/schema/workspace";
 import type { InferAllMainRouteKeys, InferAllMainRoutes } from "@zayne-labs/callapi";
-import { fallBackRouteSchemaKey } from "@zayne-labs/callapi/constants";
-import { defineSchema, defineSchemaRoutes } from "@zayne-labs/callapi/utils";
+import { defineFallbackRouteSchema, defineSchema, defineSchemaRoutes } from "@zayne-labs/callapi/utils";
 import type { Prettify } from "@zayne-labs/toolkit-type-helpers";
 import { z } from "zod";
 import {
@@ -39,6 +38,12 @@ import {
 	withBaseSuccessResponse,
 	withMatchingPasswordFields,
 } from "./utils";
+
+const fallbackRouteSchema = () => {
+	return defineFallbackRouteSchema({
+		errorData: withBaseErrorResponse(),
+	});
+};
 
 const PasswordSchema = z.string().min(8, "Password must be at least 8 characters long");
 
@@ -357,7 +362,7 @@ export const workspaceRoutes = () => {
 
 type DrugDetailsType = Pick<
 	SelectDrugType,
-	"form" | "genericName" | "id" | "isActive" | "name" | "strength" | "unit"
+	"form" | "genericName" | "id" | "isActive" | "lowStockThreshold" | "name" | "strength" | "unit"
 >;
 
 const DrugDetailsSchema = z.toZod<DrugDetailsType>()(
@@ -366,6 +371,7 @@ const DrugDetailsSchema = z.toZod<DrugDetailsType>()(
 		genericName: z.string().min(1, "Generic name is required"),
 		id: z.uuid(),
 		isActive: z.boolean(),
+		lowStockThreshold: z.number().int().min(0).nullable(),
 		name: z.string().min(1, "Drug name is required"),
 		strength: z.string().nullable(),
 		unit: z.string().nullable(),
@@ -376,6 +382,7 @@ const inventoryRoutes = () => {
 	type InventorySummaryRowType = {
 		drug: DrugDetailsType;
 		drugId: SelectDrugType["id"];
+		effectiveLowStockThreshold: number;
 		expiredBatchCount: number;
 		nearestBatch?: Pick<SelectStockBatchType, "batchNumber" | "expiryDate" | "id" | "quantityAvailable">;
 		nearestExpiryDate?: SelectStockBatchType["expiryDate"];
@@ -397,10 +404,19 @@ const inventoryRoutes = () => {
 		(value) => (typeof value === "string" && value.trim() === "" ? null : value),
 		z.string().trim().min(1).nullable()
 	);
+	const optionalLowStockThresholdSchema = z.preprocess(
+		(value) => (value === "" || value === undefined ? undefined : Number(value)),
+		z.number().int().min(0).optional()
+	);
+	const nullableLowStockThresholdSchema = z.preprocess(
+		(value) => (value === "" || value === null ? null : Number(value)),
+		z.number().int().min(0).nullable()
+	);
 
 	const DrugCreateSchema = z.object({
 		form: optionalTrimmedStringSchema,
 		genericName: DrugDetailsSchema.shape.genericName.trim(),
+		lowStockThreshold: optionalLowStockThresholdSchema,
 		name: DrugDetailsSchema.shape.name.trim(),
 		strength: optionalTrimmedStringSchema,
 		unit: optionalTrimmedStringSchema,
@@ -472,6 +488,7 @@ const inventoryRoutes = () => {
 		z.object({
 			drug: DrugDetailsSchema,
 			drugId: z.uuid(),
+			effectiveLowStockThreshold: z.number().int().min(0),
 			expiredBatchCount: z.number(),
 			nearestBatch: z
 				.object({
@@ -548,7 +565,7 @@ const inventoryRoutes = () => {
 		stockTransactionId: z.uuid(),
 	});
 
-	const InventoryBatchAvailabilitySchema = z.enum(["expired", "usable"]);
+	const InventoryBatchAvailabilitySchema = z.enum(["all", "expired", "usable"]);
 	const InventoryBatchSchema = z.object({
 		batchNumber: z.string().nullable(),
 		expiryDate: IsoDateSchema,
@@ -650,9 +667,16 @@ const inventoryRoutes = () => {
 			query: z.object({ search: z.string().trim().min(1).optional() }).optional(),
 		},
 
+		"@patch/inventory/batches/:batchId": {
+			body: z.object({ expiryDate: IsoDateSchema }),
+			data: withBaseSuccessResponse(z.object({ batch: InventoryBatchSchema })),
+			params: z.object({ batchId: z.uuid("Invalid batch ID") }),
+		},
+
 		"@patch/inventory/drugs/:drugId": {
 			body: DrugCreateSchema.partial().extend({
 				form: nullableTrimmedStringSchema.optional(),
+				lowStockThreshold: nullableLowStockThresholdSchema.optional(),
 				strength: nullableTrimmedStringSchema.optional(),
 				unit: nullableTrimmedStringSchema.optional(),
 			}),
@@ -775,11 +799,7 @@ const dashboardRoutes = () => {
 
 export const backendApiSchema = defineSchema(
 	{
-		...defineSchemaRoutes({
-			[fallBackRouteSchemaKey]: {
-				errorData: withBaseErrorResponse(),
-			},
-		}),
+		...fallbackRouteSchema(),
 		...authRoutes(),
 		...workspaceRoutes(),
 		...inventoryRoutes(),

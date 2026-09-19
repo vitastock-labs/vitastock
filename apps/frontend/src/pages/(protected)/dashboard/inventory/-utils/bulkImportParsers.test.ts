@@ -29,7 +29,9 @@ const validRow = (overrides: Partial<Record<string, unknown>> = {}) => {
 		Unit: "Tablets",
 	};
 
-	return HEADER_ROW.map((column) => (column in overrides ? overrides[column] : base[column]));
+	return HEADER_ROW.map((column) =>
+		Object.hasOwn(overrides, column) ? overrides[column] : base[column]
+	);
 };
 
 test("accepts columns regardless of order", () => {

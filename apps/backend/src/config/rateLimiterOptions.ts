@@ -1,5 +1,5 @@
 import { RedisStore, type ConfigProps, type RedisClient } from "hono-rate-limiter";
-import { AppError } from "@/lib/utils";
+import { AppError, getClientIp } from "@/lib/utils";
 import { redisCacheClient } from "@/services/cache/cacheClient";
 
 const redisRateLimitClient = {
@@ -11,10 +11,6 @@ const redisRateLimitClient = {
 	scriptLoad: (script) => redisCacheClient.scriptLoad(script),
 } satisfies RedisClient;
 
-const getClientIp = (forwardedFor: string | undefined) => {
-	return forwardedFor?.split(",")[0]?.trim() ?? "unknown";
-};
-
 const globalRateLimiterOptions: ConfigProps = {
 	handler: () => {
 		throw new AppError({
@@ -22,7 +18,7 @@ const globalRateLimiterOptions: ConfigProps = {
 			message: "Too many requests from this IP, please try again later.",
 		});
 	},
-	keyGenerator: (ctx) => getClientIp(ctx.req.header("x-forwarded-for")),
+	keyGenerator: (ctx) => getClientIp(ctx),
 	limit: 100,
 	standardHeaders: "draft-7",
 	store: new RedisStore({ client: redisRateLimitClient, prefix: "rate-limit:global:" }),
@@ -36,7 +32,7 @@ const authRateLimiterOptions: ConfigProps = {
 			message: "Too many auth attempts from this IP, please try again later.",
 		});
 	},
-	keyGenerator: (ctx) => getClientIp(ctx.req.header("x-forwarded-for")),
+	keyGenerator: (ctx) => getClientIp(ctx),
 	limit: 10,
 	standardHeaders: "draft-7",
 	store: new RedisStore({ client: redisRateLimitClient, prefix: "rate-limit:auth:" }),

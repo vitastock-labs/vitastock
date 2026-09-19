@@ -60,6 +60,7 @@ const getAlertConditions = async (
 		dbClient
 			.select({
 				drugId: drugs.id,
+				lowStockThreshold: drugs.lowStockThreshold,
 				totalAvailable: sql<number>`
 					coalesce(sum(case when ${stockBatches.expiryDate} >= ${today} then ${stockBatches.quantityAvailable} else 0 end), 0)
 				`.mapWith(Number),
@@ -108,12 +109,16 @@ const getAlertConditions = async (
 
 	return [
 		...lowStockDrugs
-			.filter((drug) => drug.totalAvailable <= lowStockThreshold)
+			.map((drug) => ({
+				...drug,
+				effectiveLowStockThreshold: drug.lowStockThreshold ?? lowStockThreshold,
+			}))
+			.filter((drug) => drug.totalAvailable <= drug.effectiveLowStockThreshold)
 			.map((drug) => ({
 				dedupeKey: `low_stock:${drug.drugId}`,
 				drugId: drug.drugId,
 				quantityAffected: drug.totalAvailable,
-				threshold: lowStockThreshold,
+				threshold: drug.effectiveLowStockThreshold,
 				type: "low_stock" as const,
 			})),
 		...expiredBatches.map((batch) => ({
@@ -186,7 +191,7 @@ export const getAlertEmailConfiguration = async (
 
 	return {
 		deliveryPolicy: workspace.deliveryPolicy,
-		recipients: [...recipients.values()],
+		recipients: recipients.values().toArray(),
 	};
 };
 
@@ -341,6 +346,7 @@ export const getPersistedInventoryAlerts = async (options: {
 				genericName: drugs.genericName,
 				id: drugs.id,
 				isActive: drugs.isActive,
+				lowStockThreshold: drugs.lowStockThreshold,
 				name: drugs.name,
 				strength: drugs.strength,
 				unit: drugs.unit,

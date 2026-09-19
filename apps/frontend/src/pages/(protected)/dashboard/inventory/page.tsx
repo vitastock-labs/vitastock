@@ -662,6 +662,17 @@ function InventoryDetailsDialog(props: { drugId: string }) {
 											{ label: "Dosage form", value: row.drug.form ?? EMPTY_DISPLAY_VALUE },
 											{ label: "Counting unit", value: row.drug.unit ?? EMPTY_DISPLAY_VALUE },
 											{
+												label: "Low stock threshold",
+												value: row.effectiveLowStockThreshold,
+											},
+											{
+												label: "Threshold source",
+												value:
+													row.drug.lowStockThreshold === null ?
+														"Workspace default"
+													:	"Drug-specific",
+											},
+											{
 												label: "Drug status",
 												value: row.drug.isActive ? "Active" : "Inactive",
 											},

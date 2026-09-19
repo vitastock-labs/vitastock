@@ -12,7 +12,7 @@ import {
 } from "./services/alertLifecycle";
 import { createInventoryBulkImport, validateInventoryBulkImportRows } from "./services/bulk-import";
 import { getInventoryActivity } from "./services/data-access/activity";
-import { getWorkspaceDrugBatches } from "./services/data-access/batches";
+import { getWorkspaceDrugBatches, updateWorkspaceBatchExpiryDate } from "./services/data-access/batches";
 import {
 	createDrugForWorkspace,
 	getWorkspaceDrugList,
@@ -47,15 +47,58 @@ export const inventoryRoutes = new Hono()
 		}
 	)
 
+	.patch(
+		"/batches/:batchId",
+		authorizeRoleMiddleware(["owner", "admin"]),
+		validateWithZodMiddleware(
+			"param",
+			backendApiSchemaRoutes["@patch/inventory/batches/:batchId"].params
+		),
+		validateWithZodMiddleware("json", backendApiSchemaRoutes["@patch/inventory/batches/:batchId"].body),
+		async (ctx) => {
+			const { batchId } = ctx.req.valid("param");
+			const { expiryDate } = ctx.req.valid("json");
+			const currentUser = ctx.get("currentUser");
+			const currentWorkspace = ctx.get("currentWorkspace");
+
+			const batch = await updateWorkspaceBatchExpiryDate({
+				batchId,
+				expiryDate,
+				workspaceId: currentUser.workspaceId,
+			});
+
+			await syncInventoryAlerts({
+				lowStockThreshold: currentWorkspace.lowStockThreshold,
+				nearExpiryDays: currentWorkspace.nearExpiryDays,
+				timezone: currentWorkspace.timezone,
+				workspaceId: currentUser.workspaceId,
+			});
+
+			return AppJsonResponse(ctx, {
+				data: { batch },
+				message: "Batch expiry date updated successfully",
+				schema: backendApiSchemaRoutes["@patch/inventory/batches/:batchId"].data,
+			});
+		}
+	)
+
 	.post(
 		"/drugs",
 		validateWithZodMiddleware("json", backendApiSchemaRoutes["@post/inventory/drugs"].body),
 		async (ctx) => {
 			const body = ctx.req.valid("json");
 			const currentUser = ctx.get("currentUser");
+			const currentWorkspace = ctx.get("currentWorkspace");
 
 			const drug = await createDrugForWorkspace({
 				...body,
+				workspaceId: currentUser.workspaceId,
+			});
+
+			await syncInventoryAlerts({
+				lowStockThreshold: currentWorkspace.lowStockThreshold,
+				nearExpiryDays: currentWorkspace.nearExpiryDays,
+				timezone: currentWorkspace.timezone,
 				workspaceId: currentUser.workspaceId,
 			});
 
@@ -76,12 +119,22 @@ export const inventoryRoutes = new Hono()
 			const body = ctx.req.valid("json");
 			const param = ctx.req.valid("param");
 			const currentUser = ctx.get("currentUser");
+			const currentWorkspace = ctx.get("currentWorkspace");
 
 			const drug = await updateDrug({
 				...body,
 				drugId: param.drugId,
 				workspaceId: currentUser.workspaceId,
 			});
+
+			if (Object.hasOwn(body, "lowStockThreshold")) {
+				await syncInventoryAlerts({
+					lowStockThreshold: currentWorkspace.lowStockThreshold,
+					nearExpiryDays: currentWorkspace.nearExpiryDays,
+					timezone: currentWorkspace.timezone,
+					workspaceId: currentUser.workspaceId,
+				});
+			}
 
 			return AppJsonResponse(ctx, {
 				data: { drug },

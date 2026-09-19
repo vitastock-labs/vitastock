@@ -25,7 +25,14 @@ const authMiddleware = createMiddleware<HonoAppBindings>(async (ctx, next) => {
 
 		ctx.set("currentWorkspace", currentWorkspace);
 
-		ctx.get("logger")?.assign({ userId: currentUser.id, workspaceId: currentWorkspace.id });
+		ctx.get("logger")?.assign({
+			userEmail: currentUser.email,
+			userId: currentUser.id,
+			userName: currentUser.fullName,
+			userRole: currentUser.role,
+			workspaceId: currentWorkspace.id,
+			workspaceName: currentWorkspace.name,
+		});
 
 		await next();
 	});

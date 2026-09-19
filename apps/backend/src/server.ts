@@ -17,6 +17,7 @@ try {
 	await Promise.all([initializeDatabaseConnection(), initializeRedisCacheClient()]);
 	await initializeBackgroundServices();
 
+	// eslint-disable-next-line unicorn/no-nonstandard-builtin-properties
 	appLogger.pretty.success("API and background services initialized successfully!".green.italic);
 } catch (error) {
 	appLogger.critical({
@@ -45,6 +46,7 @@ const server = serve(
 		const message =
 			ENVIRONMENT.NODE_ENV === "development" ? `http://localhost:${info.port}` : `PORT=${info.port}`;
 
+		// eslint-disable-next-line unicorn/no-nonstandard-builtin-properties
 		appLogger.pretty.info(`Server is running on ${message}`.yellow.italic);
 	}
 );

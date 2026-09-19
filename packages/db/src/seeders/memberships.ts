@@ -46,11 +46,13 @@ const getMembershipSeedData = (options: {
 			userId: findUserId(`pharmacist.${slug}@seeded.com`),
 			workspaceId,
 		},
-		...[...Array(5).keys()].map((index): InsertWorkspaceMembershipType => ({
-			role: "pharmacist",
-			userId: findUserId(`pharmacist.${index + 1}.${slug}@seeded.com`),
-			workspaceId,
-		})),
+		...Array(5)
+			.keys()
+			.map((index): InsertWorkspaceMembershipType => ({
+				role: "pharmacist",
+				userId: findUserId(`pharmacist.${index + 1}.${slug}@seeded.com`),
+				workspaceId,
+			})),
 		{
 			role: "pharmacist",
 			suspendedAt: new Date("2026-01-15T09:00:00.000Z"),

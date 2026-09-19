@@ -34,7 +34,14 @@ const createExactDrugIdentity = (identity: {
 
 type DrugResolutionCandidate = Pick<
 	typeof drugs.$inferSelect,
-	"form" | "genericName" | "id" | "isActive" | "name" | "strength" | "unit"
+	| "form"
+	| "genericName"
+	| "id"
+	| "isActive"
+	| "lowStockThreshold"
+	| "name"
+	| "strength"
+	| "unit"
 >;
 
 const getDrugResolutionCandidates = (row: BulkImportRow, existingDrugs: DrugResolutionCandidate[]) => {
@@ -94,6 +101,7 @@ export const validateInventoryBulkImportRows = async (options: {
 			genericName: row.genericName,
 			id: identity,
 			isActive: true,
+			lowStockThreshold: row.lowStockThreshold ?? null,
 			name: row.name,
 			strength: row.strength ?? null,
 			unit: row.unit ?? null,
@@ -103,6 +111,7 @@ export const validateInventoryBulkImportRows = async (options: {
 	const resolutionPool = [...existingDrugs, ...proposedDrugs.values()];
 
 	const issues = [];
+	const thresholdByDrugId = new Map<string, number>();
 
 	for (const [rowIndex, row] of rows.entries()) {
 		const resolution = resolveDrug(row, resolutionPool);
@@ -120,7 +129,24 @@ export const validateInventoryBulkImportRows = async (options: {
 				message: `${resolution.drug.name} must be reactivated before stock can be imported`,
 				rowIndex,
 			});
+			continue;
 		}
+
+		if (resolution.status !== "resolved" || row.lowStockThreshold === undefined) {
+			continue;
+		}
+
+		const previousThreshold = thresholdByDrugId.get(resolution.drug.id);
+
+		if (previousThreshold !== undefined && previousThreshold !== row.lowStockThreshold) {
+			issues.push({
+				message: `${row.name} has conflicting low stock thresholds in this file`,
+				rowIndex,
+			});
+			continue;
+		}
+
+		thresholdByDrugId.set(resolution.drug.id, row.lowStockThreshold);
 	}
 
 	return issues;
@@ -154,14 +180,18 @@ const resolveDrugIdsByRowIndex = async (options: {
 		await tx
 			.insert(drugs)
 			.values(
-				[...missingIdentities.values()].map((row) => ({
-					form: row.form ?? null,
-					genericName: row.genericName,
-					name: row.name,
-					strength: row.strength ?? null,
-					unit: row.unit ?? null,
-					workspaceId,
-				}))
+				missingIdentities
+					.values()
+					.map((row) => ({
+						form: row.form ?? null,
+						genericName: row.genericName,
+						lowStockThreshold: row.lowStockThreshold ?? null,
+						name: row.name,
+						strength: row.strength ?? null,
+						unit: row.unit ?? null,
+						workspaceId,
+					}))
+					.toArray()
 			)
 			.onConflictDoNothing();
 	}
@@ -235,6 +265,40 @@ export const createInventoryBulkImport = async (options: {
 			});
 		}
 
+		const thresholdByDrugId = new Map<string, number>();
+
+		for (const [rowIndex, row] of rows.entries()) {
+			if (row.lowStockThreshold === undefined) {
+				continue;
+			}
+
+			const drugId = drugIdByRowIndex.get(rowIndex);
+
+			if (!drugId) {
+				throw new AppError({ code: 500, message: `Failed to resolve drug for row: ${row.name}` });
+			}
+
+			const previousThreshold = thresholdByDrugId.get(drugId);
+
+			if (previousThreshold !== undefined && previousThreshold !== row.lowStockThreshold) {
+				throw new AppError({
+					code: 400,
+					message: `${row.name} has conflicting low stock thresholds in this file`,
+				});
+			}
+
+			thresholdByDrugId.set(drugId, row.lowStockThreshold);
+		}
+
+		await Promise.all(
+			thresholdByDrugId.entries().map(([drugId, lowStockThreshold]) => {
+				return tx
+					.update(drugs)
+					.set({ lowStockThreshold })
+					.where(and(eq(drugs.id, drugId), eq(drugs.workspaceId, workspaceId)));
+			})
+		);
+
 		const receipts = new Map<string, { drugId: string; expiryDate: string; quantity: number }>();
 
 		for (const [rowIndex, row] of rows.entries()) {
@@ -262,7 +326,7 @@ export const createInventoryBulkImport = async (options: {
 		}
 
 		const importedBatches = await Promise.all(
-			[...receipts.values()].map(async (receipt) => {
+			receipts.values().map(async (receipt) => {
 				const batch = await receiveStockBatch({
 					...receipt,
 					tx,

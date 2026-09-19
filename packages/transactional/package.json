@@ -14,21 +14,21 @@
 		"lint:type-check": "tsc --pretty -p tsconfig.json"
 	},
 	"dependencies": {
-		"@react-email/ui": "6.9.3",
+		"@react-email/ui": "6.9.5",
 		"@vitastock/shared": "workspace:*",
 		"@zayne-labs/toolkit-react": "0.12.59",
 		"@zayne-labs/toolkit-type-helpers": "0.12.59",
-		"react": "19.2.8",
-		"react-dom": "19.2.8",
-		"react-email": "6.9.3"
+		"react": "19.3.0",
+		"react-dom": "19.3.0",
+		"react-email": "6.9.5"
 	},
 	"devDependencies": {
 		"@total-typescript/ts-reset": "0.6.1",
-		"@types/react": "19.2.18",
-		"@types/react-dom": "19.2.7",
-		"@zayne-labs/prettier-config": "0.13.14",
-		"@zayne-labs/tsconfig": "0.13.14",
-		"prettier": "3.9.6",
+		"@types/react": "19.3.0",
+		"@types/react-dom": "19.3.0",
+		"@zayne-labs/prettier-config": "0.13.19",
+		"@zayne-labs/tsconfig": "0.13.19",
+		"prettier": "3.9.8",
 		"prettier-plugin-classnames": "0.10.4",
 		"prettier-plugin-merge": "0.10.1",
 		"prettier-plugin-tailwindcss": "0.8.1",

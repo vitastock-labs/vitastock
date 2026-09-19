@@ -11,7 +11,7 @@ export const OAuth2TokenDataSchema = z
 	})
 	.loose();
 
-type OAuth2TokenData = z.output<typeof OAuth2TokenDataSchema>;
+export type OAuth2TokenData = z.output<typeof OAuth2TokenDataSchema>;
 
 const requireString = (data: OAuth2TokenData, field: string) => {
 	const value = data[field];
@@ -37,7 +37,7 @@ export const decodeUnverifiedIdTokenPayload = <TSchema extends z.ZodType>(
 	idToken: string,
 	schema: TSchema
 ) => {
-	const encodedPayload = idToken.split(".")[1];
+	const encodedPayload = idToken.split(".", 2)[1];
 
 	if (!encodedPayload) {
 		throw new TypeError("Invalid ID token");

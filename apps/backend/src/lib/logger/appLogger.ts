@@ -6,6 +6,9 @@ import { ENVIRONMENT } from "@/config/env";
 import { requestContext } from "@/middleware/authMiddleware/requestContext";
 
 type PrettyLogPayload = {
+	client?: {
+		ip?: unknown;
+	};
 	method?: unknown;
 	msg?: unknown;
 	req?: {
@@ -14,6 +17,8 @@ type PrettyLogPayload = {
 	};
 	responseTime?: unknown;
 	route?: unknown;
+	userEmail?: unknown;
+	userId?: unknown;
 };
 
 const getStringValue = (value: unknown) => {
@@ -31,9 +36,11 @@ const prettyStream = pretty({
 		const url = getStringValue(log.req?.url) ?? getStringValue(log.route);
 		const responseTime = getLogMessageValue(log.responseTime);
 		const message = getStringValue(log.msg) ?? "backend log";
+		const clientIp = getStringValue(log.client?.ip) ?? "unknown";
+		const user = getStringValue(log.userEmail) ?? getStringValue(log.userId) ?? "anonymous";
 
 		if (method && url && responseTime) {
-			return `'${method}' request to url:'${url}' completed in ${responseTime}ms with message:'${message}'`;
+			return `'${method}' request to url:'${url}' by '${user}' from '${clientIp}' completed in ${responseTime}ms with message:'${message}'`;
 		}
 
 		return message;
@@ -109,6 +116,7 @@ export const appLogger = {
 	structured: new Proxy(structuredLogger, {
 		get: (_target, prop: string) => {
 			const logger = getContextualLogger();
+			// eslint-disable-next-line ts-eslint/unbound-method
 			const value = logger[prop as keyof typeof logger];
 			return isFunction(value) ? value.bind(logger) : value;
 		},

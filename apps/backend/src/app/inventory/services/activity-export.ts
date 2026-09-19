@@ -1,6 +1,7 @@
 import { tz } from "@date-fns/tz";
 import type { backendApiSchemaRoutes } from "@vitastock/shared/validation/backendApiSchema";
 import { format } from "date-fns";
+
 /* eslint-disable import/default */
 import PapaParse from "papaparse";
 /* eslint-enable import/default */
@@ -81,7 +82,7 @@ export const createInventoryActivityCsv = async (options: {
 	);
 
 	return {
-		content: `\uFEFF${csv}`,
+		content: `\u{FEFF}${csv}`,
 		filename: getExportFilename(query, timezone),
 	};
 };

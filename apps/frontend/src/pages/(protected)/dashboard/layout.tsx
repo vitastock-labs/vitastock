@@ -4,7 +4,7 @@ import { DashboardSidebar } from "./-components/DashboardSidebar";
 
 function DashboardLayout() {
 	return (
-		<div className="flex min-w-0 grow bg-[hsl(210,17%,98%)]">
+		<div className="flex min-w-0 grow overflow-x-hidden bg-[hsl(210,17%,98%)]">
 			<DashboardSidebar />
 
 			<div className="flex min-w-0 grow flex-col">

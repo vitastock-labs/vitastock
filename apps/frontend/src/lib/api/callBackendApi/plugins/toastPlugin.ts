@@ -94,6 +94,7 @@ export const toastPlugin = (toastOptions?: ToastPluginMeta["toast"]) => {
 				if (shouldSkipErrorToast || !isErrorToastEnabled) return;
 
 				if (isHTTPError(ctx.error) && ctx.error.errorData.errors) {
+					// eslint-disable-next-line unicorn/no-for-each
 					Object.values(ctx.error.errorData.errors).forEach((message) => toast.error(message));
 					return;
 				}

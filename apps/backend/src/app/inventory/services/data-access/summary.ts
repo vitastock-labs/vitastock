@@ -34,6 +34,7 @@ export const getInventorySummaryRows = async (options: {
 					genericName: drugs.genericName,
 					id: drugs.id,
 					isActive: drugs.isActive,
+					lowStockThreshold: drugs.lowStockThreshold,
 					name: drugs.name,
 					strength: drugs.strength,
 					unit: drugs.unit,
@@ -111,19 +112,25 @@ export const getInventorySummaryRows = async (options: {
 
 	const nearestBatchByDrugId = new Map(nearestBatchRows.map((batch) => [batch.drugId, batch]));
 
-	return aggregatedRows.map((row) => ({
-		drug: row.drug,
-		drugId: row.drugId,
-		expiredBatchCount: row.expiredBatchCount,
-		nearestBatch: nearestBatchByDrugId.get(row.drugId),
-		nearestExpiryDate: nearestBatchByDrugId.get(row.drugId)?.expiryDate,
-		nearExpiryBatchCount: row.nearExpiryBatchCount,
-		stockStatus: getInventoryStatus({
-			lowStockThreshold,
+	return aggregatedRows.map((row) => {
+		const effectiveLowStockThreshold = row.drug.lowStockThreshold ?? lowStockThreshold;
+		const nearestBatch = nearestBatchByDrugId.get(row.drugId);
+
+		return {
+			drug: row.drug,
+			drugId: row.drugId,
+			effectiveLowStockThreshold,
+			expiredBatchCount: row.expiredBatchCount,
+			nearestBatch,
+			nearestExpiryDate: nearestBatch?.expiryDate,
+			nearExpiryBatchCount: row.nearExpiryBatchCount,
+			stockStatus: getInventoryStatus({
+				lowStockThreshold: effectiveLowStockThreshold,
+				totalAvailable: row.totalAvailable,
+			}),
 			totalAvailable: row.totalAvailable,
-		}),
-		totalAvailable: row.totalAvailable,
-		usableBatchCount: row.usableBatchCount,
-		usableExpiryDateCount: row.usableExpiryDateCount,
-	}));
+			usableBatchCount: row.usableBatchCount,
+			usableExpiryDateCount: row.usableExpiryDateCount,
+		};
+	});
 };
