@@ -49,7 +49,7 @@ type DrugBatch = InventoryDrugBatchesQueryResultType["batches"][number];
 
 const EMPTY_DRUGS: Drug[] = [];
 const drugColumnHelper = createDataTableColumnHelper<Drug>();
-const batchExpiryDatePickerRange = (() => {
+const BATCH_EXPIRY_DATE_PICKER_RANGE = (() => {
 	const today = new Date();
 
 	return {
@@ -490,7 +490,7 @@ function BatchExpiryRow(props: { batch: DrugBatch; drugId: string; drugUnit: str
 					dateString={expiryDate}
 					placeholder="Select corrected expiry date"
 					dateFormats={{ onChangeDate: "yyyy-MM-dd", visibleDate: "MMM d, yyyy" }}
-					datePickerProps={batchExpiryDatePickerRange}
+					datePickerProps={BATCH_EXPIRY_DATE_PICKER_RANGE}
 					className="h-10 min-w-0 rounded-lg border border-shadcn-border bg-white px-3 sm:flex-1"
 					onDateStringChange={(value) => setExpiryDate(value ?? "")}
 				/>

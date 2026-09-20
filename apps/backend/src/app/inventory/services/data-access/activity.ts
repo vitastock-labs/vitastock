@@ -209,14 +209,14 @@ export const getInventoryActivity = async (options: {
 	const weeklyStats = weeklyStatsResult[0];
 	const expiryLoss = expiryLossResult[0];
 	const activityDateRange = activityDateRangeResult[0];
-	let availableDateRange = null;
 
-	if (activityDateRange?.from && activityDateRange.to) {
-		availableDateRange = {
-			from: getWorkspaceToday(timezone, activityDateRange.from),
-			to: getWorkspaceToday(timezone, activityDateRange.to),
-		};
-	}
+	const availableDateRange =
+		activityDateRange?.from && activityDateRange.to ?
+			{
+				from: getWorkspaceToday(timezone, activityDateRange.from),
+				to: getWorkspaceToday(timezone, activityDateRange.to),
+			}
+		:	null;
 
 	return {
 		availableDateRange,

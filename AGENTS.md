@@ -50,7 +50,7 @@ Apply these conventions to all repository changes unless a more specific `AGENTS
 - Components may use function declarations. Non-component functions use arrow functions.
 - Destructure component props at the beginning of the component instead of repeatedly reading `props.*` in render logic.
 - Export named declarations at their definition. A file with only one export may export it at the end; page default exports belong directly below the page component definition.
-- Do not use nested ternaries. Use guards, a lookup, a small IIFE, or straightforward conditional classes.
+- Do not use nested ternaries. Keep a clear single-level ternary when it is the most readable expression; do not expand it into mutable `let` setup merely to avoid a ternary. Use guards, a lookup, or a small IIFE when conditional value derivation needs multiple branches.
 - Use a single-line `if` only for a pure control-flow guard with an empty `return`, `break`, or `continue`. When an `if` returns a value or performs work, give it a block body.
 - Do not name tiny one-use values, types, class maps, or helpers unless the name adds domain meaning or reuse.
 - Do not add broad fallback values that make missing API data look valid. Model required and nullable fields honestly.
@@ -98,6 +98,7 @@ Apply these conventions to all repository changes unless a more specific `AGENTS
 
 - Use `date-fns` for all date parsing, comparison, manipulation, and formatting on frontend and backend.
 - Do not mutate `Date` objects manually.
+- Do not construct the current date during React render. Create stable date-picker bounds at module scope or in a lazy initializer unless the value must update while the component remains mounted.
 - Inventory tracks quantities, batches, and expiry dates, not prices or costs. Do not add monetary inputs, valuation, or financial loss calculations.
 - Reuse shared formatter utilities rather than creating `Intl` formatters in individual files.
 
@@ -123,6 +124,9 @@ Apply these conventions to all repository changes unless a more specific `AGENTS
 - Use database constraints for concurrency-sensitive invariants. Do not rely only on existence checks.
 - Keep transactions focused around writes that must succeed or fail atomically.
 - Use direct `emitAppEvent` calls and register subscribers near their affected modules. Events are observability/decoupling tools, not delivery guarantees.
+- Keep Redis cache-aside usage narrow and explicit. Cache stable session-adjacent user, membership, and workspace records; do not cache live inventory, alert, dashboard, or report reads without a complete key and invalidation design that prevents stale stock state.
+- Invalidate the exact cached session records after relevant writes. Inventory drug, batch, and movement writes do not invalidate session caches unless they also modify cached workspace, membership, or user fields.
+- Request logs must retain request ID, method, route, status, and duration. Authenticated logs also identify the actor and workspace; request metadata records the best available proxy-provided client IP, origin/referrer, and user agent without logging credentials or raw auth data.
 - Never log passwords, tokens, cookies, verification codes, reset links, or raw auth payloads.
 
 ## Final Review

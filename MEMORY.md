@@ -60,6 +60,8 @@ This file is the handoff context for continuing VitaStock in a new Codex task. R
    - independent usable, expired, and near-expiry batch counts.
 - Never replace Out of stock with Expired. A drug may simultaneously have no usable stock and still have expired physical batches.
 - Inventory does not track prices, costs, valuation, or financial loss. Stock creation and import record quantities and expiry without monetary fields.
+- Each drug may override the workspace default low-stock threshold. A missing drug override inherits the current workspace threshold; imports may set an optional per-drug threshold.
+- Owners and admins may correct the expiry date of a stocked physical batch after matching its batch number and remaining quantity. The backend keeps the operation workspace-scoped, locks the batch row, rejects an identity collision, and resynchronizes alerts after the update.
 
 ### Stock Movement And FEFO
 
@@ -103,6 +105,7 @@ This file is the handoff context for continuing VitaStock in a new Codex task. R
 - Use `Switch` for substantial loading/error/empty/content branches, `Show` for conditional content, and `For`/`ForWithWrapper` instead of direct page-JSX maps.
 - Use existing empty-state, dialog, date-picker, dropzone, tabs, card, icon, and toaster primitives before creating alternatives.
 - Icons are registered in `apps/frontend/monicon.config.ts`; generated icon output is not edited manually.
+- Clear single-level ternaries are acceptable. Do not replace them with mutable `let` variables; use a small IIFE when deriving one value requires multi-branch control flow.
 
 ## Backend Architecture And Corrections
 
@@ -114,6 +117,9 @@ This file is the handoff context for continuing VitaStock in a new Codex task. R
 - Use `date-fns` and `@date-fns/tz` for date operations and workspace-calendar boundaries. Do not mutate `Date` manually.
 - App events are retained only where they provide useful logging or decoupling. Remove events that merely announce a read request or duplicate direct control flow.
 - Cache and queue Redis clients have different purposes and lifecycle. Startup must initialize dependencies before constructing consumers that use them, and failures must produce clear logs without hidden retry storms.
+- Redis cache-aside currently owns stable session-adjacent user, membership, and workspace records. Live inventory summaries, alerts, dashboard data, and reports remain authoritative PostgreSQL reads because their high mutation rate and filter combinations would require broad invalidation and could expose stale stock.
+- Workspace-setting writes invalidate the workspace cache. Drug, batch, and stock-movement writes do not touch session cache entries unless they also change cached session data.
+- HTTP request logs carry request and response timing plus actor, workspace, client IP, origin/referrer, and user-agent context. Sensitive headers, cookies, tokens, and credentials remain redacted or excluded.
 - Never log credentials, tokens, cookies, verification codes, passwords, raw auth payloads, or secret-bearing links.
 
 ## Testing And Verification
@@ -138,6 +144,7 @@ Inventory correctness, date-only expiry, logical activity grouping, FEFO guidanc
 
 - Do not duplicate API or enum types on the frontend.
 - Do not use nested ternaries or ternaries whose only alternate is `undefined`.
+- Do not rewrite a readable single-level ternary into mutable `let` setup. Prefer an IIFE when conditional value derivation genuinely needs multiple statements or branches.
 - Do not pass form-value generics to `useForm`.
 - Every form field renders its own error through shared form composition.
 - Do not use direct `.map()` in page JSX or `Array.from` for count rendering.
