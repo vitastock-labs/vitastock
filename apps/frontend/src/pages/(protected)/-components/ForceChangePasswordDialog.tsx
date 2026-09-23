@@ -28,13 +28,12 @@ export function ForceChangePasswordDialog() {
 
 	const signoutMutationResult = useMutation(signoutMutation());
 
-	const onSignout = () => {
-		signoutMutationResult.mutate(undefined, {
-			onSuccess: () => {
-				void queryClient.invalidateQueries(sessionQuery());
-				void navigate("/", { replace: true });
-			},
-		});
+	const onSignout = async () => {
+		await signoutMutationResult.mutateAsync();
+		await navigate("/", { replace: true });
+
+		// == Invalidating would keep the stale session after its refetch fails, so drop all signed-in data
+		queryClient.removeQueries();
 	};
 
 	const onSubmit = form.handleSubmit(async (data) => {
@@ -115,7 +114,7 @@ export function ForceChangePasswordDialog() {
 						size="full-width"
 						isDisabled={signoutMutationResult.isPending}
 						isLoading={signoutMutationResult.isPending}
-						onClick={onSignout}
+						onClick={() => void onSignout()}
 					>
 						Sign Out
 					</Button>

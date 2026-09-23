@@ -108,7 +108,7 @@ export const STOCK_OUT_REASONS = defineEnum([STOCK_LOG_TYPES[0], STOCK_LOG_TYPES
 export const INVENTORY_ALERT_TYPES = defineEnum(["expired", "expiring_soon", "low_stock"]);
 export const INVENTORY_ALERT_STATUSES = defineEnum(["active", "resolved"]);
 export const INVENTORY_ALERT_OUTBOX_TYPES = defineEnum(["alert_raised", "daily_digest"]);
-export const STOCK_TRANSACTION_OPERATIONS = defineEnum(["bulk_import", "stock_log"]);
+export const STOCK_TRANSACTION_OPERATIONS = defineEnum(["bulk_import", "dispense_cart", "stock_log"]);
 
 export const stockTransactions = pg.pgTable(
 	"stock_transactions",

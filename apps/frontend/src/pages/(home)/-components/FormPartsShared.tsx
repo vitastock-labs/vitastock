@@ -3,9 +3,12 @@
 import { tw } from "@zayne-labs/toolkit-core";
 import type { InferProps } from "@zayne-labs/toolkit-react/utils";
 import { isString, type DistributivePick } from "@zayne-labs/toolkit-type-helpers";
+import { defaultFilter } from "cmdk";
+import { useRef, useState } from "react";
 import type { FieldValues } from "react-hook-form";
 import { For } from "@/components/common/for";
-import { Combobox, Select } from "@/components/ui";
+import { ComboboxBase, Select } from "@/components/ui";
+import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
 import { cnMerge } from "@/lib/utils/cn";
 
@@ -33,6 +36,21 @@ type SharedComboboxOption = {
 
 const getSharedFieldOption = (option: SharedFieldOption) => {
 	return isString(option) ? { label: option, value: option } : option;
+};
+
+const rankComboboxOptions = (options: SharedComboboxOption[], query: string) => {
+	if (!query) {
+		return options;
+	}
+
+	return options
+		.map((option) => ({
+			option,
+			score: defaultFilter(option.value, query, option.keywords ?? [option.label]),
+		}))
+		.filter((rankedOption) => rankedOption.score > 0)
+		.sort((rankedOptionA, rankedOptionB) => rankedOptionB.score - rankedOptionA.score)
+		.map((rankedOption) => rankedOption.option);
 };
 
 function RequiredIndicator(props: { required: boolean | undefined }) {
@@ -139,12 +157,10 @@ export function ComboboxField<TFieldValues extends FieldValues, TTransformedValu
 		classNames?: SharedFieldClassNames & {
 			content?: string;
 			empty?: string;
-			group?: string;
 			input?: string;
 			item?: string;
 			list?: string;
 			trigger?: string;
-			triggerIcon?: string;
 		};
 		data: SharedComboboxOption[];
 		description?: React.ReactNode;
@@ -172,6 +188,11 @@ export function ComboboxField<TFieldValues extends FieldValues, TTransformedValu
 		type,
 	} = props;
 
+	const [inputValue, setInputValue] = useState("");
+
+	// == Keeps the popup inside the field's DOM so modal dialogs don't trap focus or pointer events away from it
+	const popupContainerRef = useRef<HTMLDivElement>(null);
+
 	return (
 		<FormField
 			control={control}
@@ -183,67 +204,77 @@ export function ComboboxField<TFieldValues extends FieldValues, TTransformedValu
 		>
 			<Form.FieldBoundController
 				render={({ field, fieldState }) => (
-					<Combobox.Root
-						data={data}
-						type={type}
-						value={field.value}
-						onValueChange={(value) => {
-							field.onChange(value);
-							onValueChange?.(value);
+					<ComboboxBase.Root
+						items={data}
+						filteredItems={rankComboboxOptions(data, inputValue)}
+						disabled={disabled}
+						autoHighlight={true}
+						value={data.find((option) => option.value === field.value) ?? null}
+						inputValue={inputValue}
+						onInputValueChange={(value) => {
+							setInputValue(value);
+							onInputValueChange?.(value);
+						}}
+						onValueChange={(option) => {
+							if (!option) return;
+
+							field.onChange(option.value);
+							onValueChange?.(option.value);
 						}}
 					>
-						<Combobox.Trigger
+						<ComboboxBase.Trigger
+							ref={field.ref}
 							aria-invalid={fieldState.invalid}
-							disabled={disabled}
-							classNames={{
-								base: cnMerge(
-									`h-10 w-full justify-between rounded-lg border-shadcn-border
-									bg-shadcn-background px-4 text-left text-[14px] font-normal shadow-none
-									hover:bg-shadcn-background aria-invalid:border-shadcn-destructive
-									aria-invalid:ring-[3px] aria-invalid:ring-shadcn-destructive/20`,
-									classNames?.trigger
-								),
-								icon: cnMerge("text-vitastock-body-color/70", classNames?.triggerIcon),
-							}}
-						/>
-
-						<Combobox.Content
-							className={cnMerge("rounded-lg bg-shadcn-background", classNames?.content)}
-							popoverOptions={{ align: "start", sideOffset: 6 }}
+							render={<Button theme="none" size="none" />}
+							className={cnMerge(
+								`h-10 w-full justify-between rounded-lg border border-shadcn-border
+								bg-shadcn-background px-4 text-left text-[14px] font-normal text-shadcn-foreground
+								aria-invalid:border-shadcn-destructive aria-invalid:ring-[3px]
+								aria-invalid:ring-shadcn-destructive/20
+								*:data-[slot=combobox-icon]:text-vitastock-body-color/70`,
+								classNames?.trigger
+							)}
 						>
-							<Combobox.Input
+							<ComboboxBase.Value placeholder={`Select ${type}...`} />
+						</ComboboxBase.Trigger>
+
+						<ComboboxBase.Content
+							container={popupContainerRef}
+							className={cnMerge(
+								"min-w-(--anchor-width) rounded-lg bg-shadcn-background",
+								classNames?.content
+							)}
+						>
+							<ComboboxBase.Input
+								withTrigger={false}
+								placeholder={`Search ${type}...`}
 								className={cnMerge("h-10 text-[14px]", classNames?.input)}
-								onValueChange={onInputValueChange}
 							/>
-							<Combobox.Empty className={cnMerge("p-3 text-[13px]", classNames?.empty)}>
-								{emptyContent}
-							</Combobox.Empty>
-							<Combobox.List className={cnMerge("max-h-64 p-1.5", classNames?.list)}>
-								<Combobox.Group className={cnMerge("p-0", classNames?.group)}>
-									<For
-										each={data}
-										renderItem={(option) => (
-											<Combobox.Item
-												key={option.value}
-												value={option.value}
-												keywords={option.keywords ?? [option.label]}
-												className={cnMerge(
-													`min-h-9 rounded-md px-3 text-[14px]
-													data-[selected=true]:bg-vitastock-primary-main/10
-													data-[selected=true]:text-vitastock-primary-dark`,
-													classNames?.item
-												)}
-											>
-												{option.label}
-											</Combobox.Item>
+							<ComboboxBase.Empty className={cnMerge("p-3 text-[13px]", classNames?.empty)}>
+								{emptyContent ?? `No ${type} found.`}
+							</ComboboxBase.Empty>
+							<ComboboxBase.List className={cnMerge("max-h-64 p-1.5", classNames?.list)}>
+								{(option: SharedComboboxOption) => (
+									<ComboboxBase.Item
+										key={option.value}
+										value={option}
+										className={cnMerge(
+											`min-h-9 rounded-md pl-3 text-[14px]
+											data-highlighted:bg-vitastock-primary-main/10
+											data-highlighted:text-vitastock-primary-dark`,
+											classNames?.item
 										)}
-									/>
-								</Combobox.Group>
-							</Combobox.List>
-						</Combobox.Content>
-					</Combobox.Root>
+									>
+										{option.label}
+									</ComboboxBase.Item>
+								)}
+							</ComboboxBase.List>
+						</ComboboxBase.Content>
+					</ComboboxBase.Root>
 				)}
 			/>
+
+			<div ref={popupContainerRef} className="contents" />
 		</FormField>
 	);
 }

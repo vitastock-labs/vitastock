@@ -11,6 +11,7 @@ const HEADER_ROW = [
 	"Strength",
 	"Dosage Form",
 	"Unit",
+	"Low Stock Threshold",
 	"Quantity",
 	"Expiry Date",
 ];
@@ -24,6 +25,7 @@ const validRow = (overrides: Partial<Record<string, unknown>> = {}) => {
 		"Drug Name": "Paracetamol",
 		"Expiry Date": futureDate,
 		"Generic Name": "Paracetamol",
+		"Low Stock Threshold": "",
 		Quantity: "100",
 		Strength: "500mg",
 		Unit: "Tablets",
@@ -226,10 +228,7 @@ test("rejects one row over the maximum allowed row count", () => {
 });
 
 test("parses a csv file into a valid, ready-to-import row", async () => {
-	const csvText = [
-		HEADER_ROW.join(","),
-		["Paracetamol", "Paracetamol", "500mg", "Tablet", "Tablets", "100", futureDate].join(","),
-	].join("\n");
+	const csvText = [HEADER_ROW.join(","), validRow().join(",")].join("\n");
 
 	const file = new File([csvText], "import.csv", { type: "text/csv" });
 	const rows = await parseCsvFile(file);

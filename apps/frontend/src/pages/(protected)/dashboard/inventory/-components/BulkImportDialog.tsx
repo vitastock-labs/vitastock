@@ -20,15 +20,7 @@ import { Button } from "@/components/ui/button";
 import { createDataTableColumnHelper, useDataTable } from "@/components/ui/data-table";
 import { callBackendApiForQuery } from "@/lib/api/callBackendApi";
 import { posthog } from "@/lib/posthog";
-import {
-	dashboardOverviewQuery,
-	inventoryActivityQuery,
-	inventoryAlertsQuery,
-	inventoryAlertsStatusQuery,
-	inventoryDrugsQuery,
-	inventorySummaryQuery,
-	sessionQuery,
-} from "@/lib/react-query/queryOptions";
+import { inventoryDrugsQuery, sessionQuery } from "@/lib/react-query/queryOptions";
 import { cnJoin } from "@/lib/utils/cn";
 import { formatCalendarDateInTimezone, formatDate } from "@/lib/utils/formatters";
 import { EMPTY_DISPLAY_VALUE } from "@/pages/(protected)/dashboard/-components/constants";
@@ -39,6 +31,7 @@ import {
 	validateBulkImportSheet,
 	type BulkImportRowResult,
 } from "../-utils/bulkImportParsers";
+import { invalidateStockMovementQueries } from "../-utils/invalidateStockMovementQueries";
 import { DashboardDataTable } from "../../-components/DashboardDataTableShared";
 
 type BulkImportProcessingStep = "detecting-columns" | "preparing-preview" | "reading" | "validating-rows";
@@ -541,15 +534,7 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 						imported_row_count: validRows.length,
 					});
 
-					void queryClient.invalidateQueries(inventorySummaryQuery());
-					void queryClient.invalidateQueries(dashboardOverviewQuery());
-					void queryClient.invalidateQueries(inventoryAlertsStatusQuery());
-					void queryClient.invalidateQueries({
-						queryKey: inventoryAlertsQuery().queryKey.slice(0, -1),
-					});
-					void queryClient.invalidateQueries({
-						queryKey: inventoryActivityQuery().queryKey.slice(0, -1),
-					});
+					void invalidateStockMovementQueries(queryClient);
 					void queryClient.invalidateQueries({
 						queryKey: inventoryDrugsQuery().queryKey.slice(0, -1),
 					});

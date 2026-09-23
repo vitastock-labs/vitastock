@@ -3,6 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnFiltersState } from "@tanstack/react-table";
+import { useConstant } from "@zayne-labs/toolkit-react";
 import { addYears, endOfYear, startOfYear } from "date-fns";
 import { parseAsString, parseAsStringEnum, useQueryState, useQueryStates } from "nuqs";
 import { useMemo, useState } from "react";
@@ -33,10 +34,6 @@ import {
 } from "@/lib/api/callBackendApi/apiSchema";
 import { posthog } from "@/lib/posthog";
 import {
-	dashboardOverviewQuery,
-	inventoryActivityQuery,
-	inventoryAlertsQuery,
-	inventoryAlertsStatusQuery,
 	inventoryDrugBatchesQuery,
 	inventoryDrugsQuery,
 	inventorySummaryQuery,
@@ -60,6 +57,8 @@ import { DashboardDataTable } from "../-components/DashboardDataTableShared";
 import { CreateDrugDialog, EditDrugDialog } from "../-components/DrugMasterDialog";
 import { Main } from "../-components/Main";
 import { BulkImportDialog } from "./-components/BulkImportDialog";
+import { DispenseCartDialog } from "./-components/DispenseCartDialog";
+import { invalidateStockMovementQueries } from "./-utils/invalidateStockMovementQueries";
 
 function InventoryPage() {
 	const inventorySummaryQueryResult = useQuery(inventorySummaryQuery());
@@ -178,6 +177,13 @@ function InventoryStats() {
 	);
 }
 
+const RemovalReasonSchema = StockOutReasonSchema.extract([
+	StockOutReasonSchema.enum.damaged,
+	StockOutReasonSchema.enum.expired,
+]);
+
+type RemovalReason = z.infer<typeof RemovalReasonSchema>;
+
 function InventoryActions() {
 	const [stockMovementSearchParams, setStockMovementSearchParams] = useQueryStates({
 		batchId: parseAsString,
@@ -186,11 +192,14 @@ function InventoryActions() {
 		reason: parseAsStringEnum([...StockOutReasonSchema.options]),
 	});
 
-	const closeAlertActionDialog = () => {
-		void setStockMovementSearchParams(
-			{ batchId: null, drugId: null, movement: null, reason: null },
-			{ history: "replace" }
-		);
+	const removalReason = RemovalReasonSchema.safeParse(stockMovementSearchParams.reason).data;
+
+	// == Dispensing (patient/ward) goes through the cart; only batch removals use the single-item dialog
+	const isDispenseCartOpen =
+		stockMovementSearchParams.movement === StockMovementLogTypeSchema.enum.stock_out && !removalReason;
+
+	const clearStockMovementSearchParams = () => {
+		void setStockMovementSearchParams(null, { history: "replace" });
 	};
 
 	const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
@@ -199,11 +208,30 @@ function InventoryActions() {
 		<section className="flex flex-col gap-4" aria-label="Inventory actions">
 			<nav className="flex flex-wrap items-center justify-between gap-4">
 				<div className="flex flex-wrap items-center gap-3">
+					<DispenseCartDialog
+						open={isDispenseCartOpen}
+						onOpenChange={(open) => {
+							if (!open) {
+								clearStockMovementSearchParams();
+								return;
+							}
+
+							void setStockMovementSearchParams({
+								movement: StockMovementLogTypeSchema.enum.stock_out,
+							});
+						}}
+					>
+						<Button className="px-6">
+							<IconBox icon="lucide:minus" className="size-4.5" />
+							Dispense
+						</Button>
+					</DispenseCartDialog>
+
 					<DialogAnimated.Root>
 						<DialogAnimated.Trigger asChild={true}>
 							<Button className="px-6">
-								<IconBox icon="lucide:minus" className="size-4.5" />
-								Dispense
+								<IconBox icon="lucide:trash" className="size-4.5" />
+								Remove Stock
 							</Button>
 						</DialogAnimated.Trigger>
 
@@ -248,9 +276,9 @@ function InventoryActions() {
 			<StockMovementQueryDialog
 				batchId={stockMovementSearchParams.batchId}
 				drugId={stockMovementSearchParams.drugId}
-				movement={stockMovementSearchParams.movement}
-				reason={stockMovementSearchParams.reason}
-				onClose={closeAlertActionDialog}
+				movement={isDispenseCartOpen ? null : stockMovementSearchParams.movement}
+				reason={removalReason}
+				onClose={clearStockMovementSearchParams}
 			/>
 		</section>
 	);
@@ -261,7 +289,7 @@ function StockMovementQueryDialog(props: {
 	drugId: string | null;
 	movement: StockMovementType | null;
 	onClose: () => void;
-	reason: z.infer<typeof StockOutReasonSchema> | null;
+	reason: RemovalReason | undefined;
 }) {
 	const { batchId, drugId, movement, onClose, reason } = props;
 
@@ -282,7 +310,7 @@ function StockMovementQueryDialog(props: {
 				defaultLogType={movement}
 				initialBatchId={batchId ?? undefined}
 				initialDrugId={drugId ?? undefined}
-				initialReason={reason ?? undefined}
+				initialReason={reason}
 				onComplete={onClose}
 			/>
 		</DialogAnimated.Root>
@@ -850,97 +878,38 @@ function ProjectedStockOut() {
 const StockLogSchema = backendApiSchemaRoutes["@post/inventory/stock-log"].body;
 
 type StockMovementType = z.infer<typeof StockMovementLogTypeSchema>;
-type StockOutReason = z.infer<typeof StockOutReasonSchema>;
 type StockLogFormValues = z.input<typeof StockLogSchema>;
 
-const stockOutReasonLabels = {
-	[StockOutReasonSchema.enum.damaged]: "Damaged stock",
-	[StockOutReasonSchema.enum.expired]: "Expired stock",
-	[StockOutReasonSchema.enum.patient]: "Patient dispense",
-	[StockOutReasonSchema.enum.ward]: "Ward dispense",
-} satisfies Record<StockOutReason, string>;
+const removalReasonLabels = {
+	[RemovalReasonSchema.enum.damaged]: "Damaged stock",
+	[RemovalReasonSchema.enum.expired]: "Expired stock",
+} satisfies Record<RemovalReason, string>;
 
-const stockOutReasonOptions = StockOutReasonSchema.options.map((reason) => ({
-	label: stockOutReasonLabels[reason],
+const removalReasonOptions = RemovalReasonSchema.options.map((reason) => ({
+	label: removalReasonLabels[reason],
 	value: reason,
 }));
 
-function StockOutDetails(props: {
-	drugId: string;
-	quantity: StockLogFormValues["quantity"];
-	reason: StockOutReason;
-}) {
-	const { drugId, quantity, reason } = props;
+function RemovalBatchField(props: { drugId: string; reason: RemovalReason | undefined }) {
+	const { drugId, reason } = props;
 	const form = useFormContext<StockLogFormValues>();
-	const inventorySummaryQueryResult = useQuery(inventorySummaryQuery());
-	const inventoryRow = inventorySummaryQueryResult.data?.rows.find((row) => row.drugId === drugId);
-	const isDisposal =
-		reason === StockOutReasonSchema.enum.damaged || reason === StockOutReasonSchema.enum.expired;
-	const availability = reason === StockOutReasonSchema.enum.expired ? "expired" : "usable";
+	const availability = reason === RemovalReasonSchema.enum.expired ? "expired" : "usable";
 	const batchesQueryResult = useQuery({
 		...inventoryDrugBatchesQuery({ drugId }, { availability }),
-		enabled: isDisposal && drugId.length > 0,
+		enabled: Boolean(reason) && drugId.length > 0,
 	});
+
+	if (!reason) {
+		return null;
+	}
+
 	const batches = batchesQueryResult.data?.batches ?? [];
 	const batchOptions = batches.map((batch) => ({
 		keywords: [batch.batchNumber ?? "Unnumbered batch", batch.expiryDate],
 		label: `${batch.batchNumber ?? "Unnumbered batch"} - ${formatDate(batch.expiryDate)} - ${batch.quantityAvailable} available`,
 		value: batch.id,
 	}));
-
-	if (!isDisposal) {
-		if (!inventoryRow || inventoryRow.usableBatchCount <= 1 || !inventoryRow.nearestBatch) {
-			return null;
-		}
-
-		const hasDifferentExpiryDates = inventoryRow.usableExpiryDateCount > 1;
-		const spansMultipleBatches = Number(quantity) > inventoryRow.nearestBatch.quantityAvailable;
-
-		return (
-			<aside
-				className={cnJoin(
-					"flex gap-3 rounded-lg border p-3",
-					hasDifferentExpiryDates ?
-						"border-vitastock-primary-main/25 bg-vitastock-primary-main/5"
-					:	"border-shadcn-border bg-shadcn-muted/40"
-				)}
-			>
-				<IconBox
-					icon={hasDifferentExpiryDates ? "lucide:triangle-alert" : "lucide:archive"}
-					className={cnJoin(
-						"mt-0.5 size-4 shrink-0",
-						hasDifferentExpiryDates ? "text-vitastock-primary-main" : "text-vitastock-body-color"
-					)}
-				/>
-				<div className="flex flex-col gap-1 text-[12px] text-vitastock-body-color">
-					<p className="font-bold text-shadcn-foreground">
-						{hasDifferentExpiryDates ? "Use this batch first" : "Multiple batches available"}
-					</p>
-					<p>
-						{inventoryRow.usableBatchCount} usable batches are available
-						{hasDifferentExpiryDates ?
-							` across ${inventoryRow.usableExpiryDateCount} expiry dates.`
-						:	" with the same expiry date."}
-					</p>
-					<p>
-						Use {inventoryRow.nearestBatch.batchNumber ?? "the unnumbered batch"} first. It expires
-						on {formatDate(inventoryRow.nearestBatch.expiryDate)} and contains{" "}
-						{inventoryRow.nearestBatch.quantityAvailable}{" "}
-						{inventoryRow.drug.unit ?? EMPTY_DISPLAY_VALUE}.
-					</p>
-					<p>VitaStock will deduct from the earliest-expiring batches automatically.</p>
-					{spansMultipleBatches && (
-						<p className="font-semibold text-shadcn-foreground">
-							The entered quantity exceeds this batch, so the remaining quantity will continue from
-							the next eligible batch.
-						</p>
-					)}
-				</div>
-			</aside>
-		);
-	}
-
-	const label = reason === StockOutReasonSchema.enum.expired ? "Expired Batch" : "Damaged Batch";
+	const label = reason === RemovalReasonSchema.enum.expired ? "Expired Batch" : "Damaged Batch";
 
 	return (
 		<Switch.Root>
@@ -987,12 +956,12 @@ function StockMovementDialog(props: {
 	defaultLogType: StockMovementType;
 	initialBatchId?: string;
 	initialDrugId?: string;
-	initialReason?: StockOutReason;
+	initialReason?: RemovalReason;
 	onComplete?: () => void;
 }) {
 	const { defaultLogType, initialBatchId, initialDrugId, initialReason, onComplete } = props;
 
-	const isDispense = defaultLogType === "stock_out";
+	const isRemoval = defaultLogType === StockMovementLogTypeSchema.enum.stock_out;
 
 	const inventoryDrugsQueryResult = useQuery(inventoryDrugsQuery());
 	const drugs = inventoryDrugsQueryResult.data?.drugs ?? [];
@@ -1004,10 +973,19 @@ function StockMovementDialog(props: {
 	const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
 	const [drugSearch, setDrugSearch] = useState("");
 	const [isCreateDrugOpen, setIsCreateDrugOpen] = useState(false);
+	const expiryDatePickerRange = useConstant(() => {
+		const today = new Date();
+
+		return {
+			disabled: { before: today },
+			endMonth: endOfYear(addYears(today, 10)),
+			startMonth: startOfYear(today),
+		};
+	});
 
 	const form = useForm({
 		defaultValues: (() => {
-			if (defaultLogType !== StockMovementLogTypeSchema.enum.stock_out) {
+			if (!isRemoval) {
 				return {
 					batchNumber: "",
 					drugId: initialDrugId ?? "",
@@ -1018,30 +996,15 @@ function StockMovementDialog(props: {
 				};
 			}
 
-			const reason = initialReason ?? StockOutReasonSchema.enum.patient;
-
-			if (
-				reason === StockOutReasonSchema.enum.damaged
-				|| reason === StockOutReasonSchema.enum.expired
-			) {
-				return {
-					batchId: initialBatchId ?? "",
-					drugId: initialDrugId ?? "",
-					logType: StockMovementLogTypeSchema.enum.stock_out,
-					notes: "",
-					quantity: "",
-					reason,
-				};
-			}
-
 			return {
+				batchId: initialBatchId ?? "",
 				drugId: initialDrugId ?? "",
 				logType: StockMovementLogTypeSchema.enum.stock_out,
 				notes: "",
 				quantity: "",
-				reason,
+				reason: initialReason,
 			};
-		})() satisfies StockLogFormValues as never,
+		})() satisfies Partial<StockLogFormValues> as never,
 		resolver: zodResolver(StockLogSchema),
 	});
 
@@ -1057,13 +1020,7 @@ function StockMovementDialog(props: {
 					movement_type: data.logType,
 				});
 
-				void queryClient.invalidateQueries(inventorySummaryQuery());
-				void queryClient.invalidateQueries(dashboardOverviewQuery());
-				void queryClient.invalidateQueries({ queryKey: inventoryAlertsQuery().queryKey.slice(0, -1) });
-				void queryClient.invalidateQueries(inventoryAlertsStatusQuery());
-				void queryClient.invalidateQueries({
-					queryKey: inventoryActivityQuery().queryKey.slice(0, -1),
-				});
+				void invalidateStockMovementQueries(queryClient);
 				form.reset();
 				setIdempotencyKey(crypto.randomUUID());
 				onComplete?.();
@@ -1082,11 +1039,11 @@ function StockMovementDialog(props: {
 			>
 				<div className="flex flex-col gap-1">
 					<DialogAnimated.Title className="text-[17px] font-extrabold text-shadcn-foreground">
-						{isDispense ? "Dispense Medication" : "Add New Stock"}
+						{isRemoval ? "Remove Stock" : "Add New Stock"}
 					</DialogAnimated.Title>
 					<DialogAnimated.Description className="text-[12px] font-medium text-vitastock-body-color/90">
-						{isDispense ?
-							"Record a stock-out transaction."
+						{isRemoval ?
+							"Remove damaged or expired stock from a specific batch."
 						:	"Enter details for the incoming medication."}
 					</DialogAnimated.Description>
 				</div>
@@ -1142,16 +1099,16 @@ function StockMovementDialog(props: {
 								classNames={{ empty: "p-2" }}
 							/>
 
-							<div className={cnJoin("grid gap-4", !isDispense && "grid-cols-2")}>
+							<div className={cnJoin("grid gap-4", !isRemoval && "grid-cols-2")}>
 								<InputField
 									control={form.control}
 									name="quantity"
 									type="number"
 									label="Quantity"
-									placeholder={isDispense ? "e.g. 10" : "e.g. 100"}
+									placeholder={isRemoval ? "e.g. 10" : "e.g. 100"}
 								/>
 
-								{!isDispense && (
+								{!isRemoval && (
 									<FormField control={form.control} name="expiryDate" label="Expiry Date">
 										<Form.FieldBoundController
 											render={({ field }) => (
@@ -1159,11 +1116,7 @@ function StockMovementDialog(props: {
 													variant="date"
 													dateString={field.value}
 													placeholder="Select expiry date"
-													datePickerProps={{
-														disabled: { before: new Date() },
-														endMonth: endOfYear(addYears(new Date(), 10)),
-														startMonth: startOfYear(new Date()),
-													}}
+													datePickerProps={expiryDatePickerRange}
 													dateFormats={{
 														onChangeDate: "yyyy-MM-dd",
 														visibleDate: "MMM d, yyyy",
@@ -1178,25 +1131,24 @@ function StockMovementDialog(props: {
 								)}
 							</div>
 
-							<Show.Root when={isDispense}>
+							<Show.Root when={isRemoval}>
 								<SelectField
 									control={form.control}
 									name="reason"
 									label="Reason"
 									placeholder="Select reason"
-									options={stockOutReasonOptions}
+									options={removalReasonOptions}
 									onValueChange={() => {
 										form.setValue("batchId", undefined);
 										form.clearErrors(["reason", "batchId"]);
 									}}
 								/>
 
-								<Form.Watch control={form.control} name={["drugId", "quantity", "reason"]}>
-									{([drugId, quantity, reason]) => (
-										<StockOutDetails
+								<Form.Watch control={form.control} name={["drugId", "reason"]}>
+									{([drugId, reason]) => (
+										<RemovalBatchField
 											drugId={drugId}
-											quantity={quantity}
-											reason={StockOutReasonSchema.parse(reason)}
+											reason={RemovalReasonSchema.safeParse(reason).data}
 										/>
 									)}
 								</Form.Watch>
@@ -1219,31 +1171,24 @@ function StockMovementDialog(props: {
 								</Button>
 							</DialogAnimated.Close>
 
-							<Form.Watch control={form.control} name={["reason", "batchId"]}>
-								{([reason, batchId]) => {
-									const isDisposal =
-										isDispense
-										&& (reason === StockOutReasonSchema.enum.expired
-											|| reason === StockOutReasonSchema.enum.damaged);
-									return (
-										<Form.Submit asChild={true}>
-											{(formState) => (
-												<Button
-													isDisabled={formState.isSubmitting || (isDisposal && !batchId)}
-													isLoading={formState.isSubmitting}
-													className="h-10 px-4"
-												>
-													<IconBox
-														icon={isDispense ? "lucide:minus" : "lucide:plus"}
-														className="size-4"
-													/>
-													{isDisposal && "Remove Stock"}
-													{!isDisposal && (isDispense ? "Dispense" : "Add Stock")}
-												</Button>
-											)}
-										</Form.Submit>
-									);
-								}}
+							<Form.Watch control={form.control} name="batchId">
+								{(batchId) => (
+									<Form.Submit asChild={true}>
+										{(formState) => (
+											<Button
+												isDisabled={formState.isSubmitting || (isRemoval && !batchId)}
+												isLoading={formState.isSubmitting}
+												className="h-10 px-4"
+											>
+												<IconBox
+													icon={isRemoval ? "lucide:trash" : "lucide:plus"}
+													className="size-4"
+												/>
+												{isRemoval ? "Remove Stock" : "Add Stock"}
+											</Button>
+										)}
+									</Form.Submit>
+								)}
 							</Form.Watch>
 						</DialogAnimated.Footer>
 					</Form.Root>

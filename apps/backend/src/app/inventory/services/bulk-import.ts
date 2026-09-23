@@ -283,14 +283,13 @@ export const createInventoryBulkImport = async (options: {
 			thresholdByDrugId.set(drugId, row.lowStockThreshold);
 		}
 
-		await Promise.all(
-			thresholdByDrugId.entries().map(([drugId, lowStockThreshold]) => {
-				return tx
-					.update(drugs)
-					.set({ lowStockThreshold })
-					.where(and(eq(drugs.id, drugId), eq(drugs.workspaceId, workspaceId)));
-			})
-		);
+		for (const [drugId, lowStockThreshold] of thresholdByDrugId) {
+			// eslint-disable-next-line no-await-in-loop -- queries on one transaction share a single connection and run sequentially
+			await tx
+				.update(drugs)
+				.set({ lowStockThreshold })
+				.where(and(eq(drugs.id, drugId), eq(drugs.workspaceId, workspaceId)));
+		}
 
 		const receipts = new Map<string, { drugId: string; expiryDate: string; quantity: number }>();
 
@@ -318,18 +317,19 @@ export const createInventoryBulkImport = async (options: {
 			});
 		}
 
-		const importedBatches = await Promise.all(
-			receipts.values().map(async (receipt) => {
-				const batch = await receiveStockBatch({
-					...receipt,
-					tx,
-					userId,
-					workspaceId,
-				});
+		const importedBatches: Array<{ batchId: string; drugId: string; quantity: number }> = [];
 
-				return { batchId: batch.id, drugId: receipt.drugId, quantity: receipt.quantity };
-			})
-		);
+		for (const receipt of receipts.values()) {
+			// eslint-disable-next-line no-await-in-loop -- queries on one transaction share a single connection and run sequentially
+			const batch = await receiveStockBatch({
+				...receipt,
+				tx,
+				userId,
+				workspaceId,
+			});
+
+			importedBatches.push({ batchId: batch.id, drugId: receipt.drugId, quantity: receipt.quantity });
+		}
 
 		await tx.insert(stockLogs).values(
 			importedBatches.map(({ batchId, drugId, quantity }) => ({

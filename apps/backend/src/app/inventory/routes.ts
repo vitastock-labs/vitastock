@@ -1,5 +1,7 @@
 import { backendApiSchemaRoutes } from "@vitastock/shared/validation/backendApiSchema";
 import { Hono } from "hono";
+import { rateLimiter } from "hono-rate-limiter";
+import { userRateLimiterOptions } from "@/config/rateLimiterOptions";
 import { AppJsonResponse } from "@/lib/utils";
 import { authMiddleware, authorizeRoleMiddleware } from "@/middleware";
 import { validateWithZodMiddleware } from "@/middleware/validateWithZodMiddleware";
@@ -20,12 +22,13 @@ import {
 	updateDrug,
 } from "./services/data-access/drugs";
 import { getInventorySummaryRows } from "./services/data-access/summary";
-import { createInventoryStockLog } from "./services/stock-log";
+import { createInventoryDispenseCart, createInventoryStockLog } from "./services/stock-log";
 import { getInventorySummaryStats } from "./services/utils/common";
 
 export const inventoryRoutes = new Hono()
 	.basePath("/inventory")
 	.use(authMiddleware)
+	.use(rateLimiter(userRateLimiterOptions))
 
 	.get(
 		"/drugs",
@@ -357,6 +360,42 @@ export const inventoryRoutes = new Hono()
 				data: null,
 				message: "Stock movement recorded successfully",
 				schema: backendApiSchemaRoutes["@post/inventory/stock-log"].data,
+			});
+		}
+	)
+
+	.post(
+		"/stock-log/dispense",
+		validateWithZodMiddleware(
+			"header",
+			backendApiSchemaRoutes["@post/inventory/stock-log/dispense"].headers
+		),
+		validateWithZodMiddleware("json", backendApiSchemaRoutes["@post/inventory/stock-log/dispense"].body),
+		async (ctx) => {
+			const body = ctx.req.valid("json");
+			const { "x-idempotency-key": idempotencyKey } = ctx.req.valid("header");
+			const currentUser = ctx.get("currentUser");
+			const currentWorkspace = ctx.get("currentWorkspace");
+
+			await createInventoryDispenseCart({
+				body,
+				idempotencyKey,
+				timezone: currentWorkspace.timezone,
+				userId: currentUser.id,
+				workspaceId: currentUser.workspaceId,
+			});
+
+			await syncInventoryAlerts({
+				lowStockThreshold: currentWorkspace.lowStockThreshold,
+				nearExpiryDays: currentWorkspace.nearExpiryDays,
+				timezone: currentWorkspace.timezone,
+				workspaceId: currentUser.workspaceId,
+			});
+
+			return AppJsonResponse(ctx, {
+				data: null,
+				message: "Medications dispensed successfully",
+				schema: backendApiSchemaRoutes["@post/inventory/stock-log/dispense"].data,
 			});
 		}
 	)

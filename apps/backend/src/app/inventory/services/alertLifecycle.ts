@@ -56,56 +56,56 @@ const getAlertConditions = async (
 ) => {
 	const { lowStockThreshold, nearExpiryDays, timezone, workspaceId } = options;
 	const { nearExpiryDate, today } = getWorkspaceInventoryDates({ nearExpiryDays, timezone });
-	const [lowStockDrugs, expiredBatches, nearExpiryBatches] = await Promise.all([
-		dbClient
-			.select({
-				drugId: drugs.id,
-				lowStockThreshold: drugs.lowStockThreshold,
-				totalAvailable: sql<number>`
-					coalesce(sum(case when ${stockBatches.expiryDate} >= ${today} then ${stockBatches.quantityAvailable} else 0 end), 0)
-				`.mapWith(Number),
-			})
-			.from(drugs)
-			.leftJoin(
-				stockBatches,
-				and(eq(stockBatches.drugId, drugs.id), eq(stockBatches.workspaceId, workspaceId))
+	const lowStockDrugs = await dbClient
+		.select({
+			drugId: drugs.id,
+			lowStockThreshold: drugs.lowStockThreshold,
+			totalAvailable: sql<number>`
+				coalesce(sum(case when ${stockBatches.expiryDate} >= ${today} then ${stockBatches.quantityAvailable} else 0 end), 0)
+			`.mapWith(Number),
+		})
+		.from(drugs)
+		.leftJoin(
+			stockBatches,
+			and(eq(stockBatches.drugId, drugs.id), eq(stockBatches.workspaceId, workspaceId))
+		)
+		.where(and(eq(drugs.workspaceId, workspaceId), eq(drugs.isActive, true)))
+		.groupBy(drugs.id);
+
+	const expiredBatches = await dbClient
+		.select({
+			drugId: stockBatches.drugId,
+			expiryDate: stockBatches.expiryDate,
+			id: stockBatches.id,
+			quantityAvailable: stockBatches.quantityAvailable,
+		})
+		.from(stockBatches)
+		.where(
+			and(
+				eq(stockBatches.workspaceId, workspaceId),
+				gt(stockBatches.quantityAvailable, 0),
+				lt(stockBatches.expiryDate, today)
 			)
-			.where(and(eq(drugs.workspaceId, workspaceId), eq(drugs.isActive, true)))
-			.groupBy(drugs.id),
-		dbClient
-			.select({
-				drugId: stockBatches.drugId,
-				expiryDate: stockBatches.expiryDate,
-				id: stockBatches.id,
-				quantityAvailable: stockBatches.quantityAvailable,
-			})
-			.from(stockBatches)
-			.where(
-				and(
-					eq(stockBatches.workspaceId, workspaceId),
-					gt(stockBatches.quantityAvailable, 0),
-					lt(stockBatches.expiryDate, today)
-				)
+		)
+		.orderBy(asc(stockBatches.expiryDate));
+
+	const nearExpiryBatches = await dbClient
+		.select({
+			drugId: stockBatches.drugId,
+			expiryDate: stockBatches.expiryDate,
+			id: stockBatches.id,
+			quantityAvailable: stockBatches.quantityAvailable,
+		})
+		.from(stockBatches)
+		.where(
+			and(
+				eq(stockBatches.workspaceId, workspaceId),
+				gt(stockBatches.quantityAvailable, 0),
+				gte(stockBatches.expiryDate, today),
+				lte(stockBatches.expiryDate, nearExpiryDate)
 			)
-			.orderBy(asc(stockBatches.expiryDate)),
-		dbClient
-			.select({
-				drugId: stockBatches.drugId,
-				expiryDate: stockBatches.expiryDate,
-				id: stockBatches.id,
-				quantityAvailable: stockBatches.quantityAvailable,
-			})
-			.from(stockBatches)
-			.where(
-				and(
-					eq(stockBatches.workspaceId, workspaceId),
-					gt(stockBatches.quantityAvailable, 0),
-					gte(stockBatches.expiryDate, today),
-					lte(stockBatches.expiryDate, nearExpiryDate)
-				)
-			)
-			.orderBy(asc(stockBatches.expiryDate)),
-	]);
+		)
+		.orderBy(asc(stockBatches.expiryDate));
 
 	return [
 		...lowStockDrugs
@@ -144,29 +144,28 @@ export const getAlertEmailConfiguration = async (
 	workspaceId: string,
 	dbClient: typeof db = db
 ): Promise<AlertEmailConfiguration | null> => {
-	const [[workspace], memberships] = await Promise.all([
-		dbClient
-			.select({
-				alertEmail: workspaces.alertEmail,
-				deliveryPolicy: workspaces.emailAlertDeliveryPolicy,
-				emailAlertsEnabledAt: workspaces.emailAlertsEnabledAt,
-				name: workspaces.name,
-			})
-			.from(workspaces)
-			.where(eq(workspaces.id, workspaceId))
-			.limit(1),
-		dbClient
-			.select({ email: users.email, fullName: users.fullName })
-			.from(workspaceMemberships)
-			.innerJoin(users, eq(workspaceMemberships.userId, users.id))
-			.where(
-				and(
-					eq(workspaceMemberships.workspaceId, workspaceId),
-					isNull(workspaceMemberships.suspendedAt),
-					inArray(workspaceMemberships.role, ["owner", "admin"])
-				)
-			),
-	]);
+	const [workspace] = await dbClient
+		.select({
+			alertEmail: workspaces.alertEmail,
+			deliveryPolicy: workspaces.emailAlertDeliveryPolicy,
+			emailAlertsEnabledAt: workspaces.emailAlertsEnabledAt,
+			name: workspaces.name,
+		})
+		.from(workspaces)
+		.where(eq(workspaces.id, workspaceId))
+		.limit(1);
+
+	const memberships = await dbClient
+		.select({ email: users.email, fullName: users.fullName })
+		.from(workspaceMemberships)
+		.innerJoin(users, eq(workspaceMemberships.userId, users.id))
+		.where(
+			and(
+				eq(workspaceMemberships.workspaceId, workspaceId),
+				isNull(workspaceMemberships.suspendedAt),
+				inArray(workspaceMemberships.role, ["owner", "admin"])
+			)
+		);
 
 	if (!workspace?.emailAlertsEnabledAt || !workspace.alertEmail) {
 		return null;
@@ -211,36 +210,42 @@ const persistInventoryAlertChanges = async (options: {
 		.for("update");
 	const storedAlertsByDedupeKey = new Map(storedAlerts.map((alert) => [alert.dedupeKey, alert]));
 
-	const reconciledAlerts = await Promise.all(
-		currentConditions.map(async (condition) => {
-			const storedAlert = storedAlertsByDedupeKey.get(condition.dedupeKey);
-			const isNewOccurrence = !storedAlert || storedAlert.status === "resolved";
+	const reconciledAlerts: Array<{
+		alert: SelectInventoryAlertType | undefined;
+		isNewOccurrence: boolean;
+	}> = [];
 
-			if (storedAlert) {
-				const [alert] = await tx
-					.update(inventoryAlerts)
-					.set({
-						...condition,
-						acknowledgedAt: isNewOccurrence ? null : storedAlert.acknowledgedAt,
-						acknowledgedByUserId: isNewOccurrence ? null : storedAlert.acknowledgedByUserId,
-						lastNotifiedAt: isNewOccurrence ? null : storedAlert.lastNotifiedAt,
-						resolvedAt: null,
-						status: "active",
-					})
-					.where(eq(inventoryAlerts.id, storedAlert.id))
-					.returning();
+	for (const condition of currentConditions) {
+		const storedAlert = storedAlertsByDedupeKey.get(condition.dedupeKey);
+		const isNewOccurrence = !storedAlert || storedAlert.status === "resolved";
 
-				return { alert, isNewOccurrence };
-			}
-
+		if (storedAlert) {
+			// eslint-disable-next-line no-await-in-loop -- queries on one transaction share a single connection and run sequentially
 			const [alert] = await tx
-				.insert(inventoryAlerts)
-				.values({ ...condition, status: "active", workspaceId })
+				.update(inventoryAlerts)
+				.set({
+					...condition,
+					acknowledgedAt: isNewOccurrence ? null : storedAlert.acknowledgedAt,
+					acknowledgedByUserId: isNewOccurrence ? null : storedAlert.acknowledgedByUserId,
+					lastNotifiedAt: isNewOccurrence ? null : storedAlert.lastNotifiedAt,
+					resolvedAt: null,
+					status: "active",
+				})
+				.where(eq(inventoryAlerts.id, storedAlert.id))
 				.returning();
 
-			return { alert, isNewOccurrence };
-		})
-	);
+			reconciledAlerts.push({ alert, isNewOccurrence });
+			continue;
+		}
+
+		// eslint-disable-next-line no-await-in-loop -- queries on one transaction share a single connection and run sequentially
+		const [alert] = await tx
+			.insert(inventoryAlerts)
+			.values({ ...condition, status: "active", workspaceId })
+			.returning();
+
+		reconciledAlerts.push({ alert, isNewOccurrence });
+	}
 
 	const newlyRaisedAlerts = reconciledAlerts.flatMap(({ alert, isNewOccurrence }) => {
 		if (!alert || !isNewOccurrence) {
@@ -309,10 +314,11 @@ export const syncInventoryAlerts = async (options: {
 			.for("update");
 
 		const dbClient = tx as unknown as typeof db;
-		const [currentConditions, emailConfiguration] = await Promise.all([
-			getAlertConditions({ lowStockThreshold, nearExpiryDays, timezone, workspaceId }, dbClient),
-			getAlertEmailConfiguration(workspaceId, dbClient),
-		]);
+		const currentConditions = await getAlertConditions(
+			{ lowStockThreshold, nearExpiryDays, timezone, workspaceId },
+			dbClient
+		);
+		const emailConfiguration = await getAlertEmailConfiguration(workspaceId, dbClient);
 
 		await persistInventoryAlertChanges({ currentConditions, emailConfiguration, tx, workspaceId });
 	});

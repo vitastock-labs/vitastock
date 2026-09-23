@@ -8,7 +8,7 @@ import { differenceInHours, isPast } from "date-fns";
 import { eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { rateLimiter } from "hono-rate-limiter";
-import { authRateLimiterOptions } from "@/config/rateLimiterOptions";
+import { authRateLimiterOptions, userRateLimiterOptions } from "@/config/rateLimiterOptions";
 import { emitAppEvent } from "@/lib/events";
 import { appLogger } from "@/lib/logger";
 import { AppError, AppJsonResponse } from "@/lib/utils";
@@ -564,6 +564,7 @@ const authRoutes = new Hono()
 	)
 
 	.use(authMiddleware)
+	.use(rateLimiter(userRateLimiterOptions))
 
 	.post("/signout", async (ctx) => {
 		const currentUser = ctx.get("currentUser");

@@ -7,7 +7,7 @@ import { add, isPast } from "date-fns";
 import { and, eq, gt, isNull } from "drizzle-orm";
 import { Hono } from "hono";
 import { rateLimiter } from "hono-rate-limiter";
-import { authRateLimiterOptions } from "@/config/rateLimiterOptions";
+import { authRateLimiterOptions, userRateLimiterOptions } from "@/config/rateLimiterOptions";
 import { emitAppEvent } from "@/lib/events";
 import { AppError, AppJsonResponse } from "@/lib/utils";
 import { generateRandomBytes } from "@/lib/utils/random";
@@ -154,6 +154,7 @@ export const workspaceRoutes = new Hono()
 	)
 
 	.use(authMiddleware)
+	.use(rateLimiter(userRateLimiterOptions))
 
 	.post(
 		"/invitation/send",
@@ -584,41 +585,39 @@ export const workspaceRoutes = new Hono()
 	.get("/members", async (ctx) => {
 		const currentUser = ctx.get("currentUser");
 
-		const [workspaceUsers, pendingInvitations] = await db.transaction((tx) => {
-			return Promise.all([
-				tx
-					.select({
-						createdAt: workspaceMemberships.createdAt,
-						email: users.email,
-						fullName: users.fullName,
-						id: users.id,
-						role: workspaceMemberships.role,
-						suspendedAt: workspaceMemberships.suspendedAt,
-					})
-					.from(workspaceMemberships)
-					.innerJoin(users, eq(workspaceMemberships.userId, users.id))
-					.where(eq(workspaceMemberships.workspaceId, currentUser.workspaceId)),
+		const [workspaceUsers, pendingInvitations] = await Promise.all([
+			db
+				.select({
+					createdAt: workspaceMemberships.createdAt,
+					email: users.email,
+					fullName: users.fullName,
+					id: users.id,
+					role: workspaceMemberships.role,
+					suspendedAt: workspaceMemberships.suspendedAt,
+				})
+				.from(workspaceMemberships)
+				.innerJoin(users, eq(workspaceMemberships.userId, users.id))
+				.where(eq(workspaceMemberships.workspaceId, currentUser.workspaceId)),
 
-				tx
-					.select(
-						pickKeys(workspaceInvitations, [
-							"createdAt",
-							"expiresAt",
-							"id",
-							"inviteeEmail",
-							"inviteeName",
-							"role",
-						])
+			db
+				.select(
+					pickKeys(workspaceInvitations, [
+						"createdAt",
+						"expiresAt",
+						"id",
+						"inviteeEmail",
+						"inviteeName",
+						"role",
+					])
+				)
+				.from(workspaceInvitations)
+				.where(
+					and(
+						eq(workspaceInvitations.workspaceId, currentUser.workspaceId),
+						isNull(workspaceInvitations.acceptedAt)
 					)
-					.from(workspaceInvitations)
-					.where(
-						and(
-							eq(workspaceInvitations.workspaceId, currentUser.workspaceId),
-							isNull(workspaceInvitations.acceptedAt)
-						)
-					),
-			]);
-		});
+				),
+		]);
 
 		return AppJsonResponse(ctx, {
 			data: {

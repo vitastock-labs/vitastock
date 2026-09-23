@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { db } from "@vitastock/db";
 import {
+	drugs,
 	inventoryAlertOutbox,
 	inventoryAlerts,
 	stockBatches,
@@ -19,7 +20,7 @@ import { acknowledgeInventoryAlert, syncInventoryAlerts } from "./alertLifecycle
 import { getInventoryActivity } from "./data-access/activity";
 import { handleDrugAction } from "./data-access/drugs";
 import { getInventorySummaryRows } from "./data-access/summary";
-import { createInventoryStockLog } from "./stock-log";
+import { createInventoryDispenseCart, createInventoryStockLog } from "./stock-log";
 import { getWorkspaceToday } from "./utils/date";
 
 afterAll(async () => {
@@ -573,6 +574,191 @@ test("Stock transaction integration - rolls back an insufficient stock-out trans
 
 	expect(batch?.quantityAvailable).toBe(5);
 	expect(transactions).toHaveLength(0);
+});
+
+const receiveTestStock = (options: {
+	drugId: string;
+	expiresInDays: number;
+	fixture: Awaited<ReturnType<typeof createInventoryFixture>>;
+	quantity: number;
+}) => {
+	const { drugId, expiresInDays, fixture, quantity } = options;
+
+	return createInventoryStockLog({
+		body: {
+			batchNumber: `BATCH-${expiresInDays}`,
+			drugId,
+			expiryDate: getDateFromToday(expiresInDays),
+			logType: "stock_in",
+			quantity,
+		},
+		idempotencyKey: randomUUID(),
+		timezone: fixture.workspace.timezone,
+		userId: fixture.user.id,
+		workspaceId: fixture.workspace.id,
+	});
+};
+
+const createSecondTestDrug = async (fixture: Awaited<ReturnType<typeof createInventoryFixture>>) => {
+	const [drug] = await db
+		.insert(drugs)
+		.values({ genericName: "Amoxicillin", name: "Amoxil", workspaceId: fixture.workspace.id })
+		.returning();
+
+	if (!drug) {
+		throw new Error("Failed to create second test drug");
+	}
+
+	return drug;
+};
+
+test("Dispense cart integration - deducts every item with FEFO in one transaction", async () => {
+	await using fixture = await createInventoryFixture();
+	const secondDrug = await createSecondTestDrug(fixture);
+
+	await receiveTestStock({ drugId: fixture.drug.id, expiresInDays: 30, fixture, quantity: 5 });
+	await receiveTestStock({ drugId: fixture.drug.id, expiresInDays: 90, fixture, quantity: 10 });
+	await receiveTestStock({ drugId: secondDrug.id, expiresInDays: 60, fixture, quantity: 10 });
+
+	await createInventoryDispenseCart({
+		body: {
+			items: [
+				{ drugId: fixture.drug.id, quantity: 8, reason: "patient" },
+				{ drugId: secondDrug.id, quantity: 3, reason: "ward" },
+			],
+		},
+		idempotencyKey: randomUUID(),
+		timezone: fixture.workspace.timezone,
+		userId: fixture.user.id,
+		workspaceId: fixture.workspace.id,
+	});
+
+	const batches = await db
+		.select()
+		.from(stockBatches)
+		.where(eq(stockBatches.workspaceId, fixture.workspace.id))
+		.orderBy(asc(stockBatches.expiryDate));
+	const transactions = await db
+		.select()
+		.from(stockTransactions)
+		.where(
+			and(
+				eq(stockTransactions.workspaceId, fixture.workspace.id),
+				eq(stockTransactions.operation, "dispense_cart")
+			)
+		);
+	const report = await getInventoryActivity({
+		query: { logType: "stock_out" },
+		timezone: fixture.workspace.timezone,
+		workspaceId: fixture.workspace.id,
+	});
+
+	expect(batches.map((batch) => batch.quantityAvailable)).toEqual([0, 7, 7]);
+	expect(transactions).toHaveLength(1);
+	expect(report.rows).toHaveLength(2);
+	expect(report.rows).toEqual(
+		expect.arrayContaining([
+			expect.objectContaining({ batchCount: 2, quantity: 8, reason: "patient" }),
+			expect.objectContaining({ batchCount: 1, quantity: 3, reason: "ward" }),
+		])
+	);
+});
+
+test("Dispense cart integration - rolls back every item when one item is short", async () => {
+	await using fixture = await createInventoryFixture();
+	const secondDrug = await createSecondTestDrug(fixture);
+
+	await receiveTestStock({ drugId: fixture.drug.id, expiresInDays: 90, fixture, quantity: 5 });
+	await receiveTestStock({ drugId: secondDrug.id, expiresInDays: 90, fixture, quantity: 10 });
+
+	const idempotencyKey = randomUUID();
+	const dispense = createInventoryDispenseCart({
+		body: {
+			items: [
+				{ drugId: secondDrug.id, quantity: 3, reason: "patient" },
+				{ drugId: fixture.drug.id, quantity: 6, reason: "patient" },
+			],
+		},
+		idempotencyKey,
+		timezone: fixture.workspace.timezone,
+		userId: fixture.user.id,
+		workspaceId: fixture.workspace.id,
+	});
+
+	await expect(dispense).rejects.toEqual(
+		expect.objectContaining<Partial<AppError>>({
+			errors: { "items.1.quantity": ["Only 5 units are available"] },
+			statusCode: 409,
+		})
+	);
+
+	const batches = await db
+		.select()
+		.from(stockBatches)
+		.where(eq(stockBatches.workspaceId, fixture.workspace.id));
+	const transactions = await db
+		.select()
+		.from(stockTransactions)
+		.where(
+			and(
+				eq(stockTransactions.workspaceId, fixture.workspace.id),
+				eq(stockTransactions.idempotencyKey, idempotencyKey)
+			)
+		);
+
+	expect(batches.map((batch) => batch.quantityAvailable).toSorted()).toEqual([10, 5]);
+	expect(transactions).toHaveLength(0);
+});
+
+test("Dispense cart integration - replays a repeated cart only once", async () => {
+	await using fixture = await createInventoryFixture();
+
+	await receiveTestStock({ drugId: fixture.drug.id, expiresInDays: 90, fixture, quantity: 10 });
+
+	const options = {
+		body: { items: [{ drugId: fixture.drug.id, quantity: 4, reason: "patient" as const }] },
+		idempotencyKey: randomUUID(),
+		timezone: fixture.workspace.timezone,
+		userId: fixture.user.id,
+		workspaceId: fixture.workspace.id,
+	};
+
+	await createInventoryDispenseCart(options);
+	await createInventoryDispenseCart(options);
+
+	await expect(
+		createInventoryDispenseCart({
+			...options,
+			body: { items: [{ drugId: fixture.drug.id, quantity: 5, reason: "patient" }] },
+		})
+	).rejects.toEqual(expect.objectContaining<Partial<AppError>>({ statusCode: 409 }));
+
+	const [batch] = await db
+		.select()
+		.from(stockBatches)
+		.where(eq(stockBatches.workspaceId, fixture.workspace.id));
+
+	expect(batch?.quantityAvailable).toBe(6);
+});
+
+test("Dispense cart integration - rejects a drug that belongs to another workspace", async () => {
+	await using firstFixture = await createInventoryFixture();
+	await using secondFixture = await createInventoryFixture();
+
+	const result = createInventoryDispenseCart({
+		body: { items: [{ drugId: firstFixture.drug.id, quantity: 1, reason: "patient" }] },
+		idempotencyKey: randomUUID(),
+		timezone: secondFixture.workspace.timezone,
+		userId: secondFixture.user.id,
+		workspaceId: secondFixture.workspace.id,
+	});
+
+	await expect(result).rejects.toEqual(
+		expect.objectContaining<Partial<AppError>>({
+			errors: { "items.0.drugId": ["This medication is inactive or no longer exists"] },
+			statusCode: 409,
+		})
+	);
 });
 
 test("Inventory workspace isolation - rejects a drug that belongs to another workspace", async () => {

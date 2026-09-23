@@ -18,7 +18,7 @@ function ComboboxValue(props: React.ComponentProps<typeof ComboboxPrimitive.Valu
 }
 
 function ComboboxIcon(props: React.ComponentProps<typeof ComboboxPrimitive.Icon>) {
-	const { className, render, ...restOfProps } = props;
+	const { children, className, ...restOfProps } = props;
 
 	return (
 		<ComboboxPrimitive.Icon
@@ -28,9 +28,10 @@ function ComboboxIcon(props: React.ComponentProps<typeof ComboboxPrimitive.Icon>
 				group-data-popup-open:rotate-180 [&_svg]:pointer-events-none [&_svg]:size-4`,
 				className as string
 			)}
-			render={render ?? <IconBox icon="lucide:chevrons-up-down" />}
 			{...restOfProps}
-		/>
+		>
+			{children ?? <IconBox icon="lucide:chevrons-up-down" />}
+		</ComboboxPrimitive.Icon>
 	);
 }
 
@@ -118,10 +119,11 @@ function ComboboxInput(
 }
 
 function ComboboxContent(
-	props: Pick<
-		React.ComponentProps<typeof ComboboxPrimitive.Positioner>,
-		"align" | "alignOffset" | "anchor" | "side" | "sideOffset"
-	>
+	props: Pick<React.ComponentProps<typeof ComboboxPrimitive.Portal>, "container">
+		& Pick<
+			React.ComponentProps<typeof ComboboxPrimitive.Positioner>,
+			"align" | "alignOffset" | "anchor" | "side" | "sideOffset"
+		>
 		& React.ComponentProps<typeof ComboboxPrimitive.Popup>
 ) {
 	const {
@@ -129,13 +131,14 @@ function ComboboxContent(
 		alignOffset = 0,
 		anchor,
 		className,
+		container,
 		side = "bottom",
 		sideOffset = 6,
 		...restOfProps
 	} = props;
 
 	return (
-		<ComboboxPortal>
+		<ComboboxPortal container={container}>
 			<ComboboxPositioner
 				side={side}
 				sideOffset={sideOffset}

@@ -455,6 +455,35 @@ const inventoryRoutes = () => {
 		reason: z.enum([STOCK_OUT_REASONS[0], STOCK_OUT_REASONS[1]]),
 	});
 
+	const DispenseCartItemsSchema = FEFOStockOutBodySchema.pick({
+		drugId: true,
+		quantity: true,
+		reason: true,
+	})
+		.array()
+		.min(1, "Add at least one medication to dispense.")
+		.max(100)
+		.superRefine((items, ctx) => {
+			const firstItemIndexByKey = new Map<string, number>();
+
+			for (const [itemIndex, item] of items.entries()) {
+				const itemKey = `${item.drugId}:${item.reason}`;
+				const firstItemIndex = firstItemIndexByKey.get(itemKey);
+
+				if (firstItemIndex !== undefined) {
+					ctx.addIssue({
+						code: "custom",
+						message: `Duplicate of item ${firstItemIndex + 1}`,
+						path: [itemIndex],
+					});
+
+					continue;
+				}
+
+				firstItemIndexByKey.set(itemKey, itemIndex);
+			}
+		});
+
 	const InventoryBulkImportRowSchema = DrugCreateSchema.extend({
 		expiryDate: IsoDateSchema,
 		quantity: stringWithNumberValidation(z.number().positive().int()),
@@ -745,6 +774,14 @@ const inventoryRoutes = () => {
 					error: "Select a reason for this stock movement.",
 				}),
 			]),
+			data: NullSuccessResponseSchema,
+			headers: z.object({
+				"x-idempotency-key": z.uuid(),
+			}),
+		},
+
+		"@post/inventory/stock-log/dispense": {
+			body: z.object({ items: DispenseCartItemsSchema }),
 			data: NullSuccessResponseSchema,
 			headers: z.object({
 				"x-idempotency-key": z.uuid(),

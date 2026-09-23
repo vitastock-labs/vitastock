@@ -348,7 +348,7 @@ export const createOAuth2Client = (options: OAuth2ClientOptions) => {
 		return createOAuth2Tokens(tokenData);
 	};
 
-	const exchangeAuthorizationCode = (exchangeOptions: ExchangeAuthorizationCodeOptions) => {
+	const exchangeAuthorizationCode = async (exchangeOptions: ExchangeAuthorizationCodeOptions) => {
 		const body: OAuth2RequestBody = { code: exchangeOptions.code, grant_type: "authorization_code" };
 
 		if (options.redirectUri) {
@@ -377,7 +377,7 @@ export const createOAuth2Client = (options: OAuth2ClientOptions) => {
 		);
 	};
 
-	const refreshAccessToken = (refreshOptions: RefreshAccessTokenOptions) => {
+	const refreshAccessToken = async (refreshOptions: RefreshAccessTokenOptions) => {
 		const body: OAuth2RequestBody = {
 			grant_type: "refresh_token",
 			refresh_token: refreshOptions.refreshToken,

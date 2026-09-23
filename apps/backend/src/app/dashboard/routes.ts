@@ -1,5 +1,7 @@
 import { backendApiSchemaRoutes } from "@vitastock/shared/validation/backendApiSchema";
 import { Hono } from "hono";
+import { rateLimiter } from "hono-rate-limiter";
+import { userRateLimiterOptions } from "@/config/rateLimiterOptions";
 import { AppJsonResponse } from "@/lib/utils";
 import { authMiddleware } from "@/middleware";
 import { getRecentInventoryActivity } from "../inventory/services/data-access/activity";
@@ -9,6 +11,7 @@ import { getInventorySummaryStats } from "../inventory/services/utils/common";
 export const dashboardRoutes = new Hono()
 	.basePath("/dashboard")
 	.use(authMiddleware)
+	.use(rateLimiter(userRateLimiterOptions))
 
 	.get("/overview", async (ctx) => {
 		const currentUser = ctx.get("currentUser");
