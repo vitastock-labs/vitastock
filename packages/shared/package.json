@@ -18,7 +18,7 @@
 	"dependencies": {
 		"@vitastock/db": "workspace:*",
 		"@vitastock/env": "workspace:*",
-		"@zayne-labs/callapi": "1.15.0",
+		"@zayne-labs/callapi": "1.16.3",
 		"@zayne-labs/toolkit-core": "^0.12.59",
 		"@zayne-labs/toolkit-type-helpers": "^0.12.59",
 		"consola": "3.4.2",

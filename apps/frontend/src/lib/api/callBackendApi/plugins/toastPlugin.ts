@@ -1,10 +1,5 @@
-import type {
-	CallApiResultErrorVariant,
-	ErrorContext,
-	RequestContext,
-	SuccessContext,
-} from "@zayne-labs/callapi";
-import { definePlugin, isHTTPError } from "@zayne-labs/callapi/utils";
+import type { CallApiResultErrorVariant, GetCallApiContext, RequestContext } from "@zayne-labs/callapi";
+import { definePluginWithContext, isHTTPError } from "@zayne-labs/callapi/utils";
 import { isBrowser } from "@zayne-labs/toolkit-core";
 import { toast } from "sonner";
 import type { MainAppRoutes } from "@/components/common/NavLink";
@@ -30,6 +25,12 @@ export type ToastPluginMeta = {
 		success?: boolean;
 	};
 };
+
+type ToastContext = GetCallApiContext<{
+	Data: BaseApiSuccessResponse;
+	ErrorData: BaseApiErrorResponse;
+	Meta: ToastPluginMeta;
+}>;
 
 const shouldEndpointBeSkipped = (
 	options: Pick<NonNullable<ToastPluginMeta["toast"]>, "endpointsToSkip"> & {
@@ -63,17 +64,17 @@ const shouldEndpointBeSkipped = (
 };
 
 export const toastPlugin = (toastOptions?: ToastPluginMeta["toast"]) => {
-	const getToastMeta = (ctx: RequestContext<{ Meta: ToastPluginMeta }>) => {
+	const getToastMeta = (ctx: RequestContext<ToastContext>) => {
 		return toastOptions ? { ...toastOptions, ...ctx.options.meta?.toast } : ctx.options.meta?.toast;
 	};
 
-	return definePlugin({
+	return definePluginWithContext<ToastContext>()({
 		id: "toast-plugin",
 		name: "toastPlugin",
 
 		// eslint-disable-next-line perfectionist/sort-objects
 		hooks: {
-			onError: (ctx: ErrorContext<{ ErrorData: BaseApiErrorResponse }>) => {
+			onError: (ctx) => {
 				if (!isBrowser()) return;
 
 				const toastMeta = getToastMeta(ctx);
@@ -102,7 +103,7 @@ export const toastPlugin = (toastOptions?: ToastPluginMeta["toast"]) => {
 				toast.error(ctx.error.message);
 			},
 
-			onSuccess: (ctx: SuccessContext<{ Data: BaseApiSuccessResponse }>) => {
+			onSuccess: (ctx) => {
 				if (!isBrowser()) return;
 
 				const toastMeta = getToastMeta(ctx);

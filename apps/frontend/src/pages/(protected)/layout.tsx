@@ -13,7 +13,7 @@ function ProtectedLayout() {
 
 	const sessionQueryResult = useQuery(
 		sessionQuery({
-			auth: { redirectFn: (route) => void navigate(route, { replace: true }) },
+			auth: { redirectFn: (route) => navigate(route, { replace: true }) },
 		})
 	);
 
