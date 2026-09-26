@@ -40,7 +40,9 @@ function ForgotPasswordPage() {
 		<Main>
 			<section className="flex w-full max-w-[442px] flex-col gap-9">
 				<div className="flex flex-col gap-4">
-					<h1 className="text-[30px] font-extrabold text-black">Forgot your password</h1>
+					<h1 className="text-[26px] font-extrabold text-black md:text-[30px]">
+						Forgot your password
+					</h1>
 					<p>Enter your email address and we’ll send you a link to reset your password.</p>
 				</div>
 

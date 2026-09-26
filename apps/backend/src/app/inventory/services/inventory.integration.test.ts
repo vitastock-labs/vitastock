@@ -761,6 +761,52 @@ test("Dispense cart integration - rejects a drug that belongs to another workspa
 	);
 });
 
+test("Alert lifecycle integration - replaces low stock with out of stock at zero units", async () => {
+	await using fixture = await createInventoryFixture({
+		emailAlertsEnabled: false,
+		lowStockThreshold: 10,
+	});
+	const syncAlerts = () =>
+		syncInventoryAlerts({
+			lowStockThreshold: fixture.workspace.lowStockThreshold,
+			nearExpiryDays: fixture.workspace.nearExpiryDays,
+			timezone: fixture.workspace.timezone,
+			workspaceId: fixture.workspace.id,
+		});
+	const getAlerts = () =>
+		db
+			.select()
+			.from(inventoryAlerts)
+			.where(eq(inventoryAlerts.workspaceId, fixture.workspace.id))
+			.orderBy(asc(inventoryAlerts.createdAt));
+
+	await receiveTestStock({ drugId: fixture.drug.id, expiresInDays: 180, fixture, quantity: 5 });
+	await syncAlerts();
+
+	expect(await getAlerts()).toEqual([
+		expect.objectContaining({ quantityAffected: 5, status: "active", type: "low_stock" }),
+	]);
+
+	await createInventoryStockLog({
+		body: { drugId: fixture.drug.id, logType: "stock_out", quantity: 5, reason: "patient" },
+		idempotencyKey: randomUUID(),
+		timezone: fixture.workspace.timezone,
+		userId: fixture.user.id,
+		workspaceId: fixture.workspace.id,
+	});
+	await syncAlerts();
+
+	expect(await getAlerts()).toEqual([
+		expect.objectContaining({ status: "resolved", type: "low_stock" }),
+		expect.objectContaining({
+			quantityAffected: 0,
+			status: "active",
+			threshold: 10,
+			type: "out_of_stock",
+		}),
+	]);
+});
+
 test("Inventory workspace isolation - rejects a drug that belongs to another workspace", async () => {
 	await using firstFixture = await createInventoryFixture();
 	await using secondFixture = await createInventoryFixture();
@@ -843,6 +889,7 @@ test("Alert lifecycle integration - deduplicates, resolves, and reactivates low-
 			workspaceId: fixture.workspace.id,
 		});
 
+	await receiveTestStock({ drugId: fixture.drug.id, expiresInDays: 180, fixture, quantity: 5 });
 	await Promise.all([syncAlerts(), syncAlerts()]);
 
 	let alerts = await db
@@ -885,7 +932,7 @@ test("Alert lifecycle integration - deduplicates, resolves, and reactivates low-
 		body: {
 			drugId: fixture.drug.id,
 			logType: "stock_out",
-			quantity: 15,
+			quantity: 20,
 			reason: "patient",
 		},
 		idempotencyKey: randomUUID(),
@@ -921,7 +968,7 @@ test.each([
 	{ emailAlertsEnabled: true, expectedOutboxCount: 1, policy: "critical_immediate" as const },
 	{ emailAlertsEnabled: true, expectedOutboxCount: 1, policy: "all_immediate" as const },
 ])(
-	"Alert delivery integration - persists low-stock alerts with $policy policy",
+	"Alert delivery integration - persists out-of-stock alerts with $policy policy",
 	async ({ emailAlertsEnabled, expectedOutboxCount, policy }) => {
 		await using fixture = await createInventoryFixture({
 			emailAlertDeliveryPolicy: policy,
@@ -944,7 +991,7 @@ test.each([
 		]);
 
 		expect(alerts).toHaveLength(1);
-		expect(alerts[0]?.type).toBe("low_stock");
+		expect(alerts[0]?.type).toBe("out_of_stock");
 		expect(outboxRecords).toHaveLength(expectedOutboxCount);
 	}
 );

@@ -123,7 +123,7 @@ export function InputField<TFieldValues extends FieldValues, TTransformedValues 
 		type,
 	} = props;
 	const inputClassName = tw`h-10 rounded-lg border border-shadcn-border bg-shadcn-background px-4
-	text-[14px] text-shadcn-foreground outline-none placeholder:text-vitastock-body-color/60
+	text-shadcn-foreground outline-none placeholder:text-vitastock-body-color/60
 	focus-within:border-vitastock-primary-main focus-within:ring-1 focus-within:ring-vitastock-primary-main`;
 
 	return (
@@ -144,7 +144,12 @@ export function InputField<TFieldValues extends FieldValues, TTransformedValues 
 				type={type}
 				placeholder={placeholder}
 				classNames={{
-					input: cnMerge(type !== "password" && inputClassName, classNames?.input),
+					// == 16px on phones stops iOS Safari zooming into focused inputs
+					input: cnMerge(
+						"text-[16px] md:text-[14px]",
+						type !== "password" && inputClassName,
+						classNames?.input
+					),
 					inputGroup: cnMerge(type === "password" && inputClassName, classNames?.inputGroup),
 				}}
 			/>
@@ -248,7 +253,7 @@ export function ComboboxField<TFieldValues extends FieldValues, TTransformedValu
 							<ComboboxBase.Input
 								withTrigger={false}
 								placeholder={`Search ${type}...`}
-								className={cnMerge("h-10 text-[14px]", classNames?.input)}
+								className={cnMerge("h-10 text-[16px] md:text-[14px]", classNames?.input)}
 							/>
 							<ComboboxBase.Empty className={cnMerge("p-3 text-[13px]", classNames?.empty)}>
 								{emptyContent ?? `No ${type} found.`}

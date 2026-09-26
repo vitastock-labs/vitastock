@@ -45,6 +45,7 @@ function getIconsArray() {
 		"lucide:list-filter",
 		"lucide:log-out",
 		"lucide:mail",
+		"lucide:menu",
 		"lucide:minus",
 		"lucide:package-x",
 		"lucide:pencil",

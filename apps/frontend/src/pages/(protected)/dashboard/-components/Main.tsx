@@ -6,7 +6,11 @@ function Main(props: InferProps<"main">) {
 
 	return (
 		<main
-			className={cnMerge("flex min-w-0 grow basis-0 flex-col px-12 pt-12 pb-[100px]", className)}
+			className={cnMerge(
+				`flex min-w-0 grow basis-0 flex-col px-4 pt-6 pb-16 md:px-8 md:pt-10 lg:px-12 lg:pt-12
+				lg:pb-[100px]`,
+				className
+			)}
 			{...restOfProps}
 		/>
 	);

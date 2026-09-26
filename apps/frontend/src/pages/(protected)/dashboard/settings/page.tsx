@@ -55,7 +55,9 @@ function SettingsPage() {
 	return (
 		<Main className="max-w-225 gap-8 self-center">
 			<header className="flex flex-col gap-1.5">
-				<h1 className="text-[28px] font-extrabold tracking-tight text-black">System Settings</h1>
+				<h1 className="text-[24px] font-extrabold tracking-tight text-black md:text-[28px]">
+					System Settings
+				</h1>
 				<p className="text-[15px] font-medium text-vitastock-body-color/80">
 					Manage your workspace preferences and alert configurations.
 				</p>
@@ -152,9 +154,15 @@ function AlertSettingsSection() {
 				<h2 className="text-[16px] font-bold text-black">Alert Settings</h2>
 			</div>
 
-			<Form.Root form={form} onSubmit={(event) => void onSubmit(event)} className="flex flex-col p-6">
-				<article className="flex items-center justify-between border-b border-shadcn-border/50 pb-6">
-					<div className="flex flex-col gap-1">
+			<Form.Root
+				form={form}
+				onSubmit={(event) => void onSubmit(event)}
+				className="flex flex-col p-5 md:p-6"
+			>
+				<article
+					className="flex items-center justify-between gap-4 border-b border-shadcn-border/50 pb-6"
+				>
+					<div className="flex min-w-0 flex-col gap-1">
 						<h3 className="text-[14.5px] font-bold text-black">Default Low Stock Threshold</h3>
 						<p className="text-[13.5px] font-medium text-vitastock-body-color/80">
 							Applies to drugs without an individual low stock threshold.
@@ -169,8 +177,10 @@ function AlertSettingsSection() {
 					/>
 				</article>
 
-				<article className="flex items-center justify-between border-b border-shadcn-border/50 py-6">
-					<div className="flex flex-col gap-1">
+				<article
+					className="flex items-center justify-between gap-4 border-b border-shadcn-border/50 py-6"
+				>
+					<div className="flex min-w-0 flex-col gap-1">
 						<h3 className="text-[14.5px] font-bold text-black">Email Alerts</h3>
 						<p className="text-[13.5px] font-medium text-vitastock-body-color/80">
 							Receive critical stock warnings via email.
@@ -230,8 +240,8 @@ function AlertSettingsSection() {
 					}
 				</Form.Watch>
 
-				<article className="flex items-center justify-between pt-6">
-					<div className="flex flex-col gap-1">
+				<article className="flex items-center justify-between gap-4 pt-6">
+					<div className="flex min-w-0 flex-col gap-1">
 						<h3 className="text-[14.5px] font-bold text-black">Near-Expiry Window</h3>
 						<p className="text-[13.5px] font-medium text-vitastock-body-color/80">
 							Flag batches that expire within this number of days.
@@ -335,14 +345,23 @@ function ManagePeopleDialog() {
 			memberColumnHelper.columns([
 				memberColumnHelper.accessor(getMemberName, {
 					cell: ({ row }) => (
-						<div className="flex items-center gap-3">
+						<div className="flex min-w-0 items-center gap-3">
 							<MemberAvatar member={row.original} />
-							<p className="text-black">
-								{getMemberName(row.original)}
-								{row.original.isCurrentUser && (
-									<span className="ml-1.5 text-vitastock-body-color/70">(you)</span>
-								)}
-							</p>
+							<div className="min-w-0">
+								<p className="text-black">
+									{getMemberName(row.original)}
+									{row.original.isCurrentUser && (
+										<span className="ml-1.5 text-vitastock-body-color/70">(you)</span>
+									)}
+								</p>
+								<p className="text-[12px] wrap-anywhere text-vitastock-body-color md:hidden">
+									{getMemberEmail(row.original)}
+								</p>
+								<div className="mt-2 flex flex-wrap items-center gap-2 md:hidden">
+									<RoleBadge role={row.original.role} />
+									<StatusLabel status={row.original.status} />
+								</div>
+							</div>
 						</div>
 					),
 					filterFn: (row, _columnId, filterValue: string) => {
@@ -368,12 +387,14 @@ function ManagePeopleDialog() {
 						<DataTableColumnHeader column={column}>Email</DataTableColumnHeader>
 					),
 					id: "email",
+					meta: { classNames: { column: "hidden md:table-cell" } },
 				}),
 				memberColumnHelper.accessor("role", {
 					cell: ({ getValue }) => <RoleBadge role={getValue()} />,
 					filterFn: "equalsString",
 					header: ({ column }) => <DataTableColumnHeader column={column}>Role</DataTableColumnHeader>,
 					meta: {
+						classNames: { column: "hidden md:table-cell" },
 						label: "All Roles",
 						options: WORKSPACE_ROLE_FILTER_OPTIONS,
 						variant: "select",
@@ -385,11 +406,13 @@ function ManagePeopleDialog() {
 						<DataTableColumnHeader column={column}>Joined Date</DataTableColumnHeader>
 					),
 					id: "joinedDate",
+					meta: { classNames: { column: "hidden lg:table-cell" } },
 				}),
 				memberColumnHelper.accessor("status", {
 					cell: ({ getValue }) => <StatusLabel status={getValue()} />,
 					enableSorting: false,
 					header: "Status",
+					meta: { classNames: { column: "hidden md:table-cell" } },
 				}),
 				memberColumnHelper.display({
 					cell: ({ row }) => (
@@ -398,7 +421,7 @@ function ManagePeopleDialog() {
 						</div>
 					),
 					enableSorting: false,
-					header: () => <span className="block text-right">Actions</span>,
+					header: () => <span className="block text-right max-md:sr-only">Actions</span>,
 					id: "actions",
 				}),
 			]),
@@ -421,12 +444,13 @@ function ManagePeopleDialog() {
 		<DialogAnimated.Content
 			onInteractOutside={(event) => event.preventDefault()}
 			withCloseButton={false}
-			className="flex h-[calc(100svh-120px)] w-[calc(100vw-120px)] max-w-[unset] flex-col gap-0
-				overflow-hidden rounded-2xl border-shadcn-border bg-white p-0 shadow-2xl"
+			className="flex h-[calc(100svh-32px)] max-w-[unset] flex-col gap-0 overflow-hidden rounded-2xl
+				border-shadcn-border bg-white p-0 shadow-2xl md:h-[calc(100svh-120px)]
+				md:w-[calc(100vw-120px)]"
 		>
 			<DialogAnimated.Header
-				className="flex-row items-start justify-between gap-6 border-b border-shadcn-border/70 px-6
-					py-5"
+				className="flex-row items-start justify-between gap-6 border-b border-shadcn-border/70 p-5
+					text-left md:px-6"
 			>
 				<div className="flex flex-col gap-1">
 					<DialogAnimated.Title
@@ -456,18 +480,25 @@ function ManagePeopleDialog() {
 					errorMessage="Failed to load members. Please try again later."
 					classNames={{
 						base: "min-h-0 grow overflow-hidden text-[14px] font-medium",
+						tableCell: "px-5 md:px-6",
 						tableContainer: "min-h-0 grow",
+						tableHead: "px-5 md:px-6",
+						tableRoot: "md:min-w-[640px]",
 					}}
 				>
 					<DataTableToolbar
 						table={table}
+						classNames={{
+							base: "flex-col items-stretch p-5 md:flex-row md:items-center md:px-6 md:py-4",
+							content: "grid grid-cols-[minmax(0,1fr)_auto] md:flex",
+						}}
 						actions={
 							canInviteMembers && (
 								<DialogAnimated.Root>
 									<DialogAnimated.Trigger asChild={true}>
 										<Button
-											className="h-10 rounded-lg bg-vitastock-primary-main px-4 text-[14px]
-												font-bold hover:bg-vitastock-primary-main/90"
+											className="h-10 w-full rounded-lg bg-vitastock-primary-main px-4
+												text-[14px] font-bold hover:bg-vitastock-primary-main/90 md:w-fit"
 										>
 											<IconBox icon="lucide:plus" className="size-4.5" />
 											Invite Member
@@ -778,10 +809,9 @@ function MemberDetailsDialog(props: {
 	return (
 		<DialogAnimated.Root open={isOpen} onOpenChange={onOpenChange}>
 			<DialogAnimated.Content
-				className="max-w-[440px] gap-0 overflow-hidden rounded-2xl border-shadcn-border bg-white p-0
-					shadow-2xl"
+				className="max-w-[440px] gap-0 rounded-2xl border-shadcn-border bg-white p-0 shadow-2xl"
 			>
-				<DialogAnimated.Header className="border-b border-shadcn-border/70 px-6 py-5">
+				<DialogAnimated.Header className="border-b border-shadcn-border/70 p-5 text-left md:px-6">
 					<div className="flex items-center gap-3">
 						<MemberAvatar member={member} />
 						<div className="min-w-0">
@@ -811,7 +841,10 @@ function MemberDetailsDialog(props: {
 					)}
 				</div>
 
-				<DialogAnimated.Footer className="flex-row justify-end border-t border-shadcn-border/70 p-4">
+				<DialogAnimated.Footer
+					className="flex-row justify-end border-t border-shadcn-border/70 p-4 *:flex-1
+						md:*:flex-none"
+				>
 					<DialogAnimated.Close asChild={true}>
 						<Button theme="primary-ghost" className="h-10">
 							Close
@@ -871,10 +904,9 @@ function ConfirmRemoveMemberDialog(props: {
 			{member && (
 				<DialogAnimated.Content
 					withCloseButton={false}
-					className="max-w-[420px] gap-0 overflow-hidden rounded-2xl border-shadcn-border bg-white p-0
-						shadow-2xl"
+					className="max-w-[420px] gap-0 rounded-2xl border-shadcn-border bg-white p-0 shadow-2xl"
 				>
-					<DialogAnimated.Header className="border-b border-shadcn-border/70 px-6 py-5">
+					<DialogAnimated.Header className="border-b border-shadcn-border/70 p-5 text-left md:px-6">
 						<DialogAnimated.Title className="text-[18px] font-bold text-black">
 							Remove member from workspace?
 						</DialogAnimated.Title>
@@ -886,7 +918,7 @@ function ConfirmRemoveMemberDialog(props: {
 						</DialogAnimated.Description>
 					</DialogAnimated.Header>
 
-					<DialogAnimated.Footer className="flex-row justify-end gap-3 p-4">
+					<DialogAnimated.Footer className="flex-row justify-end gap-3 p-4 *:flex-1 md:*:flex-none">
 						<Button theme="primary-ghost" className="h-10" onClick={onClose}>
 							Cancel
 						</Button>
@@ -940,8 +972,7 @@ function InviteMemberDialog() {
 	return (
 		<DialogAnimated.Content
 			withCloseButton={false}
-			className="max-w-[448px] gap-0 overflow-hidden rounded-2xl border-shadcn-border bg-white p-0
-				shadow-2xl"
+			className="max-w-[448px] gap-0 rounded-2xl border-shadcn-border bg-white p-0 shadow-2xl"
 		>
 			<header
 				className="flex items-start justify-between gap-6 border-b border-shadcn-border/70 px-6 py-5"
@@ -1014,7 +1045,9 @@ function InviteMemberDialog() {
 					/>
 				</div>
 
-				<DialogAnimated.Footer className="flex-row items-center justify-end gap-3 p-4">
+				<DialogAnimated.Footer
+					className="flex-row items-center justify-end gap-3 p-4 *:flex-1 md:*:flex-none"
+				>
 					<DialogAnimated.Close asChild={true}>
 						<Button theme="primary-ghost" className="h-11">
 							Cancel
@@ -1073,8 +1106,7 @@ function ResendInvitationDialog(props: { invitationId: string }) {
 	return (
 		<DialogAnimated.Content
 			withCloseButton={false}
-			className="max-w-[448px] gap-0 overflow-hidden rounded-2xl border-shadcn-border bg-white p-0
-				shadow-2xl"
+			className="max-w-[448px] gap-0 rounded-2xl border-shadcn-border bg-white p-0 shadow-2xl"
 		>
 			<header
 				className="flex items-start justify-between gap-6 border-b border-shadcn-border/70 px-6 py-5"
@@ -1111,7 +1143,9 @@ function ResendInvitationDialog(props: { invitationId: string }) {
 					/>
 				</div>
 
-				<DialogAnimated.Footer className="flex-row items-center justify-end gap-3 p-4">
+				<DialogAnimated.Footer
+					className="flex-row items-center justify-end gap-3 p-4 *:flex-1 md:*:flex-none"
+				>
 					<DialogAnimated.Close asChild={true}>
 						<Button theme="primary-ghost" className="h-11">
 							Cancel
@@ -1142,7 +1176,7 @@ function MemberAvatar(props: { member: Member }) {
 	if (isInvitationMember(member)) {
 		return (
 			<span
-				className="grid size-9 place-items-center rounded-full border border-dashed
+				className="grid size-9 shrink-0 place-items-center rounded-full border border-dashed
 					border-vitastock-body-color/30 bg-shadcn-muted text-vitastock-body-color/70"
 			>
 				<IconBox icon="lucide:mail" className="size-4.5" />
@@ -1153,7 +1187,7 @@ function MemberAvatar(props: { member: Member }) {
 	return (
 		<Avatar.Root
 			className={cnJoin(
-				"size-9",
+				"size-9 shrink-0",
 				member.isCurrentUser && "bg-vitastock-primary-main",
 				member.status === "suspended" && "bg-rose-50 ring-1 ring-rose-200",
 				!member.isCurrentUser

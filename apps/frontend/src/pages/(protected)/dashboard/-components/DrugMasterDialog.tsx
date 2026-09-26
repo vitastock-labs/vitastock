@@ -66,6 +66,23 @@ const DRUG_TABLE_QUERY_KEYS = {
 	search: "drugSearch",
 } as const satisfies DataTableQueryKeys;
 
+function DrugStatusBadge(props: { className?: string; isActive: boolean }) {
+	const { className, isActive } = props;
+
+	return (
+		<Badge
+			className={cnJoin(
+				"border-none px-2 py-0.5 text-[11px] font-bold",
+				isActive && "bg-emerald-50 text-emerald-700",
+				!isActive && "bg-shadcn-muted text-vitastock-body-color",
+				className
+			)}
+		>
+			{isActive ? "Active" : "Inactive"}
+		</Badge>
+	);
+}
+
 export function DrugMasterDialog() {
 	const { onPaginationChange, pagination } = useDataTableQueryState({
 		queryKeys: DRUG_TABLE_QUERY_KEYS,
@@ -93,6 +110,11 @@ export function DrugMasterDialog() {
 							<p className="mt-0.5 text-[12px] text-vitastock-body-color">
 								{row.original.genericName} / {row.original.strength ?? EMPTY_DISPLAY_VALUE}
 							</p>
+							<p className="mt-0.5 text-[12px] text-vitastock-body-color md:hidden">
+								{row.original.form ?? EMPTY_DISPLAY_VALUE} ·{" "}
+								{row.original.unit ?? EMPTY_DISPLAY_VALUE}
+							</p>
+							<DrugStatusBadge isActive={row.original.isActive} className="mt-2 md:hidden" />
 						</div>
 					),
 					enableSorting: false,
@@ -105,26 +127,19 @@ export function DrugMasterDialog() {
 					header: ({ column }) => (
 						<DataTableColumnHeader column={column}>Dosage Form</DataTableColumnHeader>
 					),
+					meta: { classNames: { column: "hidden md:table-cell" } },
 				}),
 				drugColumnHelper.accessor("unit", {
 					cell: ({ getValue }) => getValue() ?? EMPTY_DISPLAY_VALUE,
 					enableSorting: false,
 					header: ({ column }) => <DataTableColumnHeader column={column}>Unit</DataTableColumnHeader>,
+					meta: { classNames: { column: "hidden md:table-cell" } },
 				}),
 				drugColumnHelper.accessor("isActive", {
-					cell: ({ getValue }) => (
-						<Badge
-							className={cnJoin(
-								"border-none px-2 py-0.5 text-[11px] font-bold",
-								getValue() && "bg-emerald-50 text-emerald-700",
-								!getValue() && "bg-shadcn-muted text-vitastock-body-color"
-							)}
-						>
-							{getValue() ? "Active" : "Inactive"}
-						</Badge>
-					),
+					cell: ({ getValue }) => <DrugStatusBadge isActive={getValue()} />,
 					enableSorting: false,
 					header: "Status",
+					meta: { classNames: { column: "hidden md:table-cell" } },
 				}),
 				drugColumnHelper.display({
 					cell: ({ row }) => (
@@ -142,7 +157,7 @@ export function DrugMasterDialog() {
 						</div>
 					),
 					enableSorting: false,
-					header: () => <span className="block text-right">Actions</span>,
+					header: () => <span className="block text-right max-md:sr-only">Actions</span>,
 					id: "actions",
 				}),
 			]),
@@ -168,8 +183,8 @@ export function DrugMasterDialog() {
 					rounded-xl border-shadcn-border bg-white p-0 shadow-2xl"
 			>
 				<header
-					className="flex items-start justify-between gap-6 border-b border-shadcn-border/70 px-6
-						py-5"
+					className="flex items-start justify-between gap-6 border-b border-shadcn-border/70 p-5
+						md:px-6"
 				>
 					<div className="flex flex-col gap-1">
 						<DialogAnimated.Title className="text-[20px] font-extrabold text-black">
@@ -197,8 +212,10 @@ export function DrugMasterDialog() {
 					classNames={{
 						base: "min-h-0 flex-1",
 						pagination: "shrink-0",
+						tableCell: "px-5 md:px-6",
 						tableContainer: "min-h-0 flex-1",
-						tableRoot: "min-w-[720px]",
+						tableHead: "px-5 md:px-6",
+						tableRoot: "md:min-w-[720px]",
 					}}
 				>
 					<DataTableQueryToolbar
@@ -370,14 +387,14 @@ function DrugFormDialog<TFieldValues extends FieldValues, TTransformedValues ext
 				className="flex min-h-0 flex-1 flex-col"
 				onSubmit={(event) => void onSubmit(event)}
 			>
-				<ScrollArea.Root classNames={{ base: "min-h-0 flex-1" }}>
+				<ScrollArea.Root classNames={{ base: "grid min-h-0 flex-1", viewport: "h-auto min-h-0" }}>
 					<DrugFormFields />
 					{batchExpiryEditor}
 				</ScrollArea.Root>
 
 				<DialogAnimated.Footer
 					className="flex-row justify-end gap-3 border-t border-shadcn-border/70 bg-shadcn-muted/30
-						p-4"
+						p-4 *:flex-1 md:*:flex-none"
 				>
 					<DialogAnimated.Close asChild={true}>
 						<Button theme="primary-ghost" className="h-10 px-4">

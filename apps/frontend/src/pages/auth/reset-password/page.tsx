@@ -57,7 +57,9 @@ function ResetPasswordPage() {
 				</span>
 
 				<div className="flex flex-col items-center gap-4 text-center">
-					<h1 className="text-[30px] font-extrabold text-black">Reset your password</h1>
+					<h1 className="text-[26px] font-extrabold text-black md:text-[30px]">
+						Reset your password
+					</h1>
 					<p>Enter a new password for your account.</p>
 				</div>
 

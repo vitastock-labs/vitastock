@@ -5,6 +5,7 @@ import { IconBox } from "@/components/common/IconBox";
 import { Logo } from "@/components/common/Logo";
 import { NavLink } from "@/components/common/NavLink";
 import { Sidebar } from "@/components/ui";
+import { Button } from "@/components/ui/button";
 
 const dashboardNavItems = [
 	{
@@ -46,10 +47,20 @@ type DashboardNavItem = (typeof dashboardNavItems)[number] | (typeof dashboardUt
 
 function DashboardSidebar() {
 	return (
-		<Sidebar.Provider sidebarWidth="272px" sidebarWidthIcon="76px" withMobileBreakpoint={false}>
+		<Sidebar.Provider className="shrink-0" sidebarWidth="272px" sidebarWidthIcon="76px">
+			<Sidebar.Trigger
+				unstyled={true}
+				aria-label="Open navigation"
+				className="absolute top-5 left-2 z-60 grid size-10 place-items-center text-vitastock-body-color
+					md:hidden"
+			>
+				<IconBox icon="lucide:menu" className="size-5" />
+			</Sidebar.Trigger>
+
 			<Sidebar.Root
 				collapsible="icon"
 				classNames={{
+					base: "max-md:bg-[hsl(210,14%,97%)]",
 					container: "animate-slide-from-left border-r border-shadcn-border/60",
 					inner: "gap-0 bg-[hsl(210,14%,97%)]",
 				}}
@@ -78,11 +89,7 @@ function DashboardSidebar() {
 						</div>
 					</Logo>
 
-					<Sidebar.Trigger
-						className="absolute top-1/2 -right-3.5 z-20 size-7 -translate-y-1/2 rounded-full border
-							border-shadcn-border bg-white text-vitastock-body-color shadow-sm
-							hover:bg-vitastock-primary-subtle hover:text-vitastock-primary-main"
-					/>
+					<DashboardSidebarToggle />
 				</Sidebar.Header>
 
 				<Sidebar.Content className="scrollbar-none px-3 py-6">
@@ -102,9 +109,35 @@ function DashboardSidebar() {
 					<DashboardSidebarMenu items={dashboardUtilityItems} />
 				</Sidebar.Footer>
 
-				<Sidebar.Rail className="group-data-[state=collapsed]:-translate-x-1" />
+				<Sidebar.Rail className="group-data-[state=collapsed]:-translate-x-1 max-md:hidden" />
 			</Sidebar.Root>
 		</Sidebar.Provider>
+	);
+}
+
+function DashboardSidebarToggle() {
+	const { isMobile, setOpenMobile } = Sidebar.useSidebarContext();
+
+	if (isMobile) {
+		return (
+			<Button
+				unstyled={true}
+				className="absolute top-1/2 right-3 grid size-9 -translate-y-1/2 place-items-center rounded-lg
+					text-vitastock-body-color hover:bg-white"
+				aria-label="Close navigation"
+				onClick={() => setOpenMobile(false)}
+			>
+				<IconBox icon="lucide:x" className="size-5" />
+			</Button>
+		);
+	}
+
+	return (
+		<Sidebar.Trigger
+			className="absolute top-1/2 -right-3.5 z-20 size-7 -translate-y-1/2 rounded-full border
+				border-shadcn-border bg-white text-vitastock-body-color shadow-sm
+				hover:bg-vitastock-primary-subtle hover:text-vitastock-primary-main"
+		/>
 	);
 }
 
@@ -128,6 +161,8 @@ function DashboardSidebarMenu(props: { items: readonly DashboardNavItem[] }) {
 function DashboardSidebarLink(props: { item: DashboardNavItem }) {
 	const { item } = props;
 
+	const { isMobile, setOpenMobile } = Sidebar.useSidebarContext();
+
 	return (
 		<Sidebar.MenuButton
 			tooltip={item.title}
@@ -141,7 +176,15 @@ function DashboardSidebarLink(props: { item: DashboardNavItem }) {
 				data-active:before:bg-vitastock-primary-main"
 			asChild={true}
 		>
-			<NavLink to={item.href} end={item.href === "/dashboard"}>
+			<NavLink
+				to={item.href}
+				end={item.href === "/dashboard"}
+				onClick={() => {
+					if (isMobile) {
+						setOpenMobile(false);
+					}
+				}}
+			>
 				{(ctx) => (
 					<>
 						<span

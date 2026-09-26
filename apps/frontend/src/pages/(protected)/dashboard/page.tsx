@@ -35,7 +35,7 @@ function DashboardPage() {
 		&& overview.stats.drugsInStockCount === 0;
 
 	return (
-		<Main className="gap-10 px-12 pt-12">
+		<Main className="gap-8 lg:gap-10">
 			<DashboardHeader />
 
 			<Switch.Root>
@@ -72,7 +72,7 @@ function DashboardHeader() {
 
 	return (
 		<header className="flex flex-col gap-1.5">
-			<h1 className="text-[30px] font-extrabold tracking-tight text-black">
+			<h1 className="text-[24px] font-extrabold tracking-tight text-black md:text-[30px]">
 				Hello, {sessionQueryResult.data?.workspace.name}
 			</h1>
 			<p className="text-[15px] font-medium text-vitastock-body-color/80">Welcome back!</p>
@@ -152,7 +152,7 @@ function DashboardQuickActions() {
 		<section className="flex flex-col gap-4">
 			<h2 className="text-[14px] font-bold tracking-widest text-black uppercase">Quick Actions</h2>
 
-			<div className="flex flex-wrap items-center gap-4">
+			<div className="flex flex-wrap items-center gap-3 md:gap-4">
 				<NavLinkEphemeral
 					to={{
 						pathname: "/dashboard/inventory",
@@ -261,7 +261,7 @@ function DashboardActivity() {
 
 	return (
 		<section
-			className="flex flex-col gap-6 rounded-[20px] bg-white py-6 shadow-sm ring-1
+			className="flex min-w-0 flex-col gap-6 rounded-[20px] bg-white py-6 shadow-sm ring-1
 				ring-shadcn-border/40"
 		>
 			<h2 className="px-6 text-[18px] font-bold text-black">Recent Activity</h2>
@@ -273,6 +273,7 @@ function DashboardActivity() {
 				showPagination={false}
 				emptyMessage="No stock activity yet."
 				errorMessage="Failed to load activity."
+				classNames={{ tableRoot: "min-w-[560px]" }}
 			/>
 		</section>
 	);

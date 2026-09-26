@@ -17,8 +17,8 @@ function DashboardHeader() {
 
 	return (
 		<header
-			className="flex min-w-0 items-center gap-4 border-b border-shadcn-border/40 px-4 py-5 sm:gap-6
-				sm:px-6"
+			className="flex min-w-0 items-center gap-4 border-b border-shadcn-border/40 py-5 pr-4 pl-14
+				sm:gap-6 sm:pr-6 md:pl-6"
 		>
 			<div className="flex min-w-0 flex-1 flex-col gap-1">
 				<p className="text-[15px] font-semibold wrap-anywhere text-shadcn-foreground sm:text-[18px]">

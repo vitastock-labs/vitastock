@@ -120,8 +120,8 @@ function DataTableToolbarSearch<TData extends RowData>(props: {
 				type="search"
 				placeholder={placeholder}
 				value={value}
-				className="h-full min-w-0 grow bg-transparent text-[14px] font-medium outline-none
-					placeholder:text-shadcn-muted-foreground/60"
+				className="h-full min-w-0 grow bg-transparent text-[16px] font-medium outline-none
+					placeholder:text-shadcn-muted-foreground/60 md:text-[14px]"
 				onChange={(event) => {
 					column.setFilterValue(event.target.value || undefined);
 					table.setPageIndex(0);
@@ -227,7 +227,7 @@ function DataTableQueryToolbar<TData extends RowData>(
 						type="search"
 						defaultValue={search}
 						placeholder={searchPlaceholder}
-						className="h-full placeholder:text-[14px]"
+						className="h-full text-[16px] placeholder:text-[14px] md:text-[14px]"
 						onChange={(event) => setSearchDebounced(event.target.value)}
 					/>
 					{isSearching && (

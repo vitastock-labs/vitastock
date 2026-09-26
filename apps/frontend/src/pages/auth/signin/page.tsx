@@ -66,10 +66,10 @@ function SigninPage() {
 		<Main>
 			<section
 				className="flex w-full max-w-[420px] flex-col items-center gap-12 rounded-[16px] border
-					border-[hsl(210,6%,93%)] bg-white p-8 shadow-[0_1px_2px_hsl(0,0%,0%,0.05)]"
+					border-[hsl(210,6%,93%)] bg-white p-6 shadow-[0_1px_2px_hsl(0,0%,0%,0.05)] md:p-8"
 			>
 				<Logo width={96} classNames={{ base: "flex flex-col items-center gap-1", image: "w-[96px]" }}>
-					<h1 className="text-[30px] font-bold text-black">VitaStock</h1>
+					<h1 className="text-[26px] font-bold text-black md:text-[30px]">VitaStock</h1>
 				</Logo>
 
 				<Form.Root form={form} onSubmit={(event) => void onSubmit(event)} className="w-full gap-8">

@@ -567,10 +567,10 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 				}
 			}}
 			className={cnJoin(
-				`grid max-h-[calc(100dvh-2rem)] w-[calc(100vw-32px)] gap-0 overflow-hidden rounded-lg
-				border-shadcn-border bg-shadcn-background p-0`,
+				`grid w-[calc(100vw-32px)] gap-0 overflow-hidden rounded-lg border-shadcn-border
+				bg-shadcn-background p-0`,
 				showChrome && "grid-rows-[auto_minmax(0,1fr)_auto]",
-				previewState ? "h-[calc(100dvh-2rem)] max-w-none" : "max-w-175"
+				previewState ? "h-[calc(100svh-32px)] max-w-none" : "max-w-175"
 			)}
 		>
 			<Switch.Root>
@@ -579,7 +579,7 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 						<header
 							className={cnJoin(
 								"flex items-start justify-between gap-6 border-b border-shadcn-border/70",
-								previewState ? "px-5 py-3" : "px-7 py-5"
+								previewState ? "px-5 py-3" : "p-5 md:px-7"
 							)}
 						>
 							<div className="flex flex-col gap-1">
@@ -604,7 +604,7 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 						<Switch.Root>
 							<Switch.Match when={state.stage === "upload"}>
 								<ScrollArea.Root className="min-h-0 flex-1">
-									<div className="flex flex-col gap-6 p-7">
+									<div className="flex flex-col gap-6 p-5 md:p-7">
 										<DropZoneInput.Root
 											allowedFileTypes={[".csv", ".xlsx"]}
 											maxFileCount={1}
@@ -615,7 +615,7 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 												classNames={{
 													container: `grid min-h-54 cursor-pointer place-items-center
 													rounded-lg border border-dashed border-vitastock-primary-light
-													bg-shadcn-muted/40 transition-colors
+													bg-shadcn-muted/40 p-5 transition-colors
 													hover:border-vitastock-primary-main
 													data-[drag-over=true]:border-vitastock-primary-main
 													data-[drag-over=true]:bg-vitastock-primary-main/5`,
@@ -632,7 +632,10 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 														<IconBox icon="lucide:file-down" className="size-7" />
 													</span>
 
-													<p className="mt-4 text-[16px] font-bold text-shadcn-foreground">
+													<p
+														className="mt-4 text-[15px] font-bold text-shadcn-foreground
+															md:text-[16px]"
+													>
 														Drag and drop your file here or click to browse
 													</p>
 													<p className="text-[13px] font-medium text-vitastock-body-color">
@@ -665,7 +668,9 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 										)}
 
 										<article className="flex flex-col gap-5 rounded-lg bg-shadcn-muted/70 p-5">
-											<header className="flex items-center justify-between gap-4">
+											<header
+												className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2"
+											>
 												<h4
 													className="flex items-center gap-2 text-[14px] font-bold
 														text-shadcn-foreground"
@@ -701,15 +706,24 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 															text-vitastock-body-color"
 													>
 														<li className="flex items-center gap-2">
-															<span className="size-1.5 rounded-full bg-shadcn-destructive" />
+															<span
+																className="size-1.5 shrink-0 rounded-full
+																	bg-shadcn-destructive"
+															/>
 															Drug Name and Generic Name
 														</li>
 														<li className="flex items-center gap-2">
-															<span className="size-1.5 rounded-full bg-shadcn-destructive" />
+															<span
+																className="size-1.5 shrink-0 rounded-full
+																	bg-shadcn-destructive"
+															/>
 															Quantity
 														</li>
 														<li className="flex items-center gap-2">
-															<span className="size-1.5 rounded-full bg-shadcn-destructive" />
+															<span
+																className="size-1.5 shrink-0 rounded-full
+																	bg-shadcn-destructive"
+															/>
 															Expiry Date (must be a future date)
 														</li>
 													</ul>
@@ -727,7 +741,9 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 															text-vitastock-body-color"
 													>
 														<li className="flex items-center gap-2">
-															<span className="size-1.5 rounded-full bg-shadcn-border" />
+															<span
+																className="size-1.5 shrink-0 rounded-full bg-shadcn-border"
+															/>
 															Strength, Dosage Form, Unit, Low Stock Threshold
 														</li>
 													</ul>
@@ -744,7 +760,7 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 										<ForWithWrapper
 											as="div"
 											aria-label="Import validation summary"
-											className="grid grid-cols-4 gap-3"
+											className="grid grid-cols-2 gap-3 sm:grid-cols-4"
 											each={[
 												{
 													label: "Total Rows",
@@ -813,8 +829,8 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 
 						<DialogAnimated.Footer
 							className={cnJoin(
-								`relative z-10 flex-row items-center justify-between gap-5 border-t
-								border-shadcn-border/70 bg-shadcn-background`,
+								`relative z-10 flex-row flex-wrap items-center justify-between gap-3 border-t
+								border-shadcn-border/70 bg-shadcn-background md:gap-5`,
 								previewState ? "px-4 py-3" : "p-5"
 							)}
 						>
@@ -832,7 +848,10 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 								</Show.Content>
 							</Show.Root>
 
-							<div className="ml-auto flex items-center gap-5">
+							<div
+								className="ml-auto flex grow items-center gap-3 *:flex-1 md:grow-0 md:gap-5
+									md:*:flex-none"
+							>
 								<DialogAnimated.Close asChild={true}>
 									<Button theme="secondary-outline">Cancel</Button>
 								</DialogAnimated.Close>
@@ -840,7 +859,7 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 								{state.stage === "upload" && (
 									<Button
 										isDisabled={!state.file}
-										className="h-12 min-w-38 gap-2 rounded-lg px-6 text-[15px]"
+										className="h-12 gap-2 rounded-lg px-5 text-[15px] md:min-w-38 md:px-6"
 										onClick={() => void handleContinue()}
 									>
 										Continue
@@ -855,7 +874,7 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 											|| previewState.duplicateRows.length > 0
 											|| previewState.validRows.length === 0
 										}
-										className="h-12 min-w-38 gap-2 rounded-lg px-6 text-[15px]"
+										className="h-12 gap-2 rounded-lg px-5 text-[15px] md:min-w-38 md:px-6"
 										onClick={() => void handleImport()}
 									>
 										Import {previewState.validRows.length} Rows

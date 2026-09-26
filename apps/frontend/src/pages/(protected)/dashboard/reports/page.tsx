@@ -193,9 +193,11 @@ function ReportsPage() {
 	});
 
 	return (
-		<Main className="gap-10 px-12 pt-12">
+		<Main className="gap-8 lg:gap-10">
 			<header className="flex flex-col gap-1.5">
-				<h1 className="text-[30px] font-extrabold tracking-tight text-black">Reports</h1>
+				<h1 className="text-[24px] font-extrabold tracking-tight text-black md:text-[30px]">
+					Reports
+				</h1>
 				<p className="text-[15px] font-medium text-vitastock-body-color/80">
 					Review stock movement and inventory activity.
 				</p>
@@ -232,7 +234,7 @@ function ReportsPage() {
 						className="flex min-w-0 flex-col rounded-2xl bg-white shadow-sm ring-1
 							ring-shadcn-border/60"
 					>
-						<header className="flex flex-col gap-1 border-b border-shadcn-border/50 p-6">
+						<header className="flex flex-col gap-1 border-b border-shadcn-border/50 p-5 md:p-6">
 							<div className="flex flex-col gap-1">
 								<h2 className="text-[18px] font-bold text-black">Stock Movement Log</h2>
 								<p className="text-[14px] text-vitastock-body-color">
@@ -248,6 +250,7 @@ function ReportsPage() {
 							emptyMessage="No stock movements match these filters."
 							errorMessage="Failed to load stock movements."
 							totalRows={activity?.pagination.total}
+							classNames={{ tableRoot: "min-w-[760px]" }}
 						>
 							<DataTableQueryToolbar
 								table={table}
@@ -329,13 +332,13 @@ function ReportDrugFilter(props: { drugId: string | null; onChange: (value: stri
 		<Combobox.Root data={options} type="drug" value={drugId ?? ""} onValueChange={onChange}>
 			<Combobox.Trigger
 				classNames={{
-					base: `h-10 w-60 justify-between rounded-lg border-none bg-white px-3 text-[13px]
-					font-normal shadow-[0_2px_8px_hsl(220,15%,15%,0.12)] hover:bg-white`,
+					base: `h-10 w-full justify-between rounded-lg border-none bg-white px-3 text-[13px]
+					font-normal shadow-[0_2px_8px_hsl(220,15%,15%,0.12)] hover:bg-white sm:w-60`,
 					icon: "text-vitastock-body-color/70",
 				}}
 			/>
 			<Combobox.Content popoverOptions={{ align: "start", sideOffset: 6 }}>
-				<Combobox.Input className="h-10 text-[14px]" onValueChange={setSearch} />
+				<Combobox.Input className="h-10 text-[16px] md:text-[14px]" onValueChange={setSearch} />
 				<Combobox.Empty className="p-4 text-center text-[13px] text-vitastock-body-color">
 					{drugsQueryResult.isFetching ? "Searching drugs..." : "No drugs found."}
 				</Combobox.Empty>
@@ -454,19 +457,22 @@ function ReportsStats(props: {
 
 			<ForWithWrapper
 				each={statItems}
-				className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4"
+				className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 xl:grid-cols-4"
 				renderItem={(item) => (
 					<li
 						key={item.label}
-						className="flex flex-col gap-4 rounded-2xl bg-white p-6 shadow-sm ring-1
-							ring-shadcn-border/60"
+						className="flex flex-col gap-4 rounded-2xl bg-white p-5 shadow-sm ring-1
+							ring-shadcn-border/60 md:p-6"
 					>
 						<div className="flex items-center justify-between">
 							<h3 className="text-[14px] font-medium text-vitastock-body-color">{item.label}</h3>
 							<IconBox icon={item.icon} className="size-5 text-vitastock-primary-main" />
 						</div>
 						<div>
-							<p className="text-[34px] leading-none font-extrabold tracking-tight text-black">
+							<p
+								className="text-[28px] leading-none font-extrabold tracking-tight text-black
+									md:text-[34px]"
+							>
 								{isLoading ? LOADING_DISPLAY_VALUE : item.value}
 							</p>
 							<p className="mt-2 text-[13px] font-medium text-vitastock-body-color">

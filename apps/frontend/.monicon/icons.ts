@@ -72,6 +72,8 @@ export const moniconLocalIcons = {
 
 	"lucide:mail": {"height":24,"svgBody":"<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\"><path d=\"m22 7l-8.991 5.727a2 2 0 0 1-2.009 0L2 7\"/><rect width=\"20\" height=\"16\" x=\"2\" y=\"4\" rx=\"2\"/></g>","width":24}, 
 
+	"lucide:menu": {"height":24,"svgBody":"<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M4 5h16M4 12h16M4 19h16\"/>","width":24}, 
+
 	"lucide:minus": {"height":24,"svgBody":"<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M5 12h14\"/>","width":24}, 
 
 	"lucide:package-x": {"height":24,"svgBody":"<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\"><path d=\"M12 22V12m4.5 2.5l5 5m-5 0l5-5m-.5-4V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.729l7 4a2 2 0 0 0 2 .001l.13-.074\"/><path d=\"M3.29 7L12 12l8.71-5M7.5 4.27l8.997 5.148\"/></g>","width":24}, 

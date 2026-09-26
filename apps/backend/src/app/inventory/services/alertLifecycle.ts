@@ -14,6 +14,7 @@ import {
 	workspaces,
 } from "@vitastock/db/schema/workspace";
 import { and, asc, desc, eq, gt, gte, inArray, isNull, lt, lte, notInArray, sql } from "drizzle-orm";
+import { getInventoryStatus } from "./utils/common";
 import { getWorkspaceInventoryDates } from "./utils/date";
 
 type AlertCondition = {
@@ -42,7 +43,10 @@ export const canSendImmediateInventoryAlertEmail = (options: {
 		return true;
 	}
 
-	return deliveryPolicy === "critical_immediate" && (type === "expired" || type === "low_stock");
+	return (
+		deliveryPolicy === "critical_immediate"
+		&& (type === "expired" || type === "low_stock" || type === "out_of_stock")
+	);
 };
 
 const getAlertConditions = async (
@@ -108,19 +112,28 @@ const getAlertConditions = async (
 		.orderBy(asc(stockBatches.expiryDate));
 
 	return [
-		...lowStockDrugs
-			.map((drug) => ({
-				...drug,
-				effectiveLowStockThreshold: drug.lowStockThreshold ?? lowStockThreshold,
-			}))
-			.filter((drug) => drug.totalAvailable <= drug.effectiveLowStockThreshold)
-			.map((drug) => ({
-				dedupeKey: `low_stock:${drug.drugId}`,
-				drugId: drug.drugId,
-				quantityAffected: drug.totalAvailable,
-				threshold: drug.effectiveLowStockThreshold,
-				type: "low_stock" as const,
-			})),
+		// == Same stock-status rule as the inventory summary, so alerts and the table never disagree
+		...lowStockDrugs.flatMap((drug) => {
+			const effectiveLowStockThreshold = drug.lowStockThreshold ?? lowStockThreshold;
+			const stockStatus = getInventoryStatus({
+				lowStockThreshold: effectiveLowStockThreshold,
+				totalAvailable: drug.totalAvailable,
+			});
+
+			if (stockStatus === "normal") {
+				return [];
+			}
+
+			return [
+				{
+					dedupeKey: `${stockStatus}:${drug.drugId}`,
+					drugId: drug.drugId,
+					quantityAffected: drug.totalAvailable,
+					threshold: effectiveLowStockThreshold,
+					type: stockStatus,
+				},
+			];
+		}),
 		...expiredBatches.map((batch) => ({
 			batchId: batch.id,
 			dedupeKey: `expired:${batch.id}`,
@@ -329,7 +342,7 @@ const getInventoryAlertAction = (type: AlertCondition["type"]) => {
 		return "remove" as const;
 	}
 
-	if (type === "low_stock") {
+	if (type === "low_stock" || type === "out_of_stock") {
 		return "restock" as const;
 	}
 

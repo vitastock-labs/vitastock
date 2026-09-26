@@ -39,7 +39,8 @@ type SidebarContextType = {
 
 const [SidebarContextProvider, useSidebarContext] = createCustomContext({
 	defaultValue: null as SidebarContextType | null,
-	name: "SidebarContext",
+	hookName: "useSidebarContext",
+	providerName: "SidebarProvider",
 });
 
 function SidebarProvider(
@@ -206,7 +207,7 @@ function SidebarRoot(
 			<aside
 				data-slot="sidebar-root"
 				className={cnMerge(
-					`z-50 flex w-(--sidebar-width) grow flex-col bg-shadcn-sidebar
+					`z-50 flex h-full w-(--sidebar-width) grow flex-col bg-shadcn-sidebar
 					text-shadcn-sidebar-foreground`,
 					className,
 					classNames?.base
@@ -227,7 +228,7 @@ function SidebarRoot(
 					data-sidebar="sidebar"
 					data-mobile="true"
 					className={cnMerge(
-						`w-(--sidebar-width) grow bg-shadcn-sidebar p-0 text-shadcn-sidebar-foreground
+						`w-(--sidebar-width) bg-shadcn-sidebar p-0 text-shadcn-sidebar-foreground
 						[&>button]:hidden`,
 						className,
 						classNames?.base
@@ -253,7 +254,7 @@ function SidebarRoot(
 	return (
 		<aside
 			className={cnMerge(
-				"group peer z-50 grow text-shadcn-sidebar-foreground data-[side=right]:order-last",
+				"group peer z-50 h-full text-shadcn-sidebar-foreground data-[side=right]:order-last",
 				className,
 				classNames?.base
 			)}

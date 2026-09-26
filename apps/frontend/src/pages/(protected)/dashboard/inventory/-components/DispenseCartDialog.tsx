@@ -230,7 +230,7 @@ function DispenseCartDialogContent(props: {
 
 			<DialogAnimated.Footer
 				className="shrink-0 flex-row justify-end gap-3 border-t border-shadcn-border/70
-					bg-shadcn-muted/30 p-4"
+					bg-shadcn-muted/30 p-4 *:flex-1 md:*:flex-none"
 			>
 				<DialogAnimated.Close asChild={true}>
 					<Button theme="primary-ghost" className="h-10 px-4">
@@ -305,7 +305,7 @@ function DispenseCartEntryForm(props: {
 				classNames={{ list: "max-h-52" }}
 			/>
 
-			<div className="grid grid-cols-2 gap-4">
+			<div className="grid gap-4 sm:grid-cols-2">
 				<InputField
 					control={entryForm.control}
 					name="quantity"

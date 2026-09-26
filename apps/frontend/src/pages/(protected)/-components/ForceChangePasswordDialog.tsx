@@ -3,8 +3,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { backendApiSchemaRoutes } from "@vitastock/shared/validation/backendApiSchema";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router";
+import { DialogAnimated } from "@/components/animated/ui";
 import { Button } from "@/components/ui";
-import * as Dialog from "@/components/ui/dialog";
 import { Form } from "@/components/ui/form";
 import { callBackendApiForQuery } from "@/lib/api/callBackendApi";
 import { signoutMutation } from "@/lib/react-query/mutationOptions";
@@ -46,21 +46,23 @@ export function ForceChangePasswordDialog() {
 	});
 
 	return (
-		<Dialog.Root defaultOpen={true}>
-			<Dialog.Content
+		<DialogAnimated.Root defaultOpen={true}>
+			<DialogAnimated.Content
 				withCloseButton={false}
 				onPointerDownOutside={(e) => e.preventDefault()}
 				onEscapeKeyDown={(e) => e.preventDefault()}
-				className="max-w-110 rounded-2xl border border-[hsl(210,6%,93%)] bg-white p-8
-					shadow-[0_1px_2px_hsl(0,0%,0%,0.05)]"
+				className="max-w-110 rounded-2xl border border-[hsl(210,6%,93%)] bg-white p-6
+					shadow-[0_1px_2px_hsl(0,0%,0%,0.05)] md:p-8"
 			>
-				<Dialog.Header className="flex flex-col items-center gap-2 text-center">
-					<Dialog.Title className="text-[24px] font-bold text-black">Change Password</Dialog.Title>
-					<Dialog.Description className="text-sm text-gray-500">
+				<DialogAnimated.Header className="flex flex-col items-center gap-2 text-center">
+					<DialogAnimated.Title className="text-[24px] font-bold text-black">
+						Change Password
+					</DialogAnimated.Title>
+					<DialogAnimated.Description className="text-sm text-gray-500">
 						You are signed in with a temporary/default password. Please choose a new password to
 						secure your account.
-					</Dialog.Description>
-				</Dialog.Header>
+					</DialogAnimated.Description>
+				</DialogAnimated.Header>
 
 				<Form.Root
 					form={form}
@@ -119,7 +121,7 @@ export function ForceChangePasswordDialog() {
 						Sign Out
 					</Button>
 				</Form.Root>
-			</Dialog.Content>
-		</Dialog.Root>
+			</DialogAnimated.Content>
+		</DialogAnimated.Root>
 	);
 }

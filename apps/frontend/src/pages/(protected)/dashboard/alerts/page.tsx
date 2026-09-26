@@ -18,16 +18,25 @@ import { formatDate, formatDrugLabel } from "@/lib/utils/formatters";
 import { EmptyState } from "@/pages/(protected)/dashboard/-components/EmptyState";
 import { Main } from "../-components/Main";
 
-const filterCategories = ["all", "expired", "expiring_soon", "low_stock"] as const;
+type AlertType = InventoryAlertsQueryResultType["alerts"][number]["type"];
+type AlertStatus = InventoryAlertsQueryResultType["alerts"][number]["status"];
+
+const filterCategories = [
+	"all",
+	"expired",
+	"out_of_stock",
+	"low_stock",
+	"expiring_soon",
+] as const satisfies ReadonlyArray<"all" | AlertType>;
 const alertStatuses = ["active", "resolved"] as const;
 type FilterCategory = (typeof filterCategories)[number];
-type AlertStatus = InventoryAlertsQueryResultType["alerts"][number]["status"];
 
 const filterLabels: Record<FilterCategory, string> = {
 	all: "All Alerts",
 	expired: "Expired",
 	expiring_soon: "Expiring Soon",
 	low_stock: "Low Stock",
+	out_of_stock: "Out of Stock",
 };
 
 const alertPresentation = {
@@ -43,7 +52,11 @@ const alertPresentation = {
 		icon: "lucide:archive",
 		title: "Low stock requires attention",
 	},
-} as const;
+	out_of_stock: {
+		icon: "lucide:package-x",
+		title: "Stock has run out",
+	},
+} as const satisfies Record<AlertType, { icon: string; title: string }>;
 
 const alertActionPresentation = {
 	remove: {
@@ -112,13 +125,15 @@ function AlertsPage() {
 		<Main className="gap-8">
 			<header className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
 				<div>
-					<h1 className="text-[32px] font-extrabold tracking-tight text-black">Alerts</h1>
+					<h1 className="text-[24px] font-extrabold tracking-tight text-black md:text-[32px]">
+						Alerts
+					</h1>
 					<p className="mt-1 text-[15px] font-medium text-vitastock-body-color/80">
 						Manage critical inventory issues needing attention.
 					</p>
 				</div>
 
-				<div className="flex flex-col items-end gap-3">
+				<div className="flex min-w-0 flex-col items-start gap-3 md:items-end">
 					<TabsAnimated.Root
 						value={alertStatus}
 						onValueChange={(value) => {
@@ -133,6 +148,7 @@ function AlertsPage() {
 
 					<TabsAnimated.Root
 						value={activeFilter}
+						className="max-w-full scrollbar-none overflow-x-auto"
 						onValueChange={(value) => {
 							void setAlertSearchParams({ filter: value as FilterCategory });
 						}}
@@ -196,11 +212,13 @@ function AlertsPage() {
 								const presentation = alertPresentation[alert.type];
 								const actionPresentation = alertActionPresentation[alert.action];
 
-								const quantityLabel =
-									alert.type === "low_stock" ? "Available" : "Quantity affected";
+								const isStockLevelAlert =
+									alert.type === "low_stock" || alert.type === "out_of_stock";
+
+								const quantityLabel = isStockLevelAlert ? "Available" : "Quantity affected";
 
 								const alertDetail = (() => {
-									if (alert.type === "low_stock") {
+									if (isStockLevelAlert) {
 										return `Threshold: ${alert.threshold ?? 0}`;
 									}
 
@@ -235,15 +253,16 @@ function AlertsPage() {
 									<article
 										key={alert.id}
 										className={cnJoin(
-											"flex flex-col gap-5 p-6 md:flex-row md:items-center md:justify-between",
+											`flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between
+											md:gap-5 md:p-6`,
 											index !== filteredAlerts.length - 1 && "border-b border-shadcn-border/40"
 										)}
 									>
-										<div className="flex items-start gap-4">
+										<div className="flex min-w-0 items-start gap-4">
 											<span
 												className={cnJoin(
 													"grid size-12 shrink-0 place-items-center rounded-xl",
-													alert.type === "expired"
+													(alert.type === "expired" || alert.type === "out_of_stock")
 														&& "bg-shadcn-destructive/10 text-shadcn-destructive",
 													alert.type === "expiring_soon" && "bg-amber-500/10 text-amber-600",
 													alert.type === "low_stock" && "bg-amber-400/15 text-amber-700"
@@ -252,7 +271,7 @@ function AlertsPage() {
 												<IconBox icon={presentation.icon} className="size-5.5" />
 											</span>
 
-											<div className="flex flex-col gap-1.5">
+											<div className="flex min-w-0 flex-col gap-1.5">
 												<h3 className="text-[16px] font-bold text-black">
 													{presentation.title}
 												</h3>
@@ -263,7 +282,7 @@ function AlertsPage() {
 													<Badge
 														className={cnJoin(
 															"rounded-md px-2 py-0.5 text-[11px] font-semibold uppercase",
-															alert.type === "expired"
+															(alert.type === "expired" || alert.type === "out_of_stock")
 																&& `border-shadcn-destructive/20 bg-shadcn-destructive/10
 																text-shadcn-destructive`,
 															alert.type === "expiring_soon"
@@ -283,10 +302,13 @@ function AlertsPage() {
 										</div>
 
 										<div
-											className="flex flex-wrap items-center justify-between gap-4
-												md:justify-end"
+											className="flex flex-col gap-4 md:flex-row md:items-center md:justify-end"
 										>
-											<div className="flex flex-col gap-1 text-right text-[13px]">
+											{/* == Indented under the title on phones so each card keeps one left edge */}
+											<div
+												className="flex flex-wrap items-baseline gap-x-3 gap-y-1 pl-16
+													text-[13px] md:flex-col md:items-end md:gap-1 md:pl-0 md:text-right"
+											>
 												<p className="text-vitastock-body-color/70">{quantityLabel}</p>
 												<p className="font-medium text-black">
 													{alert.quantityAffected ?? 0} units
@@ -298,6 +320,7 @@ function AlertsPage() {
 												{alert.status === "active" && !alert.acknowledgedAt && (
 													<Button
 														theme="primary-ghost"
+														className="flex-1 md:flex-none"
 														isDisabled={isAcknowledging}
 														isLoading={isAcknowledging}
 														loadingStyle="side-by-side"
@@ -316,6 +339,7 @@ function AlertsPage() {
 													>
 														<Button
 															className={cnJoin(
+																"flex-1 md:flex-none",
 																alert.action === "remove"
 																	&& `border border-shadcn-destructive bg-transparent
 																	text-shadcn-destructive hover:bg-shadcn-destructive/5`,

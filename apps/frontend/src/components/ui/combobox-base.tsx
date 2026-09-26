@@ -95,7 +95,10 @@ function ComboboxInput(
 				className as string
 			)}
 		>
-			<ComboboxPrimitive.Input render={<Form.InputPrimitive disabled={disabled} />} {...restOfProps} />
+			<ComboboxPrimitive.Input
+				render={<Form.InputPrimitive disabled={disabled} className="[font-size:inherit]" />}
+				{...restOfProps}
+			/>
 			<Form.InputGroupAddon>
 				{withTrigger && (
 					<ComboboxTrigger

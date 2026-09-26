@@ -75,7 +75,7 @@ function VerifyEmailPage() {
 				</span>
 
 				<div className="flex flex-col items-center gap-4 text-center">
-					<h1 className="text-[30px] font-extrabold text-black">Check your email</h1>
+					<h1 className="text-[26px] font-extrabold text-black md:text-[30px]">Check your email</h1>
 					<p>We've sent a 6-digit verification code to your email address.</p>
 				</div>
 

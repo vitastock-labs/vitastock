@@ -68,7 +68,7 @@ function InventoryPage() {
 	const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
 
 	return (
-		<Main className="gap-8 px-5 pt-8 md:px-8 lg:px-12 lg:pt-12">
+		<Main className="gap-8">
 			<InventoryHeader />
 
 			<Switch.Root>
@@ -109,7 +109,9 @@ export default InventoryPage;
 function InventoryHeader() {
 	return (
 		<header className="flex flex-col gap-1.5">
-			<h1 className="text-[30px] font-extrabold tracking-tight text-shadcn-foreground">Inventory</h1>
+			<h1 className="text-[24px] font-extrabold tracking-tight text-shadcn-foreground md:text-[30px]">
+				Inventory
+			</h1>
 			<p className="text-[15px] font-medium text-vitastock-body-color">
 				Manage stock levels, expirations, and Drug Master records.
 			</p>
@@ -123,10 +125,10 @@ function InventoryStats() {
 	const stats = summary?.stats;
 
 	return (
-		<section className="grid gap-6 lg:grid-cols-2" aria-label="Inventory summary">
+		<section className="grid gap-4 md:gap-6 lg:grid-cols-2" aria-label="Inventory summary">
 			<Card.Root
 				className="flex min-w-0 flex-row items-center justify-between gap-6 rounded-lg
-					border-shadcn-border bg-shadcn-background p-6"
+					border-shadcn-border bg-shadcn-background p-5 md:p-6"
 			>
 				<Card.Content className="flex min-w-0 flex-col gap-2">
 					<Card.Title
@@ -135,8 +137,8 @@ function InventoryStats() {
 						Drugs in Stock
 					</Card.Title>
 					<p
-						className="max-w-full text-[34px] leading-none font-extrabold tracking-tight
-							wrap-break-word text-shadcn-foreground"
+						className="max-w-full text-[28px] leading-none font-extrabold tracking-tight
+							wrap-break-word text-shadcn-foreground md:text-[34px]"
 					>
 						{stats ? stats.drugsInStockCount.toLocaleString() : LOADING_DISPLAY_VALUE}
 					</p>
@@ -155,13 +157,16 @@ function InventoryStats() {
 
 			<Card.Root
 				className="flex min-w-0 flex-row items-center justify-between gap-6 rounded-lg border-red-300
-					bg-red-100 p-6"
+					bg-red-100 p-5 md:p-6"
 			>
 				<Card.Content className="flex min-w-0 flex-col gap-2">
 					<Card.Title className="text-[13px] font-bold tracking-widest text-red-700 uppercase">
 						Critical Supply Alerts
 					</Card.Title>
-					<p className="text-[34px] leading-none font-extrabold tracking-tight text-red-700">
+					<p
+						className="text-[28px] leading-none font-extrabold tracking-tight text-red-700
+							md:text-[34px]"
+					>
 						{stats?.criticalCount ?? LOADING_DISPLAY_VALUE}
 					</p>
 					<Card.Description className="text-[13px] font-medium text-red-700/90">
@@ -619,7 +624,9 @@ function InventoryDetailsDialog(props: { drugId: string }) {
 			className="flex h-[min(720px,calc(100svh-48px))] max-w-[680px] flex-col gap-0 overflow-hidden
 				rounded-lg bg-shadcn-background p-0"
 		>
-			<header className="flex shrink-0 flex-col gap-1 border-b border-shadcn-border/60 px-6 py-5 pr-12">
+			<header
+				className="flex shrink-0 flex-col gap-1 border-b border-shadcn-border/60 p-5 pr-12 md:px-6"
+			>
 				<DialogAnimated.Title className="text-[20px] font-bold">
 					Inventory details
 				</DialogAnimated.Title>
@@ -645,7 +652,7 @@ function InventoryDetailsDialog(props: { drugId: string }) {
 					</Switch.Match>
 					<Switch.Default>
 						{row && (
-							<div className="flex flex-col gap-6 p-6">
+							<div className="flex flex-col gap-6 p-5 md:p-6">
 								<div className="flex flex-col items-start gap-3">
 									<div className="flex flex-col gap-1">
 										<h3 className="text-[22px] font-bold text-shadcn-foreground">
@@ -765,7 +772,10 @@ function InventoryDetailsDialog(props: { drugId: string }) {
 					</Switch.Default>
 				</Switch.Root>
 			</ScrollArea.Root>
-			<footer className="flex shrink-0 justify-end border-t border-shadcn-border/60 px-6 py-4">
+			<footer
+				className="flex shrink-0 justify-end border-t border-shadcn-border/60 p-4 *:flex-1 md:px-6
+					md:*:flex-none"
+			>
 				<DialogAnimated.Close asChild={true}>
 					<Button>Close</Button>
 				</DialogAnimated.Close>
@@ -1031,8 +1041,7 @@ function StockMovementDialog(props: {
 	return (
 		<DialogAnimated.Content
 			withCloseButton={false}
-			className="max-w-[430px] gap-0 overflow-hidden rounded-lg border-shadcn-border
-				bg-shadcn-background p-0"
+			className="max-w-[430px] gap-0 rounded-lg border-shadcn-border bg-shadcn-background p-0"
 		>
 			<header
 				className="flex items-start justify-between gap-6 border-b border-shadcn-border/70 px-5 py-4"
@@ -1099,7 +1108,7 @@ function StockMovementDialog(props: {
 								classNames={{ empty: "p-2" }}
 							/>
 
-							<div className={cnJoin("grid gap-4", !isRemoval && "grid-cols-2")}>
+							<div className={cnJoin("grid gap-4", !isRemoval && "sm:grid-cols-2")}>
 								<InputField
 									control={form.control}
 									name="quantity"
@@ -1164,7 +1173,9 @@ function StockMovementDialog(props: {
 							</Show.Root>
 						</div>
 
-						<DialogAnimated.Footer className="flex-row justify-end gap-3 bg-shadcn-muted/30 p-4">
+						<DialogAnimated.Footer
+							className="flex-row justify-end gap-3 bg-shadcn-muted/30 p-4 *:flex-1 md:*:flex-none"
+						>
 							<DialogAnimated.Close asChild={true}>
 								<Button theme="primary-ghost" className="h-10 px-4">
 									Cancel
@@ -1178,7 +1189,7 @@ function StockMovementDialog(props: {
 											<Button
 												isDisabled={formState.isSubmitting || (isRemoval && !batchId)}
 												isLoading={formState.isSubmitting}
-												className="h-10 px-4"
+												className="h-10 px-4 whitespace-nowrap"
 											>
 												<IconBox
 													icon={isRemoval ? "lucide:trash" : "lucide:plus"}

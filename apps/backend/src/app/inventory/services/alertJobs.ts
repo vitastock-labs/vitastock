@@ -4,6 +4,7 @@ import {
 	inventoryAlertOutbox,
 	inventoryAlerts,
 	type SelectInventoryAlertOutboxType,
+	type SelectInventoryAlertType,
 } from "@vitastock/db/schema/inventory";
 import { workspaces, type SelectWorkspaceType } from "@vitastock/db/schema/workspace";
 import { subDays } from "date-fns";
@@ -24,8 +25,12 @@ const getAlertSummary = (alert: {
 	drugName: string;
 	quantityAffected: number | null;
 	threshold: number | null;
-	type: "expired" | "expiring_soon" | "low_stock";
+	type: SelectInventoryAlertType["type"];
 }) => {
+	if (alert.type === "out_of_stock") {
+		return `${alert.drugName} is out of stock. Its low stock threshold is ${alert.threshold ?? 0} units.`;
+	}
+
 	if (alert.type === "low_stock") {
 		return `${alert.drugName} has ${alert.quantityAffected ?? 0} units available, below its ${alert.threshold ?? 0}-unit threshold.`;
 	}
