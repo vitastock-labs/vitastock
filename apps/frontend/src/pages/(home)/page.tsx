@@ -43,8 +43,9 @@ function HeroSection() {
 				className="max-w-[18ch] text-center text-[72px]/[1.05] font-extrabold tracking-[-0.035em]
 					text-balance delay-60"
 			>
-				The <span className="font-fraunces text-vitastock-primary-main italic">fastest way</span> to
-				manage pharmacy stock, without the{" "}
+				The{" "}
+				<span className="font-fraunces text-vitastock-primary-main italic">faster, simpler way</span>{" "}
+				to manage pharmacy stock without the{" "}
 				<span className="font-fraunces text-vitastock-primary-main italic">manual chaos.</span>
 			</h1>
 
@@ -52,8 +53,8 @@ function HeroSection() {
 				className="mt-8 max-w-[600px] text-center text-[19px] leading-relaxed font-medium
 					text-vitastock-body-color/80 delay-120"
 			>
-				VitaStock is a browser-based inventory workflow built for busy pharmacies that want faster
-				tracking and more reliable records.
+				VitaStock helps busy pharmacies track stock, catch expiry risks, and stay ahead of low stock
+				without adding complexity to the workday.
 			</p>
 
 			<div className="mt-9 flex flex-col items-center gap-4 delay-180">
