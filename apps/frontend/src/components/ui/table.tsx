@@ -1,21 +1,29 @@
 import { cnMerge } from "@/lib/utils/cn";
+import * as ScrollArea from "./scroll-area";
 
 function TableRoot(
-	props: React.ComponentProps<"table"> & { classNames?: { container?: string; table?: string } }
+	props: React.ComponentProps<"table"> & {
+		classNames?: { container?: string; scrollAreaThumb?: string; table?: string };
+	}
 ) {
 	const { className, classNames, ...restOfProps } = props;
 
 	return (
-		<div
+		<ScrollArea.Root
 			data-slot="table-container"
-			className={cnMerge("relative w-full overflow-auto", classNames?.container)}
+			type="auto"
+			orientation="both"
+			classNames={{
+				base: cnMerge("w-full", classNames?.container),
+				thumb: classNames?.scrollAreaThumb,
+			}}
 		>
 			<table
 				data-slot="table-root"
 				className={cnMerge("w-full caption-bottom text-sm", className, classNames?.table)}
 				{...restOfProps}
 			/>
-		</div>
+		</ScrollArea.Root>
 	);
 }
 

@@ -48,7 +48,7 @@ function ErrorPage() {
 	const details = isChunkLoadError ? chunkErrorDetails : generalErrorDetails(error);
 
 	return (
-		<Main className="relative min-h-svh">
+		<Main className="relative min-h-svh overflow-x-hidden">
 			<section className="relative isolate z-10 flex flex-col items-center gap-10 text-center">
 				<span
 					className="absolute right-0 -z-1 size-[384px] bg-vitastock-primary-dark/10 mix-blend-overlay
@@ -70,8 +70,8 @@ function ErrorPage() {
 							border-[hsl(231,20%,80%)] bg-white/80 shadow-xl shadow-vitastock-primary-dark/10"
 					>
 						<p
-							className="absolute -z-1 translate-x-2 text-[192px] font-extrabold
-								text-[hsl(215,20%,85%,0.75)]"
+							className="absolute -z-1 translate-x-2 text-[120px] font-extrabold
+								text-[hsl(215,20%,85%,0.75)] md:text-[192px]"
 						>
 							{details.bgText}
 						</p>

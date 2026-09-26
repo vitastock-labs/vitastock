@@ -9,8 +9,8 @@ import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { generateRandom6DigitCode, generateRandomBytes } from "@/lib/utils/random";
 import { addEmailToQueue } from "@/services/queues";
-import { hashToken, hashValue } from "./hash";
-import { encodeJwtToken } from "./token";
+import { hashToken, hashValue } from "./utils/hash";
+import { encodeJwtToken } from "./utils/token";
 
 export const sendPasswordChangedEmail = async (user: Pick<SelectUserType, "email" | "fullName">) => {
 	await addEmailToQueue({

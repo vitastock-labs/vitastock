@@ -26,7 +26,7 @@
 	--breakpoint-sm: 480px;
 	--breakpoint-md: 768px;
 	--breakpoint-lg: 1000px;
-	--breakpoint-lg: 1280px;
+	--breakpoint-xl: 1280px;
 
 	/*--- Fonts ---*/
 	--font-bricolage-grotesque: "Bricolage Grotesque", "Inter", "system-ui", sans-serif;
@@ -35,6 +35,8 @@
 
 	/*--- Animations ---*/
 	--animate-slide-from-left: slideFromLeft 0.5s cubic-bezier(0.32, 0.72, 0, 1);
+	--animate-fade-in: fade-in 300ms ease;
+	--animate-fade-out: fade-out 300ms ease;
 
 	@keyframes slideFromLeft {
 		from {
@@ -44,11 +46,36 @@
 			transform: translate3d(0, 0, 0);
 		}
 	}
+
+	@keyframes fade-in {
+		from {
+			opacity: 0;
+		}
+		to {
+			opacity: 1;
+		}
+	}
+
+	@keyframes fade-out {
+		from {
+			opacity: 1;
+		}
+		to {
+			opacity: 0;
+		}
+	}
 }
 
 /* ------------------*/
 /* Shadcn Theme      */
 /*-------------------*/
+@custom-variant data-selected {
+	&:where([data-selected="true"]),
+	&:where([data-selected]:not([data-selected="false"])) {
+		@slot;
+	}
+}
+
 @theme {
 	--color-shadcn-background: hsl(0, 0%, 100%);
 	--color-shadcn-foreground: hsl(222.2, 47.4%, 11.2%);

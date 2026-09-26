@@ -5,7 +5,7 @@ import { cnMerge } from "@/lib/utils/cn";
 
 export type MainAppRoutes = string & {};
 
-function NavLink(
+export function NavLink(
 	props: InferProps<typeof NavLinkPrimitive> & { transitionType?: "no-transition" | "regular" }
 ) {
 	const { className, to, transitionType = "no-transition", ...restOfProps } = props;
@@ -16,10 +16,10 @@ function NavLink(
 		<NavLinkPrimitive
 			to={to}
 			data-active={pathname === to}
-			className={(renderProps) =>
+			className={(ctx) =>
 				cnMerge(
 					transitionType !== "no-transition" && "nav-link-transition",
-					isFunction(className) ? className(renderProps) : className
+					isFunction(className) ? className(ctx) : className
 				)
 			}
 			{...restOfProps}
@@ -27,4 +27,13 @@ function NavLink(
 	);
 }
 
-export { NavLink };
+export const NavLinkEphemeral: typeof NavLink = (props) => {
+	const { className, ...restOfProps } = props;
+
+	return (
+		<NavLink
+			className={(ctx) => cnMerge("contents", isFunction(className) ? className(ctx) : className)}
+			{...restOfProps}
+		/>
+	);
+};

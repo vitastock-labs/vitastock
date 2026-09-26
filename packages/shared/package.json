@@ -3,7 +3,11 @@
 	"type": "module",
 	"private": true,
 	"exports": {
+		"./validation/backendApiSchema": "./src/validation/backendApiSchema/index.ts",
 		"./*": "./src/*.ts"
+	},
+	"engines": {
+		"node": "24.x.x"
 	},
 	"scripts": {
 		"build": "tsdown",
@@ -14,16 +18,16 @@
 	"dependencies": {
 		"@vitastock/db": "workspace:*",
 		"@vitastock/env": "workspace:*",
-		"@zayne-labs/callapi": "1.14.0",
-		"@zayne-labs/toolkit-core": "^0.12.56",
-		"@zayne-labs/toolkit-type-helpers": "^0.12.56",
+		"@zayne-labs/callapi": "1.16.3",
+		"@zayne-labs/toolkit-core": "^0.12.59",
+		"@zayne-labs/toolkit-type-helpers": "^0.12.59",
 		"consola": "3.4.2",
-		"zod": "4.4.3"
+		"zod": "4.6.5"
 	},
 	"devDependencies": {
 		"@total-typescript/ts-reset": "0.6.1",
-		"@zayne-labs/tsconfig": "^0.13.14",
-		"tsdown": "0.22.14",
+		"@zayne-labs/tsconfig": "^0.13.19",
+		"tsdown": "0.23.0",
 		"typescript": "6.0.3"
 	}
 }

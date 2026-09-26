@@ -24,13 +24,17 @@ settings {
 docs {
   # Resend Verification Email
 
-  Resends the verification email if the user hasn't verified their email yet.
+  Sends a fresh verification email when an unverified account exists for the submitted address.
 
   ## Request Body
 
-  - `email` (string, required): User's email address
+  | Field | Type | Required | Description |
+  |-------|------|----------|-------------|
+  | `email` | email string | Yes | Address to verify. |
 
-  ## Success Response (200 OK)
+  ## Success Response
+
+  **`200 OK`**
 
   ```json
   {
@@ -40,11 +44,27 @@ docs {
   }
   ```
 
-  ## Notes
+  ## Enumeration Protection
 
-  - This endpoint responds generically for security (user enumeration prevention)
-  - Only sends if the email exists AND is not yet verified
-  - If email doesn't exist or is already verified, still returns success message
-  - Rate limited to prevent abuse
-  - New verification code is generated with fresh expiration
+  The endpoint returns the same success response when:
+
+  - no account exists for the email
+  - the account is already verified
+  - a new verification message was sent
+
+  This prevents callers from discovering registered accounts through response differences.
+
+  ## Side Effects for an Unverified Account
+
+  - Replaces the previous verification-code record.
+  - Sends a new verification email.
+  - The old code can no longer be used.
+
+  ## Errors
+
+  | Status | Description |
+  |--------|-------------|
+  | `422 Unprocessable Entity` | The email is missing or invalid. |
+  | `429 Too Many Requests` | Authentication rate limit was exceeded. |
+  | `500 Internal Server Error` | Verification-code persistence or email delivery failed. |
 }

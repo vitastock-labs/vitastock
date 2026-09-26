@@ -1,0 +1,360 @@
+import { db } from "@vitastock/db";
+import { drugs, stockLogs } from "@vitastock/db/schema/inventory";
+import type { backendApiSchemaRoutes } from "@vitastock/shared/validation/backendApiSchema";
+import { and, asc, eq, inArray } from "drizzle-orm";
+import type { z } from "zod";
+import { appLogger } from "@/lib/logger";
+import { AppError } from "@/lib/utils";
+import { receiveStockBatch } from "./data-access/stock-batches";
+import {
+	claimStockTransaction,
+	createStockTransactionRequestHash,
+} from "./data-access/stock-transactions";
+import { getWorkspaceToday } from "./utils/date";
+
+type BulkImportTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+type BulkImportRow = z.infer<
+	(typeof backendApiSchemaRoutes)["@post/inventory/bulk-import"]["body"]
+>["rows"][number];
+
+const normalizeDrugValue = (value: string | null | undefined) => value?.trim().toLowerCase() ?? "";
+
+const createExactDrugIdentity = (identity: {
+	form?: string | null;
+	genericName: string;
+	name: string;
+	strength?: string | null;
+	unit?: string | null;
+}) => {
+	return [identity.name, identity.genericName, identity.strength, identity.form, identity.unit]
+		.map((value) => normalizeDrugValue(value))
+		.join("|");
+};
+
+type DrugResolutionCandidate = Pick<
+	typeof drugs.$inferSelect,
+	"form" | "genericName" | "id" | "isActive" | "lowStockThreshold" | "name" | "strength" | "unit"
+>;
+
+const getDrugResolutionCandidates = (row: BulkImportRow, existingDrugs: DrugResolutionCandidate[]) => {
+	return existingDrugs.filter((drug) => {
+		if (
+			normalizeDrugValue(drug.name) !== normalizeDrugValue(row.name)
+			|| normalizeDrugValue(drug.genericName) !== normalizeDrugValue(row.genericName)
+		) {
+			return false;
+		}
+
+		return (["strength", "form", "unit"] as const).every((field) => {
+			return (
+				row[field] === undefined || normalizeDrugValue(drug[field]) === normalizeDrugValue(row[field])
+			);
+		});
+	});
+};
+
+const resolveDrug = (row: BulkImportRow, candidates: DrugResolutionCandidate[]) => {
+	const matches = getDrugResolutionCandidates(row, candidates);
+
+	if (matches.length > 1) {
+		return { status: "ambiguous" as const };
+	}
+
+	const [drug] = matches;
+
+	if (!drug) {
+		return { status: "missing" as const };
+	}
+
+	if (!drug.isActive) {
+		return { drug, status: "inactive" as const };
+	}
+
+	return { drug, status: "resolved" as const };
+};
+
+export const validateInventoryBulkImportRows = async (options: {
+	rows: BulkImportRow[];
+	workspaceId: string;
+}) => {
+	const { rows, workspaceId } = options;
+	const existingDrugs = await db.select().from(drugs).where(eq(drugs.workspaceId, workspaceId));
+	const proposedDrugs = new Map<string, DrugResolutionCandidate>();
+
+	for (const row of rows) {
+		if (resolveDrug(row, existingDrugs).status !== "missing") {
+			continue;
+		}
+
+		const identity = createExactDrugIdentity(row);
+
+		proposedDrugs.set(identity, {
+			form: row.form ?? null,
+			genericName: row.genericName,
+			id: identity,
+			isActive: true,
+			lowStockThreshold: row.lowStockThreshold ?? null,
+			name: row.name,
+			strength: row.strength ?? null,
+			unit: row.unit ?? null,
+		});
+	}
+
+	const resolutionPool = [...existingDrugs, ...proposedDrugs.values()];
+
+	const issues = [];
+	const thresholdByDrugId = new Map<string, number>();
+
+	for (const [rowIndex, row] of rows.entries()) {
+		const resolution = resolveDrug(row, resolutionPool);
+
+		if (resolution.status === "ambiguous") {
+			issues.push({
+				message: "Multiple Drug Master records match this row. Supply more drug details.",
+				rowIndex,
+			});
+			continue;
+		}
+
+		if (resolution.status === "inactive") {
+			issues.push({
+				message: `${resolution.drug.name} must be reactivated before stock can be imported`,
+				rowIndex,
+			});
+			continue;
+		}
+
+		if (resolution.status !== "resolved" || row.lowStockThreshold === undefined) {
+			continue;
+		}
+
+		const previousThreshold = thresholdByDrugId.get(resolution.drug.id);
+
+		if (previousThreshold !== undefined && previousThreshold !== row.lowStockThreshold) {
+			issues.push({
+				message: `${row.name} has conflicting low stock thresholds in this file`,
+				rowIndex,
+			});
+			continue;
+		}
+
+		thresholdByDrugId.set(resolution.drug.id, row.lowStockThreshold);
+	}
+
+	return issues;
+};
+
+const resolveDrugIdsByRowIndex = async (options: {
+	rows: BulkImportRow[];
+	tx: BulkImportTransaction;
+	workspaceId: string;
+}) => {
+	const { rows, tx, workspaceId } = options;
+	const existingDrugs = await tx.select().from(drugs).where(eq(drugs.workspaceId, workspaceId));
+	const missingIdentities = new Map<string, BulkImportRow>();
+
+	for (const row of rows) {
+		const resolution = resolveDrug(row, existingDrugs);
+
+		if (resolution.status === "ambiguous") {
+			throw new AppError({
+				code: 409,
+				message: `${row.name} matches multiple Drug Master records. Supply more drug details.`,
+			});
+		}
+
+		if (resolution.status === "missing") {
+			missingIdentities.set(createExactDrugIdentity(row), row);
+		}
+	}
+
+	if (missingIdentities.size > 0) {
+		await tx
+			.insert(drugs)
+			.values(
+				missingIdentities
+					.values()
+					.map((row) => ({
+						form: row.form ?? null,
+						genericName: row.genericName,
+						lowStockThreshold: row.lowStockThreshold ?? null,
+						name: row.name,
+						strength: row.strength ?? null,
+						unit: row.unit ?? null,
+						workspaceId,
+					}))
+					.toArray()
+			)
+			.onConflictDoNothing();
+	}
+
+	const resolvedDrugs = await tx.select().from(drugs).where(eq(drugs.workspaceId, workspaceId));
+
+	return new Map(
+		rows.map((row, rowIndex) => {
+			const resolution = resolveDrug(row, resolvedDrugs);
+
+			if (resolution.status !== "resolved") {
+				throw new AppError({
+					code: 409,
+					message: `${row.name} could not be resolved to one Drug Master record`,
+				});
+			}
+
+			return [rowIndex, resolution.drug.id] as const;
+		})
+	);
+};
+
+export const createInventoryBulkImport = async (options: {
+	idempotencyKey: string;
+	rows: BulkImportRow[];
+	timezone: string;
+	userId: string;
+	workspaceId: string;
+}) => {
+	const { idempotencyKey, rows, timezone, userId, workspaceId } = options;
+	const startedAt = Date.now();
+	const requestHash = createStockTransactionRequestHash(rows);
+	const today = getWorkspaceToday(timezone);
+	const rowWithPastExpiry = rows.find((row) => row.expiryDate < today);
+
+	if (rowWithPastExpiry) {
+		throw new AppError({
+			code: 400,
+			message: `${rowWithPastExpiry.name} has an expiry date before today`,
+		});
+	}
+
+	const importedCount = await db.transaction(async (tx) => {
+		const stockTransaction = await claimStockTransaction({
+			idempotencyKey,
+			operation: "bulk_import",
+			requestHash,
+			tx,
+			userId,
+			workspaceId,
+		});
+
+		if (stockTransaction.isReplay) {
+			return rows.length;
+		}
+
+		const drugIdByRowIndex = await resolveDrugIdsByRowIndex({ rows, tx, workspaceId });
+		const drugIds = [...new Set(drugIdByRowIndex.values())].toSorted();
+		const importedDrugs = await tx
+			.select({ id: drugs.id, isActive: drugs.isActive, name: drugs.name })
+			.from(drugs)
+			.where(and(eq(drugs.workspaceId, workspaceId), inArray(drugs.id, drugIds)))
+			.orderBy(asc(drugs.id))
+			.for("update");
+		const inactiveDrug = importedDrugs.find((drug) => !drug.isActive);
+
+		if (inactiveDrug) {
+			throw new AppError({
+				code: 409,
+				message: `${inactiveDrug.name} must be reactivated before stock can be imported`,
+			});
+		}
+
+		const thresholdByDrugId = new Map<string, number>();
+
+		for (const [rowIndex, row] of rows.entries()) {
+			if (row.lowStockThreshold === undefined) {
+				continue;
+			}
+
+			const drugId = drugIdByRowIndex.get(rowIndex);
+
+			if (!drugId) {
+				throw new AppError({ code: 500, message: `Failed to resolve drug for row: ${row.name}` });
+			}
+
+			const previousThreshold = thresholdByDrugId.get(drugId);
+
+			if (previousThreshold !== undefined && previousThreshold !== row.lowStockThreshold) {
+				throw new AppError({
+					code: 400,
+					message: `${row.name} has conflicting low stock thresholds in this file`,
+				});
+			}
+
+			thresholdByDrugId.set(drugId, row.lowStockThreshold);
+		}
+
+		for (const [drugId, lowStockThreshold] of thresholdByDrugId) {
+			// eslint-disable-next-line no-await-in-loop -- queries on one transaction share a single connection and run sequentially
+			await tx
+				.update(drugs)
+				.set({ lowStockThreshold })
+				.where(and(eq(drugs.id, drugId), eq(drugs.workspaceId, workspaceId)));
+		}
+
+		const receipts = new Map<string, { drugId: string; expiryDate: string; quantity: number }>();
+
+		for (const [rowIndex, row] of rows.entries()) {
+			const drugId = drugIdByRowIndex.get(rowIndex);
+
+			if (!drugId) {
+				throw new AppError({
+					code: 500,
+					message: `Failed to resolve drug for row: ${row.name}`,
+				});
+			}
+			const receiptKey = `${drugId}|${row.expiryDate}`;
+			const existingReceipt = receipts.get(receiptKey);
+
+			if (existingReceipt) {
+				existingReceipt.quantity += row.quantity;
+				continue;
+			}
+
+			receipts.set(receiptKey, {
+				drugId,
+				expiryDate: row.expiryDate,
+				quantity: row.quantity,
+			});
+		}
+
+		const importedBatches: Array<{ batchId: string; drugId: string; quantity: number }> = [];
+
+		for (const receipt of receipts.values()) {
+			// eslint-disable-next-line no-await-in-loop -- queries on one transaction share a single connection and run sequentially
+			const batch = await receiveStockBatch({
+				...receipt,
+				tx,
+				userId,
+				workspaceId,
+			});
+
+			importedBatches.push({ batchId: batch.id, drugId: receipt.drugId, quantity: receipt.quantity });
+		}
+
+		await tx.insert(stockLogs).values(
+			importedBatches.map(({ batchId, drugId, quantity }) => ({
+				batchId,
+				drugId,
+				logType: "opening_stock" as const,
+				performedByUserId: userId,
+				quantity,
+				stockTransactionId: stockTransaction.id,
+				workspaceId,
+			}))
+		);
+
+		return rows.length;
+	});
+
+	appLogger.structured.info(
+		{
+			durationMs: Date.now() - startedAt,
+			rowCount: rows.length,
+			userId,
+			workspaceId,
+		},
+		"Inventory bulk import completed"
+	);
+
+	return { importedCount };
+};

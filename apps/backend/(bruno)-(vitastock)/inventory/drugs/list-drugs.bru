@@ -1,0 +1,83 @@
+meta {
+  name: list-drugs
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseURL}}/inventory/drugs/list
+  body: none
+  auth: inherit
+}
+
+params:query {
+  ~search: amoxicillin
+  ~page: 1
+  ~pageSize: 10
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  # List Drugs
+
+  Returns one page of the authenticated workspace's Drug Master, ordered by drug name.
+
+  ## Authorization
+
+  Requires an authenticated user with an active workspace membership.
+
+  ## Query Parameters
+
+  | Parameter | Type | Required | Description |
+  |-----------|------|----------|-------------|
+  | `search` | string | No | Case-insensitive partial match against brand name, generic name, strength, dosage form, or unit. |
+  | `page` | integer | No | One-based page number. Defaults to `1`. |
+  | `pageSize` | integer | No | Rows per page from `1` to `100`. Defaults to `10`. |
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Drugs fetched successfully",
+    "data": {
+      "drugs": [
+        {
+          "id": "drug-uuid",
+          "name": "Amoxil",
+          "genericName": "Amoxicillin",
+          "strength": "500 mg",
+          "form": "Capsule",
+          "unit": "Pack",
+          "isActive": true
+        }
+      ],
+      "pagination": {
+        "page": 1,
+        "pageCount": 1,
+        "pageSize": 10,
+        "total": 1
+      }
+    }
+  }
+  ```
+
+  ## Notes
+
+  - Active and inactive drugs are returned; use `isActive` to distinguish them.
+  - Search is scoped to the authenticated workspace.
+  - An empty catalogue returns `drugs: []` and pagination totals of zero.
+
+  ## Errors
+
+  | Status | Description |
+  |--------|-------------|
+  | `401 Unauthorized` | Authentication is invalid or workspace access is suspended. |
+  | `500 Internal Server Error` | Drug retrieval failed unexpectedly. |
+}

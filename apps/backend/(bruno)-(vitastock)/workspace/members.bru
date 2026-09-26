@@ -1,0 +1,96 @@
+meta {
+  name: members
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseURL}}/workspace/members
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  # List Workspace Members
+
+  Returns workspace users and all unaccepted invitations as one member-management list.
+
+  ## Authorization
+
+  Requires an authenticated user with an active workspace membership. This read endpoint is available to owner, admin, and pharmacist roles.
+
+  ## Request
+
+  No path parameters, query parameters, or request body.
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Workspace members fetched successfully",
+    "data": {
+      "members": [
+        {
+          "id": "user-uuid",
+          "fullName": "Ada Owner",
+          "email": "ada@example.com",
+          "role": "owner",
+          "status": "active",
+          "isCurrentUser": true,
+          "createdAt": "2026-01-10T09:00:00.000Z"
+        },
+        {
+          "id": "user-uuid",
+          "fullName": "John Pharmacist",
+          "email": "john@example.com",
+          "role": "pharmacist",
+          "status": "suspended",
+          "isCurrentUser": false,
+          "suspendedAt": "2026-07-29T12:00:00.000Z",
+          "createdAt": "2026-02-01T09:00:00.000Z"
+        },
+        {
+          "id": "invitation-uuid",
+          "inviteeName": "Jane Admin",
+          "inviteeEmail": "jane@example.com",
+          "role": "admin",
+          "status": "pending",
+          "isCurrentUser": false,
+          "expiresAt": "2026-08-06T12:00:00.000Z",
+          "createdAt": "2026-07-30T12:00:00.000Z"
+        }
+      ]
+    }
+  }
+  ```
+
+  ## Status Derivation
+
+  | Row Type | Status Rule |
+  |----------|-------------|
+  | Membership | `suspended` when `suspendedAt` is non-null; otherwise `active`. |
+  | Invitation | `expired` when `expiresAt` is in the past; otherwise `pending`. |
+
+  ## Notes
+
+  - Membership rows use `fullName` and `email`.
+  - Invitation rows use `inviteeName` and `inviteeEmail`.
+  - `isCurrentUser` is true only for the authenticated user's membership.
+  - Accepted invitations are excluded because the resulting user membership is returned instead.
+  - All rows are scoped to the authenticated workspace.
+
+  ## Errors
+
+  | Status | Description |
+  |--------|-------------|
+  | `401 Unauthorized` | Authentication is invalid or workspace access is suspended. |
+  | `500 Internal Server Error` | Membership or invitation retrieval failed unexpectedly. |
+}

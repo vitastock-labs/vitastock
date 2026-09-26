@@ -5,16 +5,18 @@ import { workspaces, type InsertWorkspaceType } from "../schema";
 
 const WORKSPACE_SEED_DATA: InsertWorkspaceType[] = [
 	{
-		alertEmail: "alerts@greenleaf.seeded.com",
-		emailAlertsEnabledAt: new Date("2026-01-01T08:00:00.000Z"),
+		alertEmail: null,
+		emailAlertDeliveryPolicy: "critical_immediate",
+		emailAlertsEnabledAt: null,
 		lowStockThreshold: 15,
 		name: "Greenleaf Pharmacy",
 		nearExpiryDays: 75,
 		timezone: "Africa/Lagos",
 	},
 	{
-		alertEmail: "alerts@citycare.seeded.com",
-		emailAlertsEnabledAt: new Date("2026-01-02T08:00:00.000Z"),
+		alertEmail: null,
+		emailAlertDeliveryPolicy: "critical_immediate",
+		emailAlertsEnabledAt: null,
 		lowStockThreshold: 20,
 		name: "CityCare Pharmacy",
 		nearExpiryDays: 60,
@@ -31,6 +33,7 @@ export const seedWorkspaces = async () => {
 		.onConflictDoUpdate({
 			set: {
 				alertEmail: sql`excluded.alert_email`,
+				emailAlertDeliveryPolicy: sql`excluded.email_alert_delivery_policy`,
 				emailAlertsEnabledAt: sql`excluded.email_alerts_enabled_at`,
 				lowStockThreshold: sql`excluded.low_stock_threshold`,
 				nearExpiryDays: sql`excluded.near_expiry_days`,

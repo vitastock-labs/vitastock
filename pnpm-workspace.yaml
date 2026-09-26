@@ -1,3 +1,16 @@
+minimumReleaseAgeExcludePrune: true
+minimumReleaseAgeExclude:
+   - "@zayne-labs/*"
+
+strictDepBuilds: false
+
 packages:
    - apps/*
    - packages/*
+
+allowBuilds:
+   core-js: set this to true or false
+   esbuild: set this to true or false
+   msgpackr-extract: set this to true or false
+   sharp: set this to true or false
+   unrs-resolver: set this to true or false

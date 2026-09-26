@@ -14,7 +14,7 @@ import {
 import { ForWithWrapper } from "@/components/common/for";
 import { IconBox } from "@/components/common/IconBox";
 import { ImageOnline } from "@/components/common/Image";
-import { NavLink } from "@/components/common/NavLink";
+import { NavLinkEphemeral } from "@/components/common/NavLink";
 import { Button } from "@/components/ui/button";
 import { cnJoin } from "@/lib/utils/cn";
 import { Main } from "./-components/Main";
@@ -37,53 +37,55 @@ export default HomePage;
 function HeroSection() {
 	return (
 		<section
-			className="flex w-full flex-col items-center px-[clamp(24px,7vw,100px)] pt-20 pb-16 text-black"
+			className="flex w-full flex-col items-center px-[clamp(24px,7vw,100px)] pt-12 pb-16 text-black
+				md:pt-20"
 		>
 			<h1
-				className="max-w-[18ch] text-center text-[72px]/[1.05] font-extrabold tracking-[-0.035em]
-					text-balance delay-60"
+				className="max-w-[18ch] text-center text-[40px]/[1.08] font-extrabold tracking-[-0.035em]
+					text-balance delay-60 md:text-[56px]/[1.05] lg:text-[72px]/[1.05]"
 			>
-				The <span className="font-fraunces text-vitastock-primary-main italic">fastest way</span> to
-				manage pharmacy stock, without the{" "}
+				The{" "}
+				<span className="font-fraunces text-vitastock-primary-main italic">faster, simpler way</span>{" "}
+				to manage pharmacy stock without the{" "}
 				<span className="font-fraunces text-vitastock-primary-main italic">manual chaos.</span>
 			</h1>
 
 			<p
-				className="mt-8 max-w-[600px] text-center text-[19px] leading-relaxed font-medium
-					text-vitastock-body-color/80 delay-120"
+				className="mt-6 max-w-[600px] text-center text-[17px] leading-relaxed font-medium
+					text-vitastock-body-color/80 delay-120 md:mt-8 md:text-[19px]"
 			>
-				VitaStock is a browser-based inventory workflow built for busy pharmacies that want faster
-				tracking and more reliable records.
+				VitaStock helps busy pharmacies track stock, catch expiry risks, and stay ahead of low stock
+				without adding complexity to the workday.
 			</p>
 
 			<div className="mt-9 flex flex-col items-center gap-4 delay-180">
-				<Button
-					className="h-[56px] rounded-full px-10 text-lg
-						shadow-[0_20px_60px_-10px_theme(--color-vitastock-primary-dark/0.35)]"
-					asChild={true}
-				>
-					<NavLink to="/auth/signup">
+				<NavLinkEphemeral to="/auth/signup">
+					<Button
+						className="h-[56px] rounded-full px-10 text-lg
+							shadow-[0_20px_60px_-10px_theme(--color-vitastock-primary-dark/0.35)]"
+					>
 						Get Started for Free
 						<IconBox icon="lucide:arrow-right" />
-					</NavLink>
-				</Button>
+					</Button>
+				</NavLinkEphemeral>
 				<p className="text-center text-[14px] font-medium text-vitastock-body-color/60">
 					No setup stress. Get started in minutes.
 				</p>
 			</div>
 
 			<div
-				className="mt-14 w-full max-w-[1000px] rounded-[32px] border border-shadcn-border/40
-					bg-shadcn-muted p-2.5
-					shadow-[0_40px_100px_-20px_rgba(0,0,0,0.15),0_0_0_1px_rgba(0,0,0,0.05)]"
+				className="mt-10 w-full max-w-[1000px] rounded-[20px] border border-shadcn-border/40
+					bg-shadcn-muted p-1.5
+					shadow-[0_40px_100px_-20px_rgba(0,0,0,0.15),0_0_0_1px_rgba(0,0,0,0.05)] md:mt-14
+					md:rounded-[32px] md:p-2.5"
 			>
 				<ImageOnline
 					src={heroImg}
-					alt="Hero Image"
+					alt="VitaStock pharmacy inventory dashboard showing stock management interface"
 					width={1000}
 					height={800}
 					priority={true}
-					className="rounded-[24px] object-cover"
+					className="rounded-[14px] object-cover md:rounded-[24px]"
 				/>
 			</div>
 		</section>
@@ -142,11 +144,9 @@ const problems = [
 		classNames: {
 			blur: tw`bg-white/20`,
 			card: tw`border-vitastock-primary-main bg-vitastock-primary-main text-shadcn-primary-foreground`,
-			chip: tw`bg-shadcn-primary-foreground/10 text-shadcn-primary-foreground ring-1
-			ring-shadcn-primary-foreground/20`,
+			chip: tw`bg-shadcn-primary-foreground/10 text-shadcn-primary-foreground ring-1 ring-shadcn-primary-foreground/20`,
 			desc: tw`text-shadcn-primary-foreground/80`,
-			iconWrap: tw`bg-shadcn-primary-foreground/15 text-shadcn-primary-foreground ring-1
-			ring-shadcn-primary-foreground/20`,
+			iconWrap: tw`bg-shadcn-primary-foreground/15 text-shadcn-primary-foreground ring-1 ring-shadcn-primary-foreground/20`,
 			title: tw`text-shadcn-primary-foreground`,
 		},
 		desc: "Stockouts and expiry issues are usually discovered after the damage is done.",
@@ -159,7 +159,7 @@ function ProblemSection() {
 	return (
 		<section
 			id="problem"
-			className="flex flex-col items-center px-[clamp(24px,7vw,100px)] py-[100px] text-black"
+			className="flex flex-col items-center px-[clamp(24px,7vw,100px)] py-16 text-black md:py-[100px]"
 		>
 			<p
 				className="text-center text-[14px] font-bold tracking-wider text-vitastock-primary-main
@@ -168,15 +168,15 @@ function ProblemSection() {
 				The Problem
 			</p>
 			<h2
-				className="mt-4 max-w-[15ch] text-center text-[64px]/[1.1] font-extrabold tracking-[-0.03em]
-					text-balance delay-60"
+				className="mt-4 max-w-[15ch] text-center text-[36px]/[1.1] font-extrabold tracking-[-0.03em]
+					text-balance delay-60 md:text-[48px]/[1.1] lg:text-[64px]/[1.1]"
 			>
 				Managing inventory shouldn't feel{" "}
 				<span className="font-fraunces text-vitastock-primary-main italic">this hard.</span>
 			</h2>
 			<p
-				className="mt-6 max-w-[640px] text-center text-[18px] leading-relaxed font-medium
-					text-vitastock-body-color/80 delay-120"
+				className="mt-6 max-w-[640px] text-center text-[16px] leading-relaxed font-medium
+					text-vitastock-body-color/80 delay-120 md:text-[18px]"
 			>
 				Between serving patients and handling daily operations, keeping track of stock manually leads
 				to mistakes, delays, and lost revenue.
@@ -201,12 +201,7 @@ function ProblemSection() {
 									problem.classNames.iconWrap
 								)}
 							>
-								<IconBox
-									icon={problem.icon}
-									width={24}
-									height={24}
-									className="size-6"
-								/>
+								<IconBox icon={problem.icon} width={24} height={24} className="size-6" />
 							</span>
 
 							<h3
@@ -257,8 +252,8 @@ function SolutionSection() {
 	return (
 		<section
 			id="solution"
-			className="flex flex-col items-center gap-20 px-[clamp(24px,7vw,100px)] py-[80px] text-black
-				lg:flex-row"
+			className="flex flex-col items-center gap-12 px-[clamp(24px,7vw,100px)] py-16 text-black
+				md:py-[80px] lg:flex-row lg:gap-20"
 		>
 			<div className="group relative aspect-5/4 w-full perspective-distant">
 				<span
@@ -302,14 +297,17 @@ function SolutionSection() {
 				</p>
 
 				<h2
-					className="mt-3 max-w-[15ch] text-[64px]/[1.1] font-extrabold tracking-[-0.03em]
-						text-balance delay-60"
+					className="mt-3 max-w-[15ch] text-[36px]/[1.1] font-extrabold tracking-[-0.03em]
+						text-balance delay-60 md:text-[48px]/[1.1] lg:text-[64px]/[1.1]"
 				>
 					A <span className="font-fraunces text-vitastock-primary-main italic">simpler way</span> to
 					manage pharmacy inventory
 				</h2>
 
-				<p className="mt-6 text-[18px] leading-relaxed text-pretty text-vitastock-body-color/90">
+				<p
+					className="mt-6 text-[16px] leading-relaxed text-pretty text-vitastock-body-color/90
+						md:text-[18px]"
+				>
 					VitaStock replaces notebooks and spreadsheets with fast, dependable workflows that help your
 					team keep stock clear, current, and easy to trust.
 				</p>
@@ -335,16 +333,15 @@ function SolutionSection() {
 					)}
 				/>
 
-				<Button
-					className="mt-9 rounded-full px-8
-						shadow-[0_20px_60px_-10px_theme(--color-vitastock-primary-dark/0.35)]"
-					asChild={true}
-				>
-					<NavLink to="/auth/signup">
+				<NavLinkEphemeral to="/auth/signup">
+					<Button
+						className="mt-9 rounded-full px-8
+							shadow-[0_20px_60px_-10px_theme(--color-vitastock-primary-dark/0.35)]"
+					>
 						Get Started for Free
 						<IconBox icon="lucide:arrow-right" />
-					</NavLink>
-				</Button>
+					</Button>
+				</NavLinkEphemeral>
 			</div>
 		</section>
 	);
@@ -375,15 +372,16 @@ function HowItWorksSection() {
 	return (
 		<section
 			id="how-it-works"
-			className="flex flex-col gap-20 px-[clamp(24px,7vw,100px)] py-[80px] text-black"
+			className="flex flex-col gap-12 px-[clamp(24px,7vw,100px)] py-16 text-black md:py-[80px]
+				lg:gap-20"
 		>
 			<div className="flex flex-col items-center gap-5 text-center">
 				<p className="text-[14px] font-bold tracking-wider text-vitastock-primary-main uppercase">
 					How it works
 				</p>
 				<h2
-					className="max-w-[18ch] text-center text-[64px]/[1.1] font-extrabold tracking-[-0.03em]
-						text-balance delay-60"
+					className="max-w-[18ch] text-center text-[36px]/[1.1] font-extrabold tracking-[-0.03em]
+						text-balance delay-60 md:text-[48px]/[1.1] lg:text-[64px]/[1.1]"
 				>
 					Set up in minutes.{" "}
 					<span className="font-fraunces text-vitastock-primary-main italic">Use it every day.</span>
@@ -396,7 +394,9 @@ function HowItWorksSection() {
 
 			<ForWithWrapper
 				each={howItWorksSteps}
-				className="grid grid-cols-[1fr_auto_1fr_auto_1fr] gap-x-4 [--image-container-height:250px]"
+				className="flex flex-col gap-14 [--image-container-height:220px] lg:grid
+					lg:grid-cols-[1fr_auto_1fr_auto_1fr] lg:gap-x-4 lg:gap-y-0
+					lg:[--image-container-height:250px]"
 				renderItem={(step, index) => (
 					<Fragment key={step.title}>
 						<li className="flex columns-[1fr] flex-col items-center gap-8 text-center">
@@ -432,8 +432,8 @@ function HowItWorksSection() {
 
 						{index < howItWorksSteps.length - 1 && (
 							<SquiggleArrowImg
-								className="mt-[calc(var(--image-container-height)/2)]
-									text-vitastock-primary-main/70"
+								className="mt-[calc(var(--image-container-height)/2)] hidden
+									text-vitastock-primary-main/70 lg:block"
 							/>
 						)}
 					</Fragment>
@@ -470,8 +470,8 @@ function FeaturesSection() {
 	return (
 		<section
 			id="alerts"
-			className="flex items-center gap-20 bg-vitastock-primary-darker px-[clamp(24px,7vw,100px)]
-				py-[80px] text-white"
+			className="flex flex-col items-center gap-12 bg-vitastock-primary-darker
+				px-[clamp(24px,7vw,100px)] py-16 text-white md:py-[80px] lg:flex-row lg:gap-20"
 		>
 			<div className="flex w-full flex-col gap-3">
 				<p className="text-[14px] font-bold tracking-wider text-vitastock-primary-main uppercase">
@@ -479,8 +479,8 @@ function FeaturesSection() {
 				</p>
 
 				<h2
-					className="max-w-[20ch] text-[56px]/[1.1] font-extrabold tracking-[-0.02em] text-balance
-						delay-60"
+					className="max-w-[20ch] text-[34px]/[1.1] font-extrabold tracking-[-0.02em] text-balance
+						delay-60 md:text-[44px]/[1.1] lg:text-[56px]/[1.1]"
 				>
 					Everything you need to keep{" "}
 					<span
@@ -510,12 +510,12 @@ function FeaturesSection() {
 					)}
 				/>
 
-				<Button className="mt-9 rounded-full px-8 shadow-vitastock-primary-glow" asChild={true}>
-					<NavLink to="/auth/signup">
+				<NavLinkEphemeral to="/auth/signup">
+					<Button className="mt-9 rounded-full px-8 shadow-vitastock-primary-glow">
 						Get Started for Free
 						<IconBox icon="lucide:arrow-right" />
-					</NavLink>
-				</Button>
+					</Button>
+				</NavLinkEphemeral>
 			</div>
 
 			<div className="group relative aspect-5/4 w-full perspective-distant">
@@ -560,30 +560,36 @@ function FeaturesSection() {
 
 function FinalCTASection() {
 	return (
-		<section className="px-[clamp(24px,7vw,100px)] py-[80px] text-black">
+		<section className="px-[clamp(24px,7vw,100px)] py-16 text-black md:py-[80px]">
 			<div
-				className="flex items-center gap-10 rounded-[24px] bg-vitastock-primary-main/8 px-[80px]
-					py-[64px]"
+				className="flex flex-col items-center gap-10 rounded-[24px] bg-vitastock-primary-main/8 p-6
+					md:p-10 lg:flex-row lg:px-[80px] lg:py-[64px]"
 			>
 				<article className="w-full">
-					<h2 className="text-[56px]/[1.1] font-extrabold tracking-[-0.02em] text-balance delay-60">
+					<h2
+						className="text-[34px]/[1.1] font-extrabold tracking-[-0.02em] text-balance delay-60
+							md:text-[44px]/[1.1] lg:text-[56px]/[1.1]"
+					>
 						Run your pharmacy{" "}
 						<span className="font-fraunces text-vitastock-primary-main italic">
 							with confidence.
 						</span>
 					</h2>
 
-					<p className="mt-6 max-w-[448px] text-[18px] leading-relaxed text-vitastock-body-color/90">
+					<p
+						className="mt-6 max-w-[448px] text-[16px] leading-relaxed text-vitastock-body-color/90
+							md:text-[18px]"
+					>
 						Less manual work. Fewer mismatches. Better visibility for the whole team.
 					</p>
 
 					<div className="mt-9 flex flex-col gap-4">
-						<Button className="rounded-full px-8 shadow-vitastock-primary-glow" asChild={true}>
-							<NavLink to="/auth/signup">
+						<NavLinkEphemeral to="/auth/signup">
+							<Button className="rounded-full px-8 shadow-vitastock-primary-glow">
 								Get Started for Free
 								<IconBox icon="lucide:arrow-right" />
-							</NavLink>
-						</Button>
+							</Button>
+						</NavLinkEphemeral>
 
 						<p className="text-[14px] text-vitastock-body-color">
 							No complicated setup. Built for busy pharmacy teams.

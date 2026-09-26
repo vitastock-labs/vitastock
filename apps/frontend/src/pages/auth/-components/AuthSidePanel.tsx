@@ -4,10 +4,11 @@ import { Logo } from "@/components/common/Logo";
 
 function AuthSidePanel() {
 	return (
-		<aside className="w-full max-w-[660px] p-8">
+		<aside className="hidden w-full max-w-[460px] shrink-0 p-6 lg:block xl:max-w-[660px] xl:p-8">
 			<div
-				className="relative isolate flex size-full flex-col gap-[64px] rounded-[24px] p-[64px]
-					shadow-[0_8px_10px_-6px_hsl(0,0%,0%,0.1),0_20px_25px_-5px_hsl(0,0%,0%,0.1)]"
+				className="relative isolate flex size-full flex-col gap-10 rounded-[24px] p-10
+					shadow-[0_8px_10px_-6px_hsl(0,0%,0%,0.1),0_20px_25px_-5px_hsl(0,0%,0%,0.1)] xl:gap-[64px]
+					xl:p-[64px]"
 			>
 				<div className="absolute inset-0 isolate -z-1 rounded-[inherit]">
 					<span
@@ -35,11 +36,14 @@ function AuthSidePanel() {
 					width={64}
 					classNames={{ base: "flex items-center gap-3", image: "w-[64px]" }}
 				>
-					<h3 className="text-[36px] font-bold text-white">VitaStock</h3>
+					<h3 className="text-[28px] font-bold text-white xl:text-[36px]">VitaStock</h3>
 				</Logo>
 
 				<div className="grow">
-					<h3 className="text-[64px]/[70px] font-medium tracking-[-1.6px] text-white">
+					<h3
+						className="text-[44px]/[50px] font-medium tracking-[-1.2px] text-white
+							xl:text-[64px]/[70px] xl:tracking-[-1.6px]"
+					>
 						Stay in control of your pharmacy inventory
 					</h3>
 

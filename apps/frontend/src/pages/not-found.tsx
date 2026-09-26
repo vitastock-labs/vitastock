@@ -8,15 +8,15 @@ function NotFoundPage() {
 	const navigate = useNavigate();
 
 	return (
-		<Main className="relative">
+		<Main className="relative overflow-x-hidden">
 			<section className="relative isolate flex flex-col items-center gap-10 text-center">
 				<span
-					className="absolute right-[256px] -z-1 size-[384px] bg-vitastock-primary-dark/5
-						mix-blend-overlay blur-3xl"
+					className="absolute right-0 -z-1 size-[384px] bg-vitastock-primary-dark/5 mix-blend-overlay
+						blur-3xl md:right-[256px]"
 				/>
 				<span
-					className="absolute left-[96px] -z-1 size-full bg-vitastock-primary-subtle/10
-						mix-blend-overlay blur-3xl"
+					className="absolute left-0 -z-1 size-full bg-vitastock-primary-subtle/10 mix-blend-overlay
+						blur-3xl md:left-[96px]"
 				/>
 
 				<div className="flex flex-col items-center gap-8">
@@ -29,7 +29,10 @@ function NotFoundPage() {
 						className="relative isolate grid size-30 place-items-center rounded-2xl border
 							border-[hsl(231,20%,80%)] bg-white shadow-xl shadow-vitastock-primary-dark/10"
 					>
-						<p className="absolute -z-1 text-[192px] font-extrabold text-[hsl(215,20%,85%,0.75)]">
+						<p
+							className="absolute -z-1 text-[120px] font-extrabold text-[hsl(215,20%,85%,0.75)]
+								md:text-[192px]"
+						>
 							404
 						</p>
 						<IconBox
@@ -40,13 +43,13 @@ function NotFoundPage() {
 				</div>
 
 				<div className="flex flex-col gap-4">
-					<h1 className="text-[48px] font-bold text-black">Page not found</h1>
-					<p className="max-w-[405px] text-[18px]">
+					<h1 className="text-[34px] font-bold text-black md:text-[48px]">Page not found</h1>
+					<p className="max-w-[405px] text-[16px] md:text-[18px]">
 						The page you’re looking for doesn’t exist or has been moved.
 					</p>
 				</div>
 
-				<div className="flex gap-4">
+				<div className="flex flex-wrap justify-center gap-4">
 					<Button className="px-8">Go to Dashboard</Button>
 					<Button theme="primary-ghost" onClick={() => void navigate(-1)}>
 						<IconBox icon="lucide:arrow-left" className="size-3.5" />

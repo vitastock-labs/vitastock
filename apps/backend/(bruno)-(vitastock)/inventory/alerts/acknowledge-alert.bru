@@ -1,0 +1,76 @@
+meta {
+  name: acknowledge-alert
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseURL}}/inventory/alerts/acknowledge
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "alertId": "{{alertId}}"
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  # Acknowledge Alert
+
+  Marks an active workspace alert as seen by the authenticated member.
+
+  ## Authorization
+
+  Any authenticated user with an active workspace membership may acknowledge an alert.
+
+  ## Request Body
+
+  | Field | Type | Required | Description |
+  |-------|------|----------|-------------|
+  | `alertId` | UUID | Yes | Alert returned by the list-alerts request. |
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Alert acknowledged successfully",
+    "data": null
+  }
+  ```
+
+  ## Persistence Behavior
+
+  The update sets:
+
+  - `acknowledgedAt` to the current timestamp
+  - `acknowledgedByUserId` to the authenticated user's ID
+
+  The update is constrained to an active, unacknowledged alert in the authenticated workspace.
+
+  ## Idempotent Outcome
+
+  The endpoint returns the same success response when the alert is already acknowledged, resolved, missing, or belongs to another workspace. In those cases, no row is changed. The current implementation intentionally does not reveal whether an inaccessible alert exists.
+
+  ## Notes
+
+  - Acknowledgement does not change `status`.
+  - Acknowledgement does not set `resolvedAt`.
+  - The unread count decreases after the first successful acknowledgement.
+
+  ## Errors
+
+  | Status | Description |
+  |--------|-------------|
+  | `401 Unauthorized` | Authentication is invalid or workspace access is suspended. |
+  | `422 Unprocessable Entity` | `alertId` is not a valid UUID. |
+}

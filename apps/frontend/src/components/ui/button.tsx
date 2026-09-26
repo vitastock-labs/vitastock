@@ -58,7 +58,7 @@ const buttonVariants = tv({
 		size: {
 			"full-width": "h-12 w-full px-6",
 
-			medium: "h-12 px-5",
+			medium: "h-12 shrink-0 px-5",
 
 			none: "",
 		},
