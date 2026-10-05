@@ -9,6 +9,7 @@ export const users = pg.pgTable("users", {
 	emailVerifiedAt: pg.timestamp({ withTimezone: true }),
 	fullName: pg.text().notNull(),
 	id: pg.uuid().defaultRandom().primaryKey(),
+	lastFailedLoginAt: pg.timestamp({ withTimezone: true }),
 	lastLoginAt: pg.timestamp({ withTimezone: true }).notNull().defaultNow(),
 	loginRetryCount: pg.integer().notNull().default(0),
 	mustChangePassword: pg.boolean().notNull().default(false),

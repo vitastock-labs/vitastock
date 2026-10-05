@@ -27,6 +27,9 @@ import {
 	getUpdatedTokenResultArray,
 } from "./services/token";
 
+const MAX_LOGIN_RETRIES = 3;
+const LOGIN_RETRY_WINDOW_HOURS = 12;
+
 const authRoutes = new Hono()
 	.basePath("/auth")
 
@@ -149,12 +152,28 @@ const authRoutes = new Hono()
 				});
 			}
 
+			const loginRetryWindowActive =
+				currentUser.lastFailedLoginAt !== null
+				&& differenceInHours(new Date(), currentUser.lastFailedLoginAt) < LOGIN_RETRY_WINDOW_HOURS;
+
+			// NOTE - Check the lockout before the password so a locked account doesn't reveal whether a guess was correct
+			if (currentUser.loginRetryCount >= MAX_LOGIN_RETRIES && loginRetryWindowActive) {
+				throw new AppError({
+					code: 401,
+					message: "Login retries exceeded",
+				});
+			}
+
 			const isValidPassword = await verifyHashedValue(currentUser.passwordHash, password);
 
 			if (!isValidPassword) {
 				await db
 					.update(users)
-					.set({ loginRetryCount: sql`${users.loginRetryCount} + 1` })
+					.set({
+						lastFailedLoginAt: new Date(),
+						// Start a fresh count once the previous window has expired
+						loginRetryCount: loginRetryWindowActive ? sql`${users.loginRetryCount} + 1` : 1,
+					})
 					.where(eq(users.id, currentUser.id));
 
 				throw new AppError({
@@ -185,16 +204,6 @@ const authRoutes = new Hono()
 					appCode: AUTH_ERRORS.EMAIL_UNVERIFIED.appCode,
 					code: 401,
 					message: AUTH_ERRORS.EMAIL_UNVERIFIED.message,
-				});
-			}
-
-			const hoursSinceLastLogin = differenceInHours(new Date(), sessionUser.lastLoginAt);
-			const loginRetryWindowActive = hoursSinceLastLogin < 12;
-
-			if (sessionUser.loginRetryCount >= 3 && loginRetryWindowActive) {
-				throw new AppError({
-					code: 401,
-					message: "Login retries exceeded",
 				});
 			}
 
