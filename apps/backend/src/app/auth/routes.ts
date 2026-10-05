@@ -188,16 +188,6 @@ const authRoutes = new Hono()
 				});
 			}
 
-			const hoursSinceLastLogin = differenceInHours(new Date(), sessionUser.lastLoginAt);
-			const loginRetryWindowActive = hoursSinceLastLogin < 12;
-
-			if (sessionUser.loginRetryCount >= 3 && loginRetryWindowActive) {
-				throw new AppError({
-					code: 401,
-					message: "Login retries exceeded",
-				});
-			}
-
 			const newRefreshTokenResult = generateRefreshToken(sessionUser);
 			const newRefreshTokenResultWithHash = getRefreshTokenResultWithHash(newRefreshTokenResult);
 
@@ -493,6 +483,7 @@ const authRoutes = new Hono()
 				const [userUpdate] = await tx
 					.update(users)
 					.set({
+						loginRetryCount: 0,
 						passwordChangedAt: new Date(),
 						passwordHash: newPasswordHash,
 						// Sign out from all devices
