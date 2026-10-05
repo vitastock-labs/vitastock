@@ -5,8 +5,8 @@ import { NavLink } from "@/components/common/NavLink";
 function Footer() {
 	return (
 		<footer
-			className="flex items-center justify-between gap-4 border-t border-shadcn-border px-[100px] py-10
-				text-[14px]"
+			className="flex flex-col items-start gap-6 border-t border-shadcn-border px-6 py-10 text-[14px]
+				md:flex-row md:items-center md:justify-between lg:px-[100px]"
 		>
 			<article className="flex items-center gap-2">
 				<Logo width={48} classNames={{ base: "flex items-center gap-2", image: "w-12" }}>

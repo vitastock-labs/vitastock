@@ -1,19 +1,21 @@
 import { useMutation } from "@tanstack/react-query";
-import { useNavigate, useSearchParams } from "react-router";
+import { createSearchParamsString } from "@zayne-labs/toolkit-core";
+import { parseAsString, useQueryStates } from "nuqs";
+import { useNavigate } from "react-router";
 import { IconBox } from "@/components/common/IconBox";
 import { Logo } from "@/components/common/Logo";
-import { NavLink } from "@/components/common/NavLink";
+import { NavLinkEphemeral } from "@/components/common/NavLink";
 import { Switch } from "@/components/common/switch";
 import { Button } from "@/components/ui";
 import { acceptWorkspaceInvitationMutation } from "@/lib/react-query/mutationOptions";
 import { Main } from "@/pages/auth/-components/Main";
 
 function AcceptInvitationPage() {
-	const [searchParams] = useSearchParams();
-
-	const inviteeEmail = searchParams.get("inviteeEmail") ?? "";
-	const token = searchParams.get("token") ?? "";
-	const workspaceName = searchParams.get("workspaceName") ?? "your workspace";
+	const [{ inviteeEmail, token, workspaceName }] = useQueryStates({
+		inviteeEmail: parseAsString.withDefault(""),
+		token: parseAsString.withDefault(""),
+		workspaceName: parseAsString.withDefault("your workspace"),
+	});
 
 	const navigate = useNavigate();
 
@@ -24,9 +26,13 @@ function AcceptInvitationPage() {
 			{ token },
 			{
 				onSuccess: () => {
-					void navigate(`/auth/signin?${new URLSearchParams({ email: inviteeEmail })}`, {
-						replace: true,
-					});
+					void navigate(
+						{
+							pathname: "/auth/signin",
+							search: createSearchParamsString({ email: inviteeEmail }),
+						},
+						{ replace: true }
+					);
 				},
 			}
 		);
@@ -38,10 +44,11 @@ function AcceptInvitationPage() {
 		<Main>
 			<section
 				className="flex w-full max-w-[420px] flex-col items-center gap-8 rounded-[16px] border
-					border-[hsl(210,6%,93%)] bg-white p-8 text-center shadow-[0_1px_2px_hsl(0,0%,0%,0.05)]"
+					border-[hsl(210,6%,93%)] bg-white p-6 text-center shadow-[0_1px_2px_hsl(0,0%,0%,0.05)]
+					md:p-8"
 			>
 				<Logo width={96} classNames={{ base: "flex flex-col items-center gap-1", image: "w-[96px]" }}>
-					<h1 className="text-[30px] font-bold text-black">VitaStock</h1>
+					<h1 className="text-[26px] font-bold text-black md:text-[30px]">VitaStock</h1>
 				</Logo>
 
 				<span
@@ -85,9 +92,11 @@ function AcceptInvitationPage() {
 
 				<Switch.Root>
 					<Switch.Match when={!hasInviteParams}>
-						<Button theme="primary" size="full-width" asChild={true}>
-							<NavLink to="/auth/signin">Go to sign in</NavLink>
-						</Button>
+						<NavLinkEphemeral to="/auth/signin">
+							<Button theme="primary" size="full-width">
+								Go to sign in
+							</Button>
+						</NavLinkEphemeral>
 					</Switch.Match>
 					<Switch.Default>
 						<div className="flex w-full flex-col gap-2">
@@ -101,9 +110,11 @@ function AcceptInvitationPage() {
 								Accept Invite
 							</Button>
 
-							<Button theme="primary-outline" size="full-width" asChild={true}>
-								<NavLink to="/auth/signin">Go to sign in</NavLink>
-							</Button>
+							<NavLinkEphemeral to="/auth/signin">
+								<Button theme="primary-outline" size="full-width">
+									Go to sign in
+								</Button>
+							</NavLinkEphemeral>
 						</div>
 					</Switch.Default>
 				</Switch.Root>

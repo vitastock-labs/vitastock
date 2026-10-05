@@ -1,0 +1,61 @@
+meta {
+  name: unread-count
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseURL}}/inventory/alerts/unread-count
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  # Unread Alert Count
+
+  Returns the number of active inventory alerts that have not been acknowledged.
+
+  ## Authorization
+
+  Requires an authenticated user with an active workspace membership.
+
+  ## Request
+
+  No path parameters, query parameters, or request body.
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Unread alert count fetched successfully",
+    "data": {
+      "count": 3
+    }
+  }
+  ```
+
+  ## Counting Rule
+
+  The count includes rows where:
+
+  - `workspaceId` matches the authenticated workspace
+  - `status = active`
+  - `acknowledgedAt IS NULL`
+
+  Resolved alerts and acknowledged active alerts do not contribute to the count.
+
+  ## Errors
+
+  | Status | Description |
+  |--------|-------------|
+  | `401 Unauthorized` | Authentication is invalid or workspace access is suspended. |
+  | `500 Internal Server Error` | The count query failed unexpectedly. |
+}

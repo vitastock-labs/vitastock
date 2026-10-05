@@ -1,0 +1,70 @@
+meta {
+  name: bulk-import-validate
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseURL}}/inventory/bulk-import/validate
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "rows": [
+      {
+        "name": "Panadol",
+        "genericName": "Paracetamol",
+        "quantity": "100",
+        "expiryDate": "2027-12-31"
+      }
+    ]
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  # Validate Bulk Import Drug Resolution
+
+  Checks already schema-valid import rows against the authenticated workspace's Drug Master records before the user submits the import. It performs no writes and does not replace final transactional validation.
+
+  ## Authorization
+
+  Requires an authenticated user with an active workspace membership.
+
+  ## Request Body
+
+  The `rows` contract is identical to `POST /inventory/bulk-import`: brand name, generic name, quantity, and expiry date are required; strength, dosage form, and unit are optional.
+
+  ## Validation Behavior
+
+  The endpoint returns only actionable issues. An empty `issues` array means every row can proceed to import. Existing and newly proposed Drug Master records are internal resolution details and are not exposed because the preview does not use them.
+
+  Validation considers proposed variants across all rows in the file, so an incomplete row is flagged when another row in the same file would make its identity ambiguous. Final import repeats this resolution inside its database transaction.
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Inventory bulk import rows validated successfully",
+    "data": {
+      "issues": [
+        {
+          "rowIndex": 0,
+          "message": "Multiple Drug Master records match this row. Supply more drug details."
+        }
+      ]
+    }
+  }
+  ```
+
+  `rowIndex` is zero-based and corresponds to the submitted `rows` array.
+}

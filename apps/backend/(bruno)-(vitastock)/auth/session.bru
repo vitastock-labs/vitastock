@@ -22,7 +22,7 @@ docs {
 
   ## Authentication
 
-  Requires valid `zayneVitaStockAccessToken` and `zayneVitaStockRefreshToken` cookies.
+  Requires valid `vitastockAccessToken` and `vitastockRefreshToken` cookies.
 
   ## Success Response (200 OK)
 
@@ -33,7 +33,7 @@ docs {
     "data": {
       "user": {
         "id": "user-uuid",
-        "name": "John Doe",
+        "fullName": "John Doe",
         "email": "pharmacist@example.com",
         "role": "owner",
         "emailVerifiedAt": "2024-05-20T10:30:00Z",
@@ -44,6 +44,7 @@ docs {
         "id": "workspace-uuid",
         "name": "My Pharmacy",
         "alertEmail": "alerts@pharmacy.com",
+        "emailAlertDeliveryPolicy": "critical_immediate",
         "lowStockThreshold": 10,
         "nearExpiryDays": 30,
         "timezone": "UTC"
@@ -119,5 +120,5 @@ docs {
   }
   ```
 
-  **Note**: Invited pharmacists with `mustChangePassword = true` cannot access session or workspace routes until `PATCH /auth/change-password` succeeds.
+  **Note**: Invited members with `mustChangePassword = true` cannot access workspace routes until `PATCH /auth/change-password` succeeds.
 }

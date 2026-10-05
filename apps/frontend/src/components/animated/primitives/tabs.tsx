@@ -212,12 +212,8 @@ function TabsContentList(props: TabsContentsProps) {
 
 		const cs = getComputedStyle(container);
 		const isBorderBox = cs.boxSizing === "border-box";
-		const paddingY =
-			(Number.parseFloat(cs.paddingTop || "0") || 0)
-			+ (Number.parseFloat(cs.paddingBottom || "0") || 0);
-		const borderY =
-			(Number.parseFloat(cs.borderTopWidth || "0") || 0)
-			+ (Number.parseFloat(cs.borderBottomWidth || "0") || 0);
+		const paddingY = (Number(cs.paddingTop || "0") || 0) + (Number(cs.paddingBottom || "0") || 0);
+		const borderY = (Number(cs.borderTopWidth || "0") || 0) + (Number(cs.borderBottomWidth || "0") || 0);
 
 		let total = base + (isBorderBox ? paddingY + borderY : 0);
 

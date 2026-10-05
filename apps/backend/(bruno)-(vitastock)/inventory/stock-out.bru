@@ -1,0 +1,99 @@
+meta {
+  name: stock-out
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseURL}}/inventory/stock-log
+  body: json
+  auth: inherit
+}
+
+headers {
+  x-idempotency-key: {{stockOutIdempotencyKey}}
+}
+
+body:json {
+  {
+    "drugId": "{{drugId}}",
+    "logType": "stock_out",
+    "quantity": "10",
+    "reason": "patient",
+    "notes": "Patient dispense"
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  # Record Stock Out
+
+  Records a stock reduction for an existing drug. Eligible stock is deducted automatically using FEFO: the non-expired batch expiring soonest is consumed first.
+
+  ## Authorization
+
+  Requires an authenticated user with an active workspace membership.
+
+  ## Required Header
+
+  | Header | Type | Required | Description |
+  |--------|------|----------|-------------|
+  | `x-idempotency-key` | UUID | Yes | Stable identifier for this logical stock transaction. |
+
+  ## Request Body
+
+  | Field | Type | Required | Rules / Description |
+  |-------|------|----------|---------------------|
+  | `drugId` | UUID | Yes | Existing active drug in the authenticated workspace. |
+  | `logType` | string | Yes | Must be `stock_out`. |
+  | `quantity` | numeric string | Yes | Must be greater than `0`. |
+  | `reason` | string | Yes | `patient` or `ward` for automatic FEFO; `damaged` or `expired` for physical-batch disposal. |
+  | `batchId` | UUID | Conditional | Forbidden for `patient`/`ward`; required for `damaged`/`expired`. |
+  | `notes` | string or null | No | Operational context for the movement. |
+
+  ## FEFO Behavior
+
+  1. Eligible batches are restricted to the authenticated workspace and selected drug.
+  2. Batches must have available quantity and must not be expired.
+  3. Batches are ordered by expiry date, creation time, and ID for deterministic tie-breaking.
+  4. The requested quantity may be split across multiple batches.
+  5. All deductions and audit logs commit in one transaction.
+
+  Damaged and expired removals do not run across multiple batches. The operator must first select an eligible physical batch from `GET /inventory/drugs/:drugId/batches`.
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Stock movement recorded successfully",
+    "data": null
+  }
+  ```
+
+  ## Side Effects
+
+  - Decrements one or more stock batches.
+  - Creates stock-log records linked to the affected batches and authenticated actor.
+  - Re-evaluates persisted low-stock and expiry alerts after commit.
+
+  ## Errors
+
+  | Status | Description |
+  |--------|-------------|
+  | `400 Bad Request` | The drug is inactive. |
+  | `401 Unauthorized` | Authentication is invalid or workspace access is suspended. |
+  | `404 Not Found` | The drug or selected eligible batch does not exist in the authenticated workspace. |
+  | `409 Conflict` | The requested quantity exceeds the currently eligible quantity. The safe error message includes the available quantity. |
+  | `422 Unprocessable Entity` | Header or request-body validation failed. |
+
+  ## Idempotency
+
+  Generate a new UUID for each distinct movement. Retrying the exact request is safe; reusing the key with another operation or payload returns `409 Conflict`.
+}

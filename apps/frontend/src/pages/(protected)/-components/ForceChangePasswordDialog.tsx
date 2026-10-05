@@ -3,12 +3,13 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { backendApiSchemaRoutes } from "@vitastock/shared/validation/backendApiSchema";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router";
+import { DialogAnimated } from "@/components/animated/ui";
 import { Button } from "@/components/ui";
-import * as Dialog from "@/components/ui/dialog";
 import { Form } from "@/components/ui/form";
 import { callBackendApiForQuery } from "@/lib/api/callBackendApi";
 import { signoutMutation } from "@/lib/react-query/mutationOptions";
 import { sessionQuery } from "@/lib/react-query/queryOptions";
+import { InputField } from "@/pages/(home)/-components/FormPartsShared";
 
 const ChangePasswordSchema = backendApiSchemaRoutes["@patch/auth/change-password"].body;
 
@@ -27,13 +28,12 @@ export function ForceChangePasswordDialog() {
 
 	const signoutMutationResult = useMutation(signoutMutation());
 
-	const onSignout = () => {
-		signoutMutationResult.mutate(undefined, {
-			onSuccess: () => {
-				void queryClient.invalidateQueries(sessionQuery());
-				void navigate("/", { replace: true });
-			},
-		});
+	const onSignout = async () => {
+		await signoutMutationResult.mutateAsync();
+		await navigate("/", { replace: true });
+
+		// == Invalidating would keep the stale session after its refetch fails, so drop all signed-in data
+		queryClient.removeQueries();
 	};
 
 	const onSubmit = form.handleSubmit(async (data) => {
@@ -46,21 +46,23 @@ export function ForceChangePasswordDialog() {
 	});
 
 	return (
-		<Dialog.Root defaultOpen={true}>
-			<Dialog.Content
+		<DialogAnimated.Root defaultOpen={true}>
+			<DialogAnimated.Content
 				withCloseButton={false}
 				onPointerDownOutside={(e) => e.preventDefault()}
 				onEscapeKeyDown={(e) => e.preventDefault()}
-				className="max-w-110 rounded-2xl border border-[hsl(210,6%,93%)] bg-white p-8
-					shadow-[0_1px_2px_hsl(0,0%,0%,0.05)]"
+				className="max-w-110 rounded-2xl border border-[hsl(210,6%,93%)] bg-white p-6
+					shadow-[0_1px_2px_hsl(0,0%,0%,0.05)] md:p-8"
 			>
-				<Dialog.Header className="flex flex-col items-center gap-2 text-center">
-					<Dialog.Title className="text-[24px] font-bold text-black">Change Password</Dialog.Title>
-					<Dialog.Description className="text-sm text-gray-500">
+				<DialogAnimated.Header className="flex flex-col items-center gap-2 text-center">
+					<DialogAnimated.Title className="text-[24px] font-bold text-black">
+						Change Password
+					</DialogAnimated.Title>
+					<DialogAnimated.Description className="text-sm text-gray-500">
 						You are signed in with a temporary/default password. Please choose a new password to
 						secure your account.
-					</Dialog.Description>
-				</Dialog.Header>
+					</DialogAnimated.Description>
+				</DialogAnimated.Header>
 
 				<Form.Root
 					form={form}
@@ -68,50 +70,30 @@ export function ForceChangePasswordDialog() {
 					className="mt-4 w-full gap-6"
 				>
 					<div className="flex flex-col gap-4">
-						<Form.Field control={form.control} name="currentPassword">
-							<Form.Label className="text-[14px] font-semibold text-gray-700">
-								Current Password
-							</Form.Label>
-							<Form.Input
-								placeholder="Enter current password"
-								type="password"
-								classNames={{
-									inputGroup:
-										"h-12.5 rounded-lg border-none bg-[hsl(210,9%,96%)] p-4 focus-visible:ring-1",
-								}}
-							/>
-							<Form.ErrorMessage />
-						</Form.Field>
-
-						<Form.Field control={form.control} name="newPassword">
-							<Form.Label className="text-[14px] font-semibold text-gray-700">
-								New Password
-							</Form.Label>
-							<Form.Input
-								placeholder="Enter new password"
-								type="password"
-								classNames={{
-									inputGroup:
-										"h-12.5 rounded-lg border-none bg-[hsl(210,9%,96%)] p-4 focus-visible:ring-1",
-								}}
-							/>
-							<Form.ErrorMessage />
-						</Form.Field>
-
-						<Form.Field control={form.control} name="confirmNewPassword">
-							<Form.Label className="text-[14px] font-semibold text-gray-700">
-								Confirm New Password
-							</Form.Label>
-							<Form.Input
-								placeholder="Confirm new password"
-								type="password"
-								classNames={{
-									inputGroup:
-										"h-12.5 rounded-lg border-none bg-[hsl(210,9%,96%)] p-4 focus-visible:ring-1",
-								}}
-							/>
-							<Form.ErrorMessage />
-						</Form.Field>
+						<InputField
+							control={form.control}
+							name="currentPassword"
+							label="Current Password"
+							placeholder="Enter current password"
+							type="password"
+							classNames={{ inputGroup: "h-12.5 bg-white p-4", label: "text-gray-700" }}
+						/>
+						<InputField
+							control={form.control}
+							name="newPassword"
+							label="New Password"
+							placeholder="Enter new password"
+							type="password"
+							classNames={{ inputGroup: "h-12.5 bg-white p-4", label: "text-gray-700" }}
+						/>
+						<InputField
+							control={form.control}
+							name="confirmNewPassword"
+							label="Confirm New Password"
+							placeholder="Confirm new password"
+							type="password"
+							classNames={{ inputGroup: "h-12.5 bg-white p-4", label: "text-gray-700" }}
+						/>
 					</div>
 
 					<Form.Submit asChild={true}>
@@ -134,12 +116,12 @@ export function ForceChangePasswordDialog() {
 						size="full-width"
 						isDisabled={signoutMutationResult.isPending}
 						isLoading={signoutMutationResult.isPending}
-						onClick={onSignout}
+						onClick={() => void onSignout()}
 					>
 						Sign Out
 					</Button>
 				</Form.Root>
-			</Dialog.Content>
-		</Dialog.Root>
+			</DialogAnimated.Content>
+		</DialogAnimated.Root>
 	);
 }

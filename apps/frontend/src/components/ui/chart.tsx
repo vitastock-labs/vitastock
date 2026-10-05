@@ -75,7 +75,7 @@ function ChartContainer(
 				data-slot="chart-root"
 				data-chart={chartId}
 				className={cnMerge(
-					`flex aspect-video justify-center text-xs
+					`flex aspect-video w-full min-w-0 justify-center text-xs
 					[&_.recharts-cartesian-axis-tick_text]:fill-shadcn-muted-foreground
 					[&_.recharts-cartesian-grid_line[stroke='#ccc']]:stroke-shadcn-border/50
 					[&_.recharts-curve.recharts-tooltip-cursor]:stroke-shadcn-border
@@ -291,6 +291,7 @@ function ChartLegendContent(
 				legendItemLabel?: string;
 			};
 			nameKey?: string;
+			position?: React.ComponentProps<typeof RechartsPrimitive.Legend>["position"];
 			renderItem?: (context: {
 				configItem: ReturnType<typeof getConfigItemFromPayload>;
 				index: number;
@@ -304,9 +305,8 @@ function ChartLegendContent(
 		classNames,
 		nameKey,
 		payload,
+		position = "bottom",
 		renderItem,
-		// eslint-disable-next-line ts-eslint/no-deprecated
-		verticalAlign = "bottom",
 		withIcon = true,
 	} = props;
 
@@ -320,7 +320,9 @@ function ChartLegendContent(
 		<div
 			className={cnMerge(
 				"flex items-center justify-center gap-4",
-				verticalAlign === "top" ? "pb-3" : "pt-3",
+				typeof position === "string" && (position === "top" || position.includes("Top")) ?
+					"pb-3"
+				:	"pt-3",
 				className,
 				classNames?.base
 			)}
@@ -376,15 +378,19 @@ const getConfigItemFromPayload = (config: ChartConfig, payload: unknown, key: st
 
 	let configLabelKey = key;
 
-	if (key in payload && typeof payload[key as never] === "string") {
+	if (Object.hasOwn(payload, key) && typeof payload[key as never] === "string") {
 		configLabelKey = payload[key as never];
 	}
 
-	if (payloadPayload && key in payloadPayload && typeof payloadPayload[key as never] === "string") {
+	if (
+		payloadPayload
+		&& Object.hasOwn(payloadPayload, key)
+		&& typeof payloadPayload[key as never] === "string"
+	) {
 		configLabelKey = payloadPayload[key as never];
 	}
 
-	return configLabelKey in config ? config[configLabelKey] : config[key];
+	return config[Object.hasOwn(config, configLabelKey) ? configLabelKey : key];
 };
 
 export {

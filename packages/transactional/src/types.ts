@@ -17,6 +17,7 @@ type EmailJobOptionsBase = {
 }[keyof TemplateLookupType];
 
 type EmailJobHooks = {
+	jobId?: string;
 	onError?: () => Awaitable<void>;
 	onSuccess?: () => Awaitable<void>;
 };

@@ -1,0 +1,63 @@
+meta {
+  name: all-drugs
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseURL}}/inventory/drugs/all
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  # All Drugs
+
+  Returns every active drug in the authenticated workspace as an unpaginated collection for local search and selection controls.
+
+  ## Authorization
+
+  Requires an authenticated user with an active workspace membership.
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "All drugs fetched successfully",
+    "data": {
+      "drugs": [
+        {
+          "id": "drug-uuid",
+          "name": "Amoxil",
+          "genericName": "Amoxicillin",
+          "strength": "500 mg",
+          "form": "Capsule",
+          "unit": "Pack",
+          "isActive": true
+        }
+      ]
+    }
+  }
+  ```
+
+  ## Notes
+
+  - Only active workspace drugs are returned.
+  - Results are ordered by brand name.
+  - Use `GET /inventory/drugs/list` for server search and pagination.
+
+  ## Errors
+
+  | Status | Description |
+  |--------|-------------|
+  | `401 Unauthorized` | Authentication is invalid or workspace access is suspended. |
+  | `500 Internal Server Error` | Drug retrieval failed unexpectedly. |
+}

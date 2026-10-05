@@ -1,41 +1,63 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { backendApiSchemaRoutes } from "@vitastock/shared/validation/backendApiSchema";
-import { tw } from "@zayne-labs/toolkit-core";
 import type { InferProps } from "@zayne-labs/toolkit-react/utils";
-import { defineEnum } from "@zayne-labs/toolkit-type-helpers";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useDialogContext } from "@/components/animated/primitives/dialog-radix";
 import { DialogAnimated } from "@/components/animated/ui";
-import { For } from "@/components/common/for";
 import { IconBox, type MoniconIconBoxProps } from "@/components/common/IconBox";
-import { Switch } from "@/components/common/switch";
-import { Avatar, Button, DropdownMenu, Select, Table } from "@/components/ui";
+import { Avatar, Button, DropdownMenu } from "@/components/ui";
+import {
+	createDataTableColumnHelper,
+	DataTableColumnHeader,
+	DataTableToolbar,
+	useDataTable,
+} from "@/components/ui/data-table";
 import { Form } from "@/components/ui/form";
 import { Switch as SwitchButton } from "@/components/ui/switch";
 import { callBackendApiForQuery } from "@/lib/api/callBackendApi";
+import { EmailAlertDeliveryPolicySchema, WorkspaceRoleSchema } from "@/lib/api/callBackendApi/apiSchema";
+import { posthog } from "@/lib/posthog";
 import {
 	cancelWorkspaceInvitationMutation,
 	changeWorkspaceMemberRoleMutation,
-	permanentlyRemoveWorkspaceMemberMutation,
-	resendWorkspaceInvitationMutation,
+	removeWorkspaceMemberMutation,
 	suspendWorkspaceMemberMutation,
 } from "@/lib/react-query/mutationOptions";
 import {
+	dashboardOverviewQuery,
+	inventoryAlertsQuery,
 	sessionQuery,
 	workspaceMembersQuery,
 	type WorkspaceMembersQueryResultType,
 } from "@/lib/react-query/queryOptions";
 import { cnJoin, cnMerge } from "@/lib/utils/cn";
 import { getNameInitials } from "@/lib/utils/common";
+import { formatDate } from "@/lib/utils/formatters";
+import { FormField, InputField, SelectField } from "@/pages/(home)/-components/FormPartsShared";
+import { DashboardDataTable } from "../-components/DashboardDataTableShared";
+import { DrugMasterDialog } from "../-components/DrugMasterDialog";
 import { Main } from "../-components/Main";
+
+const EMAIL_ALERT_DELIVERY_POLICY_LABELS = {
+	all_immediate: "All alerts immediately + daily digest",
+	critical_immediate: "Critical alerts + daily digest",
+	digest_only: "Daily digest only",
+} satisfies Record<(typeof EmailAlertDeliveryPolicySchema.options)[number], string>;
+
+const EMAIL_ALERT_DELIVERY_POLICY_OPTIONS = EmailAlertDeliveryPolicySchema.options.map((policy) => ({
+	label: EMAIL_ALERT_DELIVERY_POLICY_LABELS[policy],
+	value: policy,
+}));
 
 function SettingsPage() {
 	return (
 		<Main className="max-w-225 gap-8 self-center">
 			<header className="flex flex-col gap-1.5">
-				<h1 className="text-[28px] font-extrabold tracking-tight text-black">System Settings</h1>
+				<h1 className="text-[24px] font-extrabold tracking-tight text-black md:text-[28px]">
+					System Settings
+				</h1>
 				<p className="text-[15px] font-medium text-vitastock-body-color/80">
 					Manage your workspace preferences and alert configurations.
 				</p>
@@ -46,26 +68,7 @@ function SettingsPage() {
 
 				<AlertSettingsSection />
 
-				<section
-					className="flex flex-col items-start justify-between gap-5 rounded-xl border
-						border-vitastock-primary-main/20 bg-vitastock-primary-dark/5 p-6 sm:flex-row
-						sm:items-center"
-				>
-					<div className="flex flex-col gap-1.5">
-						<h2 className="text-[16px] font-bold text-black">Drug Management</h2>
-						<p className="text-[14.5px] font-medium text-vitastock-body-color/90">
-							Add, remove, or categorize items in your central inventory.
-						</p>
-					</div>
-
-					<Button
-						className="h-10.5 shrink-0 rounded-lg bg-vitastock-primary-dark px-5
-							hover:bg-vitastock-primary-dark/90"
-					>
-						<IconBox icon="lucide:book-user" className="size-4" />
-						Manage Drug List
-					</Button>
-				</section>
+				<DrugManagementSection />
 			</div>
 		</Main>
 	);
@@ -73,17 +76,76 @@ function SettingsPage() {
 
 export default SettingsPage;
 
+function DrugManagementSection() {
+	const sessionQueryResult = useQuery(sessionQuery());
+	const currentUserRole = sessionQueryResult.data?.user.role;
+
+	if (currentUserRole !== "owner" && currentUserRole !== "admin") {
+		return null;
+	}
+
+	return (
+		<section
+			className="flex flex-col items-start justify-between gap-5 rounded-xl border
+				border-vitastock-primary-main/20 bg-vitastock-primary-dark/5 p-6 sm:flex-row sm:items-center"
+		>
+			<div className="flex flex-col gap-1.5">
+				<h2 className="text-[16px] font-bold text-black">Drug Management</h2>
+				<p className="text-[14.5px] font-medium text-vitastock-body-color/90">
+					Add, edit, and manage the medicines in your Drug Master.
+				</p>
+			</div>
+
+			<DialogAnimated.Root>
+				<DialogAnimated.Trigger asChild={true}>
+					<Button
+						className="h-10.5 rounded-lg bg-vitastock-primary-dark px-5
+							hover:bg-vitastock-primary-dark/90"
+					>
+						<IconBox icon="lucide:book-user" className="size-4" />
+						Manage Drug List
+					</Button>
+				</DialogAnimated.Trigger>
+
+				<DrugMasterDialog />
+			</DialogAnimated.Root>
+		</section>
+	);
+}
+
+const AlertSettingsSchema = backendApiSchemaRoutes["@patch/workspace/alert-settings"].body;
+
 function AlertSettingsSection() {
 	const sessionQueryResult = useQuery(sessionQuery());
+	const queryClient = useQueryClient();
+	const currentUser = sessionQueryResult.data?.user;
+	const canUpdateAlertSettings = currentUser?.role === "owner" || currentUser?.role === "admin";
 
 	const form = useForm({
+		resolver: zodResolver(AlertSettingsSchema),
 		values: {
-			emailAlerts: Boolean(sessionQueryResult.data?.workspace.alertEmail),
-			lowStockThreshold: sessionQueryResult.data?.workspace.lowStockThreshold ?? 10,
+			alertEmail: sessionQueryResult.data?.workspace.alertEmail ?? undefined,
+			emailAlertDeliveryPolicy:
+				sessionQueryResult.data?.workspace.emailAlertDeliveryPolicy ?? "critical_immediate",
+			emailAlertsEnabled: Boolean(sessionQueryResult.data?.workspace.alertEmail),
+			lowStockThreshold: sessionQueryResult.data?.workspace.lowStockThreshold ?? 0,
+			nearExpiryDays: sessionQueryResult.data?.workspace.nearExpiryDays ?? 0,
 		},
 	});
 
-	const onSubmit = form.handleSubmit(() => {});
+	const onSubmit = form.handleSubmit(async (data) => {
+		await callBackendApiForQuery("@patch/workspace/alert-settings", {
+			body: data,
+			meta: { toast: { success: true } },
+			onSuccess: () => {
+				posthog?.capture("workspace_alert_settings_updated");
+
+				void queryClient.invalidateQueries(sessionQuery());
+				void queryClient.invalidateQueries(dashboardOverviewQuery());
+				void queryClient.invalidateQueries({ queryKey: inventoryAlertsQuery().queryKey.slice(0, -1) });
+			},
+		});
+	});
 
 	return (
 		<section className="flex flex-col rounded-xl bg-white ring-1 ring-shadcn-border/60">
@@ -92,50 +154,120 @@ function AlertSettingsSection() {
 				<h2 className="text-[16px] font-bold text-black">Alert Settings</h2>
 			</div>
 
-			<Form.Root form={form} onSubmit={(event) => void onSubmit(event)} className="flex flex-col p-6">
-				<article className="flex items-center justify-between border-b border-shadcn-border/50 pb-6">
-					<div className="flex flex-col gap-1">
-						<h3 className="text-[14.5px] font-bold text-black">Low Stock Threshold</h3>
+			<Form.Root
+				form={form}
+				onSubmit={(event) => void onSubmit(event)}
+				className="flex flex-col p-5 md:p-6"
+			>
+				<article
+					className="flex items-center justify-between gap-4 border-b border-shadcn-border/50 pb-6"
+				>
+					<div className="flex min-w-0 flex-col gap-1">
+						<h3 className="text-[14.5px] font-bold text-black">Default Low Stock Threshold</h3>
 						<p className="text-[13.5px] font-medium text-vitastock-body-color/80">
-							Trigger alert when item quantity falls below this number.
+							Applies to drugs without an individual low stock threshold.
 						</p>
 					</div>
 
-					<Form.Field control={form.control} name="lowStockThreshold">
-						<Form.Input
-							type="number"
-							className="h-10 w-25 rounded-lg border border-shadcn-border bg-transparent px-3
-								text-center text-[14.5px] font-medium text-black transition-colors outline-none
-								focus-within:border-vitastock-primary-main focus-within:ring-1
-								focus-within:ring-vitastock-primary-main"
-						/>
-						<Form.ErrorMessage />
-					</Form.Field>
+					<InputField
+						control={form.control}
+						name="lowStockThreshold"
+						type="number"
+						classNames={{ input: "w-25 bg-transparent px-3 text-center text-[14.5px] font-medium" }}
+					/>
 				</article>
 
-				<article className="flex items-center justify-between pt-6">
-					<div className="flex flex-col gap-1">
+				<article
+					className="flex items-center justify-between gap-4 border-b border-shadcn-border/50 py-6"
+				>
+					<div className="flex min-w-0 flex-col gap-1">
 						<h3 className="text-[14.5px] font-bold text-black">Email Alerts</h3>
 						<p className="text-[13.5px] font-medium text-vitastock-body-color/80">
 							Receive critical stock warnings via email.
 						</p>
 					</div>
 
-					<Form.FieldWithController
+					<FormField control={form.control} name="emailAlertsEnabled">
+						<Form.FieldBoundController
+							render={({ field }) => (
+								<SwitchButton
+									checked={field.value}
+									onCheckedChange={field.onChange}
+									classNames={{
+										base: "data-checked:bg-vitastock-primary-dark",
+										thumb: "data-checked:bg-white data-unchecked:bg-vitastock-primary-dark",
+									}}
+								/>
+							)}
+						/>
+					</FormField>
+				</article>
+
+				<Form.Watch control={form.control} name="emailAlertsEnabled">
+					{(emailAlertsEnabled) =>
+						emailAlertsEnabled && (
+							<>
+								<InputField
+									control={form.control}
+									name="alertEmail"
+									type="email"
+									disabled={!canUpdateAlertSettings}
+									label="Alert Email"
+									description="Alert emails are sent to this address and active workspace managers."
+									placeholder="alerts@pharmacy.com"
+									classNames={{
+										base: "pt-6",
+										input: "mt-2 bg-transparent px-3 text-[14.5px] font-medium",
+										label: "text-[14.5px] font-bold text-black",
+									}}
+								/>
+
+								<SelectField
+									control={form.control}
+									name="emailAlertDeliveryPolicy"
+									disabled={!canUpdateAlertSettings}
+									label="Email Delivery"
+									description="Critical alerts include low stock and expired stock. Near-expiry alerts are always visible in VitaStock and are emailed immediately only with the highest-frequency option."
+									options={EMAIL_ALERT_DELIVERY_POLICY_OPTIONS}
+									classNames={{
+										base: "pt-6",
+										label: "text-[14.5px] font-bold text-black",
+										trigger: "mt-2 bg-transparent font-medium",
+									}}
+								/>
+							</>
+						)
+					}
+				</Form.Watch>
+
+				<article className="flex items-center justify-between gap-4 pt-6">
+					<div className="flex min-w-0 flex-col gap-1">
+						<h3 className="text-[14.5px] font-bold text-black">Near-Expiry Window</h3>
+						<p className="text-[13.5px] font-medium text-vitastock-body-color/80">
+							Flag batches that expire within this number of days.
+						</p>
+					</div>
+
+					<InputField
 						control={form.control}
-						name="emailAlerts"
-						render={({ field }) => (
-							<SwitchButton
-								checked={field.value}
-								onCheckedChange={field.onChange}
-								classNames={{
-									base: "data-checked:bg-vitastock-primary-dark",
-									thumb: "data-checked:bg-white data-unchecked:bg-vitastock-primary-dark",
-								}}
-							/>
-						)}
+						name="nearExpiryDays"
+						type="number"
+						disabled={!canUpdateAlertSettings}
+						classNames={{ input: "w-25 bg-transparent px-3 text-center text-[14.5px] font-medium" }}
 					/>
 				</article>
+
+				{canUpdateAlertSettings && (
+					<div className="mt-6 flex justify-end">
+						<Form.Submit asChild={true}>
+							{(formState) => (
+								<Button isDisabled={formState.isSubmitting} isLoading={formState.isSubmitting}>
+									Save Alert Settings
+								</Button>
+							)}
+						</Form.Submit>
+					</div>
+				)}
 			</Form.Root>
 		</section>
 	);
@@ -157,7 +289,7 @@ function PeopleWorkspaceSection() {
 				<DialogAnimated.Root>
 					<DialogAnimated.Trigger asChild={true}>
 						<Button
-							className="h-10.5 shrink-0 rounded-lg bg-vitastock-primary-dark px-5
+							className="h-10.5 rounded-lg bg-vitastock-primary-dark px-5
 								hover:bg-vitastock-primary-dark/90"
 						>
 							<IconBox icon="lucide:users-round" className="size-4" />
@@ -173,6 +305,9 @@ function PeopleWorkspaceSection() {
 }
 
 type Member = WorkspaceMembersQueryResultType["members"][number];
+
+const EMPTY_WORKSPACE_MEMBERS: Member[] = [];
+const memberColumnHelper = createDataTableColumnHelper<Member>();
 
 const isInvitationMember = (member: Member) => {
 	return member.status === "pending" || member.status === "expired";
@@ -190,36 +325,132 @@ const getMemberInitials = (member: Member) => {
 	return getNameInitials(getMemberName(member));
 };
 
-const dateFormatter = new Intl.DateTimeFormat("en", {
-	day: "numeric",
-	month: "short",
-	year: "numeric",
-});
-
 const getJoinedDate = (member: Member) => {
-	return isInvitationMember(member) ? "-" : dateFormatter.format(member.createdAt);
+	return isInvitationMember(member) ? "-" : formatDate(member.createdAt);
 };
 
-const memberTableColumns = defineEnum(["Name", "Email", "Role", "Joined Date", "Status", "Actions"]);
+const WORKSPACE_ROLE_FILTER_OPTIONS = WorkspaceRoleSchema.options.map((role) => ({
+	label: `${role.charAt(0).toUpperCase()}${role.slice(1)}`,
+	value: role,
+}));
 
 function ManagePeopleDialog() {
 	const workspaceMembersQueryResult = useQuery(workspaceMembersQuery());
-	const tableMembers = workspaceMembersQueryResult.data?.members ?? [];
+	const tableMembers = workspaceMembersQueryResult.data?.members ?? EMPTY_WORKSPACE_MEMBERS;
 	const sessionQueryResult = useQuery(sessionQuery());
-
 	const currentUser = sessionQueryResult.data?.user;
 	const canInviteMembers = currentUser?.role === "owner" || currentUser?.role === "admin";
+	const columns = useMemo(
+		() =>
+			memberColumnHelper.columns([
+				memberColumnHelper.accessor(getMemberName, {
+					cell: ({ row }) => (
+						<div className="flex min-w-0 items-center gap-3">
+							<MemberAvatar member={row.original} />
+							<div className="min-w-0">
+								<p className="text-black">
+									{getMemberName(row.original)}
+									{row.original.isCurrentUser && (
+										<span className="ml-1.5 text-vitastock-body-color/70">(you)</span>
+									)}
+								</p>
+								<p className="text-[12px] wrap-anywhere text-vitastock-body-color md:hidden">
+									{getMemberEmail(row.original)}
+								</p>
+								<div className="mt-2 flex flex-wrap items-center gap-2 md:hidden">
+									<RoleBadge role={row.original.role} />
+									<StatusLabel status={row.original.status} />
+								</div>
+							</div>
+						</div>
+					),
+					filterFn: (row, _columnId, filterValue: string) => {
+						const normalizedFilterValue = filterValue.trim().toLowerCase();
+
+						return (
+							getMemberName(row.original).toLowerCase().includes(normalizedFilterValue)
+							|| getMemberEmail(row.original).toLowerCase().includes(normalizedFilterValue)
+						);
+					},
+					header: ({ column }) => <DataTableColumnHeader column={column}>Name</DataTableColumnHeader>,
+					id: "name",
+					meta: {
+						placeholder: "Search members...",
+						variant: "text",
+					},
+				}),
+				memberColumnHelper.accessor(getMemberEmail, {
+					cell: ({ row }) => (
+						<span className="text-vitastock-body-color">{getMemberEmail(row.original)}</span>
+					),
+					header: ({ column }) => (
+						<DataTableColumnHeader column={column}>Email</DataTableColumnHeader>
+					),
+					id: "email",
+					meta: { classNames: { column: "hidden md:table-cell" } },
+				}),
+				memberColumnHelper.accessor("role", {
+					cell: ({ getValue }) => <RoleBadge role={getValue()} />,
+					filterFn: "equalsString",
+					header: ({ column }) => <DataTableColumnHeader column={column}>Role</DataTableColumnHeader>,
+					meta: {
+						classNames: { column: "hidden md:table-cell" },
+						label: "All Roles",
+						options: WORKSPACE_ROLE_FILTER_OPTIONS,
+						variant: "select",
+					},
+				}),
+				memberColumnHelper.accessor(getJoinedDate, {
+					cell: ({ getValue }) => <span className="text-vitastock-body-color">{getValue()}</span>,
+					header: ({ column }) => (
+						<DataTableColumnHeader column={column}>Joined Date</DataTableColumnHeader>
+					),
+					id: "joinedDate",
+					meta: { classNames: { column: "hidden lg:table-cell" } },
+				}),
+				memberColumnHelper.accessor("status", {
+					cell: ({ getValue }) => <StatusLabel status={getValue()} />,
+					enableSorting: false,
+					header: "Status",
+					meta: { classNames: { column: "hidden md:table-cell" } },
+				}),
+				memberColumnHelper.display({
+					cell: ({ row }) => (
+						<div className="flex justify-end">
+							<MemberActionsDropdown currentUserRole={currentUser?.role} member={row.original} />
+						</div>
+					),
+					enableSorting: false,
+					header: () => <span className="block text-right max-md:sr-only">Actions</span>,
+					id: "actions",
+				}),
+			]),
+		[currentUser?.role]
+	);
+	const table = useDataTable({
+		columns,
+		data: tableMembers,
+		getRowId: (member) => member.id,
+		initialState: {
+			pagination: {
+				pageIndex: 0,
+				pageSize: 10,
+			},
+			sorting: [{ desc: false, id: "name" }],
+		},
+	});
 
 	return (
 		<DialogAnimated.Content
 			onInteractOutside={(event) => event.preventDefault()}
 			withCloseButton={false}
-			className="flex h-[calc(100svh-120px)] w-[calc(100vw-120px)] max-w-[unset] flex-col gap-0
-				overflow-hidden rounded-2xl border-shadcn-border bg-white p-0 shadow-2xl"
+			className="flex h-[calc(100svh-32px)] max-w-[unset] flex-col gap-0 overflow-hidden rounded-2xl
+				border-shadcn-border bg-white p-0 shadow-2xl md:h-[calc(100svh-120px)]
+				md:w-[calc(100vw-120px)]"
 		>
 			<DialogAnimated.Header
-				className="flex-row items-start justify-between gap-6 border-b border-shadcn-border/70 px-6
-					py-5"
+				className="flex-row items-start justify-between gap-6 border-b border-shadcn-border/70 p-5
+					text-left md:px-6"
 			>
 				<div className="flex flex-col gap-1">
 					<DialogAnimated.Title
@@ -240,172 +471,47 @@ function ManagePeopleDialog() {
 				</DialogAnimated.Close>
 			</DialogAnimated.Header>
 
-			<section>
-				<header
-					className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b
-						border-shadcn-border/70 px-6 py-4"
+			<div className="flex min-h-0 grow flex-col">
+				<DashboardDataTable
+					table={table}
+					isError={workspaceMembersQueryResult.isError}
+					isLoading={workspaceMembersQueryResult.isLoading}
+					emptyMessage="No workspace members match these filters."
+					errorMessage="Failed to load members. Please try again later."
+					classNames={{
+						base: "min-h-0 grow overflow-hidden text-[14px] font-medium",
+						tableCell: "px-5 md:px-6",
+						tableContainer: "min-h-0 grow",
+						tableHead: "px-5 md:px-6",
+						tableRoot: "md:min-w-[640px]",
+					}}
 				>
-					<div className="flex items-center gap-3">
-						<Form.InputGroup
-							className="h-10 w-full max-w-[256px] items-center gap-2.5 rounded-lg border
-								border-shadcn-border bg-shadcn-muted/50 px-3.5 text-vitastock-body-color"
-						>
-							<Form.InputGroupAddon>
-								<IconBox icon="lucide:search" className="size-4 text-vitastock-body-color/70" />
-							</Form.InputGroupAddon>
-							<Form.InputPrimitive
-								type="search"
-								placeholder="Search members..."
-								className="h-full min-w-0 flex-1 bg-transparent text-[14px] font-medium
-									outline-none placeholder:text-vitastock-body-color/60"
-							/>
-						</Form.InputGroup>
-
-						<Select.Root defaultValue="all">
-							<Select.Trigger
-								className="h-10 w-[140px] rounded-lg border-shadcn-border bg-shadcn-muted/50 px-3.5
-									text-[14px] font-medium text-black"
-							>
-								<Select.Value placeholder="All Roles" />
-							</Select.Trigger>
-							<Select.Content
-								className="rounded-xl border border-shadcn-border/80 bg-white p-1.5 shadow-xl
-									shadow-black/10"
-							>
-								<Select.Item value="all">All Roles</Select.Item>
-								<Select.Item value="owner">Owner</Select.Item>
-								<Select.Item value="admin">Admin</Select.Item>
-								<Select.Item value="pharmacist">Pharmacist</Select.Item>
-							</Select.Content>
-						</Select.Root>
-					</div>
-
-					{canInviteMembers && (
-						<DialogAnimated.Root>
-							<DialogAnimated.Trigger asChild={true}>
-								<Button
-									className="h-10 rounded-lg bg-[#0047b3] px-4 text-[14px] font-bold
-										hover:bg-[#0047b3]/90"
-								>
-									<IconBox icon="lucide:plus" className="size-4.5" />
-									Invite Member
-								</Button>
-							</DialogAnimated.Trigger>
-
-							<InviteMemberDialog />
-						</DialogAnimated.Root>
-					)}
-				</header>
-
-				<div className="h-[400px] overflow-auto">
-					<Table.Root className="mx-auto border-collapse text-left">
-						<Table.Header
-							className="sticky top-0 z-1 bg-shadcn-muted/40 text-[12px] font-extrabold
-								tracking-wider text-vitastock-body-color uppercase"
-						>
-							<Table.Row className="border-b-shadcn-border/70 hover:bg-transparent">
-								<For
-									each={memberTableColumns}
-									renderItem={(column) => (
-										<Table.Head
-											key={column}
-											className={cnJoin(
-												"px-6 py-3 font-bold",
-												column === "Actions" && "text-right"
-											)}
+					<DataTableToolbar
+						table={table}
+						classNames={{
+							base: "flex-col items-stretch p-5 md:flex-row md:items-center md:px-6 md:py-4",
+							content: "grid grid-cols-[minmax(0,1fr)_auto] md:flex",
+						}}
+						actions={
+							canInviteMembers && (
+								<DialogAnimated.Root>
+									<DialogAnimated.Trigger asChild={true}>
+										<Button
+											className="h-10 w-full rounded-lg bg-vitastock-primary-main px-4
+												text-[14px] font-bold hover:bg-vitastock-primary-main/90 md:w-fit"
 										>
-											{column}
-										</Table.Head>
-									)}
-								/>
-							</Table.Row>
-						</Table.Header>
+											<IconBox icon="lucide:plus" className="size-4.5" />
+											Invite Member
+										</Button>
+									</DialogAnimated.Trigger>
 
-						<Table.Body>
-							<Switch.Root>
-								<Switch.Match when={workspaceMembersQueryResult.isLoading}>
-									<Table.Row>
-										<Table.Cell
-											colSpan={memberTableColumns.length}
-											className="px-6 py-8 text-center text-[14px] font-medium
-												text-vitastock-body-color"
-										>
-											Loading members...
-										</Table.Cell>
-									</Table.Row>
-								</Switch.Match>
-
-								<Switch.Match when={workspaceMembersQueryResult.isError}>
-									<Table.Row>
-										<Table.Cell
-											colSpan={memberTableColumns.length}
-											className="px-6 py-8 text-center text-[14px] font-medium
-												text-vitastock-body-color"
-										>
-											Failed to load members. Please try again later.
-										</Table.Cell>
-									</Table.Row>
-								</Switch.Match>
-
-								<Switch.Match when={tableMembers.length === 0}>
-									<Table.Row>
-										<Table.Cell
-											colSpan={memberTableColumns.length}
-											className="px-6 py-8 text-center text-[14px] font-medium
-												text-vitastock-body-color"
-										>
-											No workspace members found.
-										</Table.Cell>
-									</Table.Row>
-								</Switch.Match>
-
-								<Switch.Default>
-									<For
-										each={tableMembers}
-										renderItem={(member) => (
-											<Table.Row
-												key={member.id}
-												className="border-b-shadcn-border/50 text-[14px] font-medium
-													hover:bg-shadcn-muted/20"
-											>
-												<Table.Cell className="flex items-center gap-3 px-6 py-4">
-													<MemberAvatar member={member} />
-													<p className="text-black">
-														{getMemberName(member)}
-														{member.isCurrentUser && (
-															<span className="ml-1.5 text-vitastock-body-color/70">
-																(you)
-															</span>
-														)}
-													</p>
-												</Table.Cell>
-												<Table.Cell className="px-5 py-4 text-vitastock-body-color">
-													{getMemberEmail(member)}
-												</Table.Cell>
-												<Table.Cell className="px-5 py-4">
-													<RoleBadge role={member.role} />
-												</Table.Cell>
-												<Table.Cell className="px-5 py-4 text-vitastock-body-color">
-													{getJoinedDate(member)}
-												</Table.Cell>
-												<Table.Cell className="px-5 py-4">
-													<StatusLabel status={member.status} />
-												</Table.Cell>
-												<Table.Cell className="px-6 py-4 text-right">
-													<MemberActionsDropdown
-														currentUserRole={currentUser?.role}
-														member={member}
-													/>
-												</Table.Cell>
-											</Table.Row>
-										)}
-									/>
-								</Switch.Default>
-							</Switch.Root>
-						</Table.Body>
-					</Table.Root>
-				</div>
-			</section>
+									<InviteMemberDialog />
+								</DialogAnimated.Root>
+							)
+						}
+					/>
+				</DashboardDataTable>
+			</div>
 		</DialogAnimated.Content>
 	);
 }
@@ -487,8 +593,7 @@ function MemberActionsDropdown(props: MemberActionsDropdownProps) {
 	const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false);
 	const cancelInvitationMutation = useMutation(cancelWorkspaceInvitationMutation());
 	const changeRoleMutation = useMutation(changeWorkspaceMemberRoleMutation());
-	const removeMemberMutation = useMutation(permanentlyRemoveWorkspaceMemberMutation());
-	const resendInvitationMutation = useMutation(resendWorkspaceInvitationMutation());
+	const removeMemberMutation = useMutation(removeWorkspaceMemberMutation());
 	const suspendMemberMutation = useMutation(suspendWorkspaceMemberMutation());
 
 	const invalidateMembersQuery = () => {
@@ -501,7 +606,6 @@ function MemberActionsDropdown(props: MemberActionsDropdownProps) {
 		cancelInvitationMutation.isPending
 		|| changeRoleMutation.isPending
 		|| removeMemberMutation.isPending
-		|| resendInvitationMutation.isPending
 		|| suspendMemberMutation.isPending;
 
 	return (
@@ -514,11 +618,7 @@ function MemberActionsDropdown(props: MemberActionsDropdownProps) {
 					<IconBox icon="lucide:ellipsis" className="size-4.5" />
 				</DropdownMenu.Trigger>
 
-				<DropdownMenu.Content
-					align="end"
-					className="w-58 rounded-xl border border-shadcn-border/80 bg-white p-1.5 shadow-xl
-						shadow-black/10"
-				>
+				<DropdownMenu.Content align="end" className="w-58 rounded-xl bg-white p-1.5">
 					<DropdownMenu.Item asChild={true}>
 						<MemberActionMenuButton icon="lucide:eye" onClick={() => setIsDetailsDialogOpen(true)}>
 							View details
@@ -531,10 +631,7 @@ function MemberActionsDropdown(props: MemberActionsDropdownProps) {
 								<MemberActionMenuButton icon="lucide:user-cog">Change role</MemberActionMenuButton>
 							</DropdownMenu.SubTrigger>
 
-							<DropdownMenu.SubContent
-								className="w-54 rounded-xl border border-shadcn-border/80 bg-white p-1.5 shadow-xl
-									shadow-black/10"
-							>
+							<DropdownMenu.SubContent className="w-54 rounded-xl bg-white p-1.5">
 								{member.role === "pharmacist" && (
 									<DropdownMenu.Item onSelect={(event) => event.preventDefault()} asChild={true}>
 										<MemberActionMenuButton
@@ -588,7 +685,6 @@ function MemberActionsDropdown(props: MemberActionsDropdownProps) {
 											<MemberActionMenuButton
 												icon="lucide:send"
 												isDisabled={hasPendingMutation}
-												isLoading={resendInvitationMutation.isPending}
 											>
 												Resend invitation
 											</MemberActionMenuButton>
@@ -666,11 +762,11 @@ function MemberActionsDropdown(props: MemberActionsDropdownProps) {
 					{permissions.canRemoveMember && (
 						<DropdownMenu.Item variant="destructive" asChild={true}>
 							<MemberActionMenuButton
-								icon="lucide:trash-2"
+								icon="lucide:trash"
 								isDisabled={hasPendingMutation}
 								onClick={() => setIsRemoveDialogOpen(true)}
 							>
-								Permanently remove
+								Remove from workspace
 							</MemberActionMenuButton>
 						</DropdownMenu.Item>
 					)}
@@ -713,10 +809,9 @@ function MemberDetailsDialog(props: {
 	return (
 		<DialogAnimated.Root open={isOpen} onOpenChange={onOpenChange}>
 			<DialogAnimated.Content
-				className="max-w-[440px] gap-0 overflow-hidden rounded-2xl border-shadcn-border bg-white p-0
-					shadow-2xl"
+				className="max-w-[440px] gap-0 rounded-2xl border-shadcn-border bg-white p-0 shadow-2xl"
 			>
-				<DialogAnimated.Header className="border-b border-shadcn-border/70 px-6 py-5">
+				<DialogAnimated.Header className="border-b border-shadcn-border/70 p-5 text-left md:px-6">
 					<div className="flex items-center gap-3">
 						<MemberAvatar member={member} />
 						<div className="min-w-0">
@@ -738,18 +833,18 @@ function MemberDetailsDialog(props: {
 					<MemberDetailRow label="Joined" value={getJoinedDate(member)} />
 
 					{isInvitationMember(member) && (
-						<MemberDetailRow
-							label="Invitation expires"
-							value={dateFormatter.format(member.expiresAt)}
-						/>
+						<MemberDetailRow label="Invitation expires" value={formatDate(member.expiresAt)} />
 					)}
 
 					{member.status === "suspended" && (
-						<MemberDetailRow label="Suspended" value={dateFormatter.format(member.suspendedAt)} />
+						<MemberDetailRow label="Suspended" value={formatDate(member.suspendedAt)} />
 					)}
 				</div>
 
-				<DialogAnimated.Footer className="flex-row justify-end border-t border-shadcn-border/70 p-4">
+				<DialogAnimated.Footer
+					className="flex-row justify-end border-t border-shadcn-border/70 p-4 *:flex-1
+						md:*:flex-none"
+				>
 					<DialogAnimated.Close asChild={true}>
 						<Button theme="primary-ghost" className="h-10">
 							Close
@@ -809,22 +904,21 @@ function ConfirmRemoveMemberDialog(props: {
 			{member && (
 				<DialogAnimated.Content
 					withCloseButton={false}
-					className="max-w-[420px] gap-0 overflow-hidden rounded-2xl border-shadcn-border bg-white p-0
-						shadow-2xl"
+					className="max-w-[420px] gap-0 rounded-2xl border-shadcn-border bg-white p-0 shadow-2xl"
 				>
-					<DialogAnimated.Header className="border-b border-shadcn-border/70 px-6 py-5">
+					<DialogAnimated.Header className="border-b border-shadcn-border/70 p-5 text-left md:px-6">
 						<DialogAnimated.Title className="text-[18px] font-bold text-black">
-							Permanently remove member?
+							Remove member from workspace?
 						</DialogAnimated.Title>
 						<DialogAnimated.Description
 							className="mt-2 text-[14px] leading-relaxed text-vitastock-body-color"
 						>
-							This will permanently remove {getMemberName(member)} ({getMemberEmail(member)}) from
-							the workspace. This action cannot be undone.
+							This removes {getMemberName(member)} ({getMemberEmail(member)}) from the workspace and
+							revokes their access. Their identity is retained in historical stock records.
 						</DialogAnimated.Description>
 					</DialogAnimated.Header>
 
-					<DialogAnimated.Footer className="flex-row justify-end gap-3 p-4">
+					<DialogAnimated.Footer className="flex-row justify-end gap-3 p-4 *:flex-1 md:*:flex-none">
 						<Button theme="primary-ghost" className="h-10" onClick={onClose}>
 							Cancel
 						</Button>
@@ -835,8 +929,8 @@ function ConfirmRemoveMemberDialog(props: {
 							className="h-10 bg-shadcn-destructive text-white hover:bg-shadcn-destructive/90"
 							onClick={onConfirm}
 						>
-							<IconBox icon="lucide:trash-2" className="size-4" />
-							Permanently remove
+							<IconBox icon="lucide:trash" className="size-4" />
+							Remove member
 						</Button>
 					</DialogAnimated.Footer>
 				</DialogAnimated.Content>
@@ -866,6 +960,8 @@ function InviteMemberDialog() {
 			body: data,
 			meta: { toast: { success: true } },
 			onSuccess: () => {
+				posthog?.capture("workspace_invitation_sent");
+
 				void queryClient.invalidateQueries(workspaceMembersQuery());
 				form.reset();
 				dialogCtx.setIsOpen(false);
@@ -876,8 +972,7 @@ function InviteMemberDialog() {
 	return (
 		<DialogAnimated.Content
 			withCloseButton={false}
-			className="max-w-[448px] gap-0 overflow-hidden rounded-2xl border-shadcn-border bg-white p-0
-				shadow-2xl"
+			className="max-w-[448px] gap-0 rounded-2xl border-shadcn-border bg-white p-0 shadow-2xl"
 		>
 			<header
 				className="flex items-start justify-between gap-6 border-b border-shadcn-border/70 px-6 py-5"
@@ -901,75 +996,58 @@ function InviteMemberDialog() {
 
 			<Form.Root form={form} onSubmit={(event) => void onSubmit(event)}>
 				<div className="flex flex-col gap-5 border-y border-shadcn-border/70 p-6">
-					<Form.Field control={form.control} name="inviteeName">
-						<Form.Label className="text-[14px] font-medium text-black">
-							Name of pharmacist
-						</Form.Label>
-						<Form.Description>
-							This name will be used to track what this user does within the work space. It cannot
-							be changed later.
-						</Form.Description>
-						<Form.Input
-							placeholder="Enter full name"
-							className="h-10 rounded-lg border border-shadcn-border bg-transparent px-4 text-[14px]
-								font-medium text-black outline-none placeholder:text-vitastock-body-color/60
-								focus-within:border-vitastock-primary-main focus-within:ring-1
-								focus-within:ring-vitastock-primary-main"
-						/>
-						<Form.ErrorMessage />
-					</Form.Field>
+					<InputField
+						control={form.control}
+						name="inviteeName"
+						label="Name of pharmacist"
+						description="This name will be used to track what this user does within the workspace. It cannot be changed later."
+						placeholder="Enter full name"
+						classNames={{
+							input: "bg-transparent font-medium",
+							label: "text-[14px] font-medium text-black",
+						}}
+					/>
 
-					<Form.Field control={form.control} name="inviteeEmail">
-						<Form.Label className="text-[14px] font-medium text-black">Email Address</Form.Label>
-						<Form.Input
-							type="email"
-							placeholder="e.g. name@company.com"
-							className="h-10 rounded-lg border border-shadcn-border bg-transparent px-4 text-[14px]
-								font-medium text-black outline-none placeholder:text-vitastock-body-color/60
-								focus-within:border-vitastock-primary-main focus-within:ring-1
-								focus-within:ring-vitastock-primary-main"
-						/>
-						<Form.ErrorMessage />
-					</Form.Field>
+					<InputField
+						control={form.control}
+						name="inviteeEmail"
+						type="email"
+						label="Email Address"
+						placeholder="e.g. name@company.com"
+						classNames={{
+							input: "bg-transparent font-medium",
+							label: "text-[14px] font-medium text-black",
+						}}
+					/>
 
-					<Form.Field control={form.control} name="defaultPassword">
-						<Form.Label className="text-[14px] font-medium text-black">Default Password</Form.Label>
-						<Form.Input
-							type="password"
-							placeholder="Enter initial password"
-							classNames={{
-								inputGroup: `h-10 rounded-lg border border-shadcn-border bg-transparent px-4
-								text-[16px] font-medium text-black outline-none
-								focus-within:border-vitastock-primary-main focus-within:ring-1
-								focus-within:ring-vitastock-primary-main`,
-							}}
-						/>
-						<Form.ErrorMessage />
-					</Form.Field>
+					<InputField
+						control={form.control}
+						name="defaultPassword"
+						type="password"
+						label="Default Password"
+						placeholder="Enter initial password"
+						classNames={{
+							inputGroup: "bg-transparent text-[16px] font-medium",
+							label: "text-[14px] font-medium text-black",
+						}}
+					/>
 
-					<Form.Field control={form.control} name="role">
-						<Form.Label className="text-[14px] font-medium text-black">Role</Form.Label>
-						<Form.FieldBoundController
-							render={({ field }) => (
-								<Select.Root value={field.value} onValueChange={field.onChange}>
-									<Select.Trigger
-										className="h-10 rounded-lg border-shadcn-border bg-transparent px-4
-											text-[14px] font-medium text-black"
-									>
-										<Select.Value placeholder="Select role" />
-									</Select.Trigger>
-									<Select.Content classNames={{ viewport: "gap-1" }}>
-										<Select.Item value="pharmacist">Pharmacist</Select.Item>
-										<Select.Item value="admin">Admin</Select.Item>
-									</Select.Content>
-								</Select.Root>
-							)}
-						/>
-						<Form.ErrorMessage />
-					</Form.Field>
+					<SelectField
+						control={form.control}
+						name="role"
+						label="Role"
+						placeholder="Select role"
+						options={[
+							{ label: "Pharmacist", value: "pharmacist" },
+							{ label: "Admin", value: "admin" },
+						]}
+						classNames={{ label: "text-[14px] font-medium text-black", viewport: "gap-1" }}
+					/>
 				</div>
 
-				<DialogAnimated.Footer className="flex-row items-center justify-end gap-3 p-4">
+				<DialogAnimated.Footer
+					className="flex-row items-center justify-end gap-3 p-4 *:flex-1 md:*:flex-none"
+				>
 					<DialogAnimated.Close asChild={true}>
 						<Button theme="primary-ghost" className="h-11">
 							Cancel
@@ -1016,6 +1094,8 @@ function ResendInvitationDialog(props: { invitationId: string }) {
 			body: { ...data, invitationId },
 			meta: { toast: { success: true } },
 			onSuccess: () => {
+				posthog?.capture("workspace_invitation_resent");
+
 				void queryClient.invalidateQueries(workspaceMembersQuery());
 				form.reset();
 				dialogCtx.setIsOpen(false);
@@ -1026,8 +1106,7 @@ function ResendInvitationDialog(props: { invitationId: string }) {
 	return (
 		<DialogAnimated.Content
 			withCloseButton={false}
-			className="max-w-[448px] gap-0 overflow-hidden rounded-2xl border-shadcn-border bg-white p-0
-				shadow-2xl"
+			className="max-w-[448px] gap-0 rounded-2xl border-shadcn-border bg-white p-0 shadow-2xl"
 		>
 			<header
 				className="flex items-start justify-between gap-6 border-b border-shadcn-border/70 px-6 py-5"
@@ -1051,23 +1130,22 @@ function ResendInvitationDialog(props: { invitationId: string }) {
 
 			<Form.Root form={form} onSubmit={(event) => void onSubmit(event)}>
 				<div className="flex flex-col gap-5 border-y border-shadcn-border/70 p-6">
-					<Form.Field control={form.control} name="defaultPassword">
-						<Form.Label className="text-[14px] font-medium text-black">Default Password</Form.Label>
-						<Form.Input
-							type="password"
-							placeholder="Enter initial password"
-							classNames={{
-								inputGroup: `h-10 rounded-lg border border-shadcn-border bg-transparent px-4
-								text-[16px] font-medium text-black outline-none
-								focus-within:border-vitastock-primary-main focus-within:ring-1
-								focus-within:ring-vitastock-primary-main`,
-							}}
-						/>
-						<Form.ErrorMessage />
-					</Form.Field>
+					<InputField
+						control={form.control}
+						name="defaultPassword"
+						type="password"
+						label="Default Password"
+						placeholder="Enter initial password"
+						classNames={{
+							inputGroup: "bg-transparent text-[16px] font-medium",
+							label: "text-[14px] font-medium text-black",
+						}}
+					/>
 				</div>
 
-				<DialogAnimated.Footer className="flex-row items-center justify-end gap-3 p-4">
+				<DialogAnimated.Footer
+					className="flex-row items-center justify-end gap-3 p-4 *:flex-1 md:*:flex-none"
+				>
 					<DialogAnimated.Close asChild={true}>
 						<Button theme="primary-ghost" className="h-11">
 							Cancel
@@ -1098,7 +1176,7 @@ function MemberAvatar(props: { member: Member }) {
 	if (isInvitationMember(member)) {
 		return (
 			<span
-				className="grid size-9 place-items-center rounded-full border border-dashed
+				className="grid size-9 shrink-0 place-items-center rounded-full border border-dashed
 					border-vitastock-body-color/30 bg-shadcn-muted text-vitastock-body-color/70"
 			>
 				<IconBox icon="lucide:mail" className="size-4.5" />
@@ -1107,34 +1185,28 @@ function MemberAvatar(props: { member: Member }) {
 	}
 
 	return (
-		<Avatar.Root className={cnJoin("size-9", getMemberAvatarClassName(member))}>
+		<Avatar.Root
+			className={cnJoin(
+				"size-9 shrink-0",
+				member.isCurrentUser && "bg-vitastock-primary-main",
+				member.status === "suspended" && "bg-rose-50 ring-1 ring-rose-200",
+				!member.isCurrentUser
+					&& member.status !== "suspended"
+					&& "bg-shadcn-muted ring-1 ring-shadcn-border"
+			)}
+		>
 			<Avatar.Fallback
-				className={cnJoin("text-[12px] font-extrabold", getMemberAvatarFallbackClassName(member))}
+				className={cnJoin(
+					"text-[12px] font-extrabold",
+					member.isCurrentUser && "bg-vitastock-primary-main text-white",
+					member.status === "suspended" && "bg-rose-50 text-rose-700",
+					!member.isCurrentUser && member.status !== "suspended" && "text-vitastock-body-color"
+				)}
 			>
 				{getMemberInitials(member)}
 			</Avatar.Fallback>
 		</Avatar.Root>
 	);
-}
-
-function getMemberAvatarClassName(member: Member) {
-	if (member.isCurrentUser) {
-		return tw`bg-vitastock-primary-main`;
-	}
-
-	if (member.status === "suspended") {
-		return tw`bg-rose-50 ring-1 ring-rose-200`;
-	}
-
-	return tw`bg-shadcn-muted ring-1 ring-shadcn-border`;
-}
-
-function getMemberAvatarFallbackClassName(member: Member) {
-	if (member.isCurrentUser) return "bg-vitastock-primary-main text-white";
-
-	if (member.status === "suspended") return "bg-rose-50 text-rose-700";
-
-	return "text-vitastock-body-color";
 }
 
 function RoleBadge(props: { role: Member["role"] }) {
@@ -1157,22 +1229,19 @@ function RoleBadge(props: { role: Member["role"] }) {
 
 function StatusLabel(props: { status: Member["status"] }) {
 	const { status } = props;
-	const dotClassName = getStatusDotClassName(status);
 
 	return (
 		<span className="inline-flex items-center gap-2 text-vitastock-body-color capitalize">
-			<span className={cnJoin("size-2 rounded-full", dotClassName)} />
+			<span
+				className={cnJoin(
+					"size-2 rounded-full",
+					status === "active" && "bg-emerald-500",
+					status === "suspended" && "bg-rose-500",
+					status === "expired" && "bg-zinc-400",
+					status === "pending" && "bg-amber-500"
+				)}
+			/>
 			{status}
 		</span>
 	);
-}
-
-function getStatusDotClassName(status: Member["status"]) {
-	if (status === "active") return "bg-emerald-500";
-
-	if (status === "suspended") return "bg-rose-500";
-
-	if (status === "expired") return "bg-zinc-400";
-
-	return "bg-amber-500";
 }

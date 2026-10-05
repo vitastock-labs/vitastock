@@ -6,6 +6,10 @@
 			"cache": false,
 			"persistent": true
 		},
+		"build:staging": {
+			"dependsOn": ["^build"],
+			"outputs": ["dist/**", ".next/**", "!.next/cache/**", "build", ".vercel", ".outputs/**"]
+		},
 		"build": {
 			"dependsOn": ["^build"],
 			"outputs": ["dist/**", ".next/**", "!.next/cache/**", "build", ".vercel", ".outputs/**"]

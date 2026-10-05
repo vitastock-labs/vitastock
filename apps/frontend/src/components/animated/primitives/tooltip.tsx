@@ -1,3 +1,4 @@
+/* eslint-disable unicorn/prefer-promise-try */
 /* eslint-disable react/set-state-in-effect */
 "use client";
 
@@ -76,7 +77,7 @@ const [TooltipProviderLocal, useTooltipContext] = createCustomContext<TooltipCon
 
 function getResolvedSide(placement: `${Side}-${Align}` | Side) {
 	if (placement.includes("-")) {
-		return placement.split("-")[0] as Side;
+		return placement.split("-", 1)[0] as Side;
 	}
 	return placement as Side;
 }
@@ -144,9 +145,9 @@ function TooltipProvider(props: TooltipProviderProps) {
 			if (e.key === "Escape") hideImmediate();
 		};
 
-		window.addEventListener("keydown", onKeyDown, true);
-		window.addEventListener("scroll", hideImmediate, true);
-		window.addEventListener("resize", hideImmediate, true);
+		window.addEventListener("keydown", onKeyDown, { capture: true });
+		window.addEventListener("scroll", hideImmediate, { capture: true });
+		window.addEventListener("resize", hideImmediate, { capture: true });
 		return () => {
 			window.removeEventListener("keydown", onKeyDown, true);
 			window.removeEventListener("scroll", hideImmediate, true);
@@ -288,6 +289,7 @@ function TooltipOverlay() {
 			{rendered.data && ready && (
 				<TooltipPortal>
 					<div
+						// eslint-disable-next-line ts-eslint/unbound-method
 						ref={refs.setFloating}
 						data-slot="tooltip-overlay"
 						data-side={resolvedSide}

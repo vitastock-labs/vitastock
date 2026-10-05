@@ -1,0 +1,87 @@
+meta {
+  name: overview
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseURL}}/dashboard/overview
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  # Dashboard Overview
+
+  Returns the inventory metrics and latest stock movements used by the authenticated workspace's dashboard.
+
+  ## Authorization
+
+  Requires an authenticated user with an active workspace membership. The workspace is derived from the session; no workspace ID is accepted from the client.
+
+  ## Request
+
+  No path parameters, query parameters, or request body.
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Dashboard overview fetched successfully",
+    "data": {
+      "stats": {
+        "lowStockCount": 3,
+        "expiringSoonCount": 2,
+        "expiredCount": 1,
+        "drugsInStockCount": 12
+      },
+      "recentActivity": [
+        {
+          "id": "stock-log-uuid",
+          "drug": {
+            "id": "drug-uuid",
+            "name": "Amoxil",
+            "genericName": "Amoxicillin",
+            "strength": "500 mg"
+          },
+          "logType": "stock_in",
+          "quantity": 100,
+          "person": "Ada Owner",
+          "createdAt": "2026-07-30T10:00:00.000Z"
+        }
+      ]
+    }
+  }
+  ```
+
+  ## Metric Calculations
+
+  | Field | Calculation |
+  |-------|-------------|
+  | `lowStockCount` | Number of drug summary rows whose derived status is `low_stock` or `out_of_stock`, using the workspace's `lowStockThreshold`. |
+  | `expiringSoonCount` | Distinct drugs with an available batch expiring from the start of today through the end of `nearExpiryDays`. |
+  | `expiredCount` | Distinct drugs with an available batch whose expiry date is before the start of today. |
+  | `drugsInStockCount` | Distinct drugs with positive usable quantity, including low-stock drugs. |
+  | `recentActivity` | Latest eight stock logs, newest first, joined with the drug and member who performed the action. |
+
+  ## Notes
+
+  - Expiry counts are distinct drug counts, not batch counts.
+  - Expired quantities are excluded from usable available stock calculations.
+  - The response is computed from persisted inventory tables and is not dashboard-only seed data.
+
+  ## Errors
+
+  | Status | Description |
+  |--------|-------------|
+  | `401 Unauthorized` | Session is missing, invalid, expired, or the membership is suspended. |
+  | `500 Internal Server Error` | An unexpected inventory query failure occurred. |
+}

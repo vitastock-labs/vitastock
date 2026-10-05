@@ -1,0 +1,98 @@
+meta {
+  name: activity
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseURL}}/inventory/activity
+  body: none
+  auth: inherit
+}
+
+params:query {
+  page: 1
+  pageSize: 20
+  ~search: amoxicillin
+  ~logType: stock_out
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  # Inventory Activity
+
+  Returns paginated stock movement history for the authenticated workspace together with totals calculated over the filtered result set.
+
+  ## Authorization
+
+  Requires an authenticated user with an active workspace membership.
+
+  ## Query Parameters
+
+  | Parameter | Type | Required | Allowed Values / Rules | Description |
+  |-----------|------|----------|------------------------|-------------|
+  | `page` | numeric string | No | Integer greater than or equal to `1` | Page to return. |
+  | `pageSize` | numeric string | No | Integer from `1` to `100` | Rows per page. |
+  | `search` | string | No | Non-empty after trimming | Case-insensitive drug-name search. |
+  | `logType` | string | No | `damaged`, `expired`, `opening_stock`, `reconciliation`, `stock_in`, `stock_out` | Restricts results to one movement type. |
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Inventory activity fetched successfully",
+    "data": {
+      "stats": {
+        "movementCount": 14,
+        "stockInQuantity": 350,
+        "stockOutQuantity": 95
+      },
+      "pagination": {
+        "page": 1,
+        "pageSize": 20,
+        "pageCount": 1,
+        "total": 14
+      },
+      "rows": [
+        {
+          "id": "stock-log-uuid",
+          "drug": {
+            "id": "drug-uuid",
+            "name": "Amoxil",
+            "genericName": "Amoxicillin",
+            "strength": "500 mg",
+            "unit": "Capsule"
+          },
+          "logType": "stock_out",
+          "quantity": 10,
+          "reason": "patient",
+          "notes": "Patient dispense",
+          "person": "Jane Pharmacist",
+          "createdAt": "2026-07-30T10:00:00.000Z"
+        }
+      ]
+    }
+  }
+  ```
+
+  ## Notes
+
+  - Rows are ordered newest first.
+  - `reason` is null for movement types that do not require a stock-out reason.
+  - Statistics use the same workspace and filters as the table query.
+
+  ## Errors
+
+  | Status | Description |
+  |--------|-------------|
+  | `401 Unauthorized` | Authentication is invalid or workspace access is suspended. |
+  | `422 Unprocessable Entity` | A query parameter is invalid. |
+  | `500 Internal Server Error` | Activity retrieval failed unexpectedly. |
+}

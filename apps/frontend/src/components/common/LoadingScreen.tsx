@@ -38,7 +38,7 @@ function LoadingScreen(props: LoadingScreenProps) {
 							transition={{
 								duration: 1.5,
 								ease: "easeOut",
-								repeat: Number.POSITIVE_INFINITY,
+								repeat: Infinity,
 								repeatType: "reverse",
 							}}
 							className="relative z-10"
@@ -56,7 +56,7 @@ function LoadingScreen(props: LoadingScreenProps) {
 								transition={{
 									duration: 2,
 									ease: [0.65, 0, 0.35, 1],
-									repeat: Number.POSITIVE_INFINITY,
+									repeat: Infinity,
 								}}
 								className="size-full bg-vitastock-primary-main
 									shadow-[0_0_20px_theme(--color-vitastock-primary-main)]"
@@ -71,7 +71,7 @@ function LoadingScreen(props: LoadingScreenProps) {
 							transition={{
 								duration: 4,
 								ease: "easeInOut",
-								repeat: Number.POSITIVE_INFINITY,
+								repeat: Infinity,
 							}}
 							className="absolute top-1/2 left-1/2 -z-10 size-100 -translate-1/2 rounded-full
 								bg-vitastock-primary-glow/10 blur-[100px]"
@@ -85,7 +85,7 @@ function LoadingScreen(props: LoadingScreenProps) {
 								delay: 1,
 								duration: 5,
 								ease: "easeInOut",
-								repeat: Number.POSITIVE_INFINITY,
+								repeat: Infinity,
 							}}
 							className="absolute top-1/2 left-1/2 -z-20 size-75 -translate-1/2 rounded-full
 								bg-vitastock-primary-main/10 blur-[80px]"
@@ -114,7 +114,7 @@ function LoadingScreen(props: LoadingScreenProps) {
 												className="text-base font-bold tracking-[0.25em]
 													text-vitastock-body-color/30 uppercase"
 											>
-												{item.segment === " " ? "\u00A0" : item.segment}
+												{item.segment === " " ? "\u{A0}" : item.segment}
 											</motion.h2>
 										)}
 									/>
@@ -133,7 +133,7 @@ function LoadingScreen(props: LoadingScreenProps) {
 												delay: index * 0.2,
 												duration: 1.2,
 												ease: "easeInOut",
-												repeat: Number.POSITIVE_INFINITY,
+												repeat: Infinity,
 											}}
 											className="size-1.5 rounded-full bg-vitastock-primary-main/30"
 										/>

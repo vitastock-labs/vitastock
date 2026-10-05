@@ -44,8 +44,8 @@ export function PasswordChangedEmail(props: PasswordChangedEmailProps) {
 					Security Reminder
 				</Text>
 				<Text className="mt-2 text-sm/relaxed text-slate-500">
-					If you did not make this change, contact support immediately so we can help secure
-					your account.
+					If you did not make this change, contact support immediately so we can help secure your
+					account.
 				</Text>
 			</Section>
 
