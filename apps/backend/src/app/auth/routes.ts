@@ -503,7 +503,6 @@ const authRoutes = new Hono()
 				const [userUpdate] = await tx
 					.update(users)
 					.set({
-						// Failed attempts were against the old password, so clear the login lockout
 						loginRetryCount: 0,
 						passwordChangedAt: new Date(),
 						passwordHash: newPasswordHash,
