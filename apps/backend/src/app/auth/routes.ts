@@ -32,7 +32,7 @@ const authRoutes = new Hono()
 
 	.post(
 		"/signup",
-		rateLimiter(authRateLimiterOptions),
+		rateLimiter(authRateLimiterOptions.signup),
 		validateWithZodMiddleware("json", backendApiSchemaRoutes["@post/auth/signup"].body),
 		async (ctx) => {
 			const { email, fullName, password, pharmacyName } = ctx.req.valid("json");
@@ -134,8 +134,10 @@ const authRoutes = new Hono()
 
 	.post(
 		"/signin",
-		rateLimiter(authRateLimiterOptions),
+		rateLimiter(authRateLimiterOptions["signin-ip"]),
 		validateWithZodMiddleware("json", backendApiSchemaRoutes["@post/auth/signin"].body),
+		// == After validation so the key uses the normalised email
+		rateLimiter(authRateLimiterOptions.signin),
 		async (ctx) => {
 			const { email, password } = ctx.req.valid("json");
 
@@ -255,7 +257,7 @@ const authRoutes = new Hono()
 
 	.post(
 		"/verify-email",
-		rateLimiter(authRateLimiterOptions),
+		rateLimiter(authRateLimiterOptions["verify-email"]),
 		validateWithZodMiddleware("json", backendApiSchemaRoutes["@post/auth/verify-email"].body),
 		async (ctx) => {
 			const { code, email } = ctx.req.valid("json");
@@ -326,7 +328,7 @@ const authRoutes = new Hono()
 
 	.post(
 		"/resend-verification-email",
-		rateLimiter(authRateLimiterOptions),
+		rateLimiter(authRateLimiterOptions["resend-verification-email"]),
 		validateWithZodMiddleware(
 			"json",
 			backendApiSchemaRoutes["@post/auth/resend-verification-email"].body
@@ -369,7 +371,7 @@ const authRoutes = new Hono()
 
 	.post(
 		"/forgot-password",
-		rateLimiter(authRateLimiterOptions),
+		rateLimiter(authRateLimiterOptions["forgot-password"]),
 		validateWithZodMiddleware("json", backendApiSchemaRoutes["@post/auth/forgot-password"].body),
 		async (ctx) => {
 			const { email } = ctx.req.valid("json");
@@ -432,7 +434,7 @@ const authRoutes = new Hono()
 
 	.post(
 		"/reset-password",
-		rateLimiter(authRateLimiterOptions),
+		rateLimiter(authRateLimiterOptions["reset-password"]),
 		validateWithZodMiddleware("json", backendApiSchemaRoutes["@post/auth/reset-password"].body),
 		async (ctx) => {
 			const { newPassword, token } = ctx.req.valid("json");
@@ -624,7 +626,7 @@ const authRoutes = new Hono()
 
 	.patch(
 		"/change-password",
-		rateLimiter(authRateLimiterOptions),
+		rateLimiter(authRateLimiterOptions["change-password"]),
 		validateWithZodMiddleware("json", backendApiSchemaRoutes["@patch/auth/change-password"].body),
 		async (ctx) => {
 			const { currentPassword, newPassword } = ctx.req.valid("json");

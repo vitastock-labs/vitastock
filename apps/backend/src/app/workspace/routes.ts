@@ -7,7 +7,7 @@ import { add, isPast } from "date-fns";
 import { and, eq, gt, isNull } from "drizzle-orm";
 import { Hono } from "hono";
 import { rateLimiter } from "hono-rate-limiter";
-import { authRateLimiterOptions, userRateLimiterOptions } from "@/config/rateLimiterOptions";
+import { userRateLimiterOptions } from "@/config/rateLimiterOptions";
 import { emitAppEvent } from "@/lib/events";
 import { AppError, AppJsonResponse } from "@/lib/utils";
 import { generateRandomBytes } from "@/lib/utils/random";
@@ -74,10 +74,13 @@ export const workspaceRoutes = new Hono()
 					return null;
 				}
 
+				// == Invitations sent before request emails were normalised may still hold mixed-case addresses
+				const inviteeEmail = invitationResult.inviteeEmail.trim().toLowerCase();
+
 				const [existingUser] = await tx
 					.select(pickKeys(users, ["id"]))
 					.from(users)
-					.where(eq(users.email, invitationResult.inviteeEmail))
+					.where(eq(users.email, inviteeEmail))
 					.limit(1);
 
 				const [user] = await (async () => {
@@ -99,7 +102,7 @@ export const workspaceRoutes = new Hono()
 					return tx
 						.insert(users)
 						.values({
-							email: invitationResult.inviteeEmail,
+							email: inviteeEmail,
 							emailVerifiedAt: new Date(),
 							fullName: invitationResult.inviteeName,
 							mustChangePassword: true,
@@ -159,7 +162,6 @@ export const workspaceRoutes = new Hono()
 	.post(
 		"/invitation/send",
 		authorizeRoleMiddleware(["owner", "admin"]),
-		rateLimiter(authRateLimiterOptions),
 		validateWithZodMiddleware("json", backendApiSchemaRoutes["@post/workspace/invitation/send"].body),
 		async (ctx) => {
 			const { defaultPassword, inviteeEmail, inviteeName, role } = ctx.req.valid("json");
@@ -170,16 +172,26 @@ export const workspaceRoutes = new Hono()
 			assertAdminCanOnlyManagePharmacist({ actorRole: currentUser.role, targetRole: role });
 
 			const [existingMembership] = await db
-				.select({ id: workspaceMemberships.id })
+				.select(pickKeys(workspaceMemberships, ["workspaceId"]))
 				.from(users)
 				.innerJoin(workspaceMemberships, eq(users.id, workspaceMemberships.userId))
 				.where(eq(users.email, inviteeEmail))
 				.limit(1);
 
+			// == A user can only belong to one workspace. Never reveal which other pharmacy holds the email
 			if (existingMembership) {
+				const isMemberOfCurrentWorkspace = existingMembership.workspaceId === currentUser.workspaceId;
+
 				throw new AppError({
 					code: 400,
-					message: "A workspace member with this email already exists",
+					message:
+						isMemberOfCurrentWorkspace ?
+							"This person is already a member of your pharmacy."
+						:	"This email is already linked to another pharmacy on VitaStock, so it can't be added to yours. Ask them to use a different email address.",
+					realReason:
+						isMemberOfCurrentWorkspace ?
+							"Invitee is already a member of this workspace"
+						:	"Invitee is a member of another workspace",
 				});
 			}
 

@@ -86,6 +86,11 @@ function SignupPage() {
 						<InputField
 							control={form.control}
 							name="email"
+							type="email"
+							autoCapitalize="none"
+							autoCorrect="off"
+							spellCheck={false}
+							autoComplete="email"
 							placeholder="Email Address"
 							classNames={{ input: "h-[50px] border-0 bg-[hsl(210,9%,96%)] p-4" }}
 						/>

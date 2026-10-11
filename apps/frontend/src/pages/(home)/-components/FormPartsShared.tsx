@@ -98,7 +98,17 @@ export function FormField<TFieldValues extends FieldValues, TTransformedValues =
 export function InputField<TFieldValues extends FieldValues, TTransformedValues = TFieldValues>(
 	props: Pick<
 		InferProps<typeof Form.InputPrimitive>,
-		"disabled" | "inputMode" | "max" | "min" | "placeholder" | "step" | "type"
+		| "autoCapitalize"
+		| "autoComplete"
+		| "autoCorrect"
+		| "disabled"
+		| "inputMode"
+		| "max"
+		| "min"
+		| "placeholder"
+		| "spellCheck"
+		| "step"
+		| "type"
 	>
 		& SharedFieldProps<TFieldValues, TTransformedValues> & {
 			classNames?: SharedFieldClassNames & { input?: string; inputGroup?: string };
@@ -108,6 +118,9 @@ export function InputField<TFieldValues extends FieldValues, TTransformedValues 
 		}
 ) {
 	const {
+		autoCapitalize,
+		autoComplete,
+		autoCorrect,
 		classNames,
 		control,
 		description,
@@ -119,6 +132,7 @@ export function InputField<TFieldValues extends FieldValues, TTransformedValues 
 		name,
 		placeholder,
 		required,
+		spellCheck,
 		step,
 		type,
 	} = props;
@@ -136,6 +150,10 @@ export function InputField<TFieldValues extends FieldValues, TTransformedValues 
 			classNames={classNames}
 		>
 			<Form.Input
+				autoCapitalize={autoCapitalize}
+				autoComplete={autoComplete}
+				autoCorrect={autoCorrect}
+				spellCheck={spellCheck}
 				disabled={disabled}
 				inputMode={inputMode}
 				max={max}

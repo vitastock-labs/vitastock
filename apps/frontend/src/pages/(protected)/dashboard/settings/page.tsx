@@ -211,6 +211,10 @@ function AlertSettingsSection() {
 									control={form.control}
 									name="alertEmail"
 									type="email"
+									autoCapitalize="none"
+									autoCorrect="off"
+									spellCheck={false}
+									autoComplete="email"
 									disabled={!canUpdateAlertSettings}
 									label="Alert Email"
 									description="Alert emails are sent to this address and active workspace managers."
@@ -1012,6 +1016,10 @@ function InviteMemberDialog() {
 						control={form.control}
 						name="inviteeEmail"
 						type="email"
+						autoCapitalize="none"
+						autoCorrect="off"
+						spellCheck={false}
+						autoComplete="email"
 						label="Email Address"
 						placeholder="e.g. name@company.com"
 						classNames={{

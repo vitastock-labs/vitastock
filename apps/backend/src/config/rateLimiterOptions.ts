@@ -1,4 +1,11 @@
-import { RedisStore, type ConfigProps, type RedisClient } from "hono-rate-limiter";
+import type { Context, Env, Input } from "hono";
+import {
+	RedisStore,
+	type ConfigProps,
+	type HonoConfigProps,
+	type RateLimitInfo,
+	type RedisClient,
+} from "hono-rate-limiter";
 import type { HonoAppBindings } from "@/lib/types/common";
 import { AppError, getClientIp } from "@/lib/utils";
 import { redisCacheClient } from "@/services/cache/cacheClient";
@@ -44,19 +51,91 @@ const userRateLimiterOptions: ConfigProps<HonoAppBindings> = {
 	windowMs: 60 * 1000,
 };
 
-const authRateLimiterOptions: ConfigProps = {
-	handler: () => {
-		throw new AppError({
-			code: 429,
-			message: "Too many auth attempts from this IP, please try again later.",
-		});
-	},
-	// == Fail closed: an unidentifiable client still shares one strict bucket against credential stuffing
-	keyGenerator: (ctx) => getClientIp(ctx) ?? "unknown",
-	limit: 10,
-	standardHeaders: "draft-7",
-	store: new RedisStore({ client: redisRateLimitClient, prefix: "rate-limit:auth:" }),
-	windowMs: 30 * 60 * 1000,
+const formatRetryDelay = (retryAfterMs: number) => {
+	const minutes = Math.ceil(retryAfterMs / (60 * 1000));
+
+	if (minutes <= 1) {
+		return "about a minute";
+	}
+
+	if (minutes < 60) {
+		return `about ${minutes} minutes`;
+	}
+
+	const hours = Math.round(minutes / 60);
+
+	return hours === 1 ? "about an hour" : `about ${hours} hours`;
+};
+
+export const getRateLimitedMessage = (ctx: Context, windowMs: number) => {
+	// == Set by hono-rate-limiter on the context right before it calls the handler
+	const { rateLimit } = ctx.var as { rateLimit?: RateLimitInfo };
+
+	const retryAfterMs = rateLimit?.resetTime ? rateLimit.resetTime.getTime() - Date.now() : windowMs;
+
+	return `Too many attempts. Please try again in ${formatRetryDelay(retryAfterMs)}.`;
+};
+
+type AuthRateLimitedRoute =
+	| "change-password"
+	| "forgot-password"
+	| "resend-verification-email"
+	| "reset-password"
+	| "signin-ip"
+	| "signin"
+	| "signup"
+	| "verify-email";
+
+type AuthRateLimiterOverrides<TInput extends Input> = Pick<
+	HonoConfigProps<Env, string, TInput>,
+	"keyGenerator" | "limit" | "skipSuccessfulRequests" | "windowMs"
+>;
+
+// == Each auth route gets its own counter, so e.g. signing up and verifying doesn't eat into sign-in attempts
+export const createAuthRateLimiterOptions = <TInput extends Input = Input>(
+	route: AuthRateLimitedRoute,
+	overrides?: Partial<AuthRateLimiterOverrides<TInput>>
+): HonoConfigProps<Env, string, TInput> => {
+	const windowMs = overrides?.windowMs ?? 30 * 60 * 1000;
+
+	return {
+		handler: (ctx) => {
+			throw new AppError({ code: 429, message: getRateLimitedMessage(ctx, windowMs) });
+		},
+		// == Fail closed: an unidentifiable client still shares one strict bucket against credential stuffing
+		keyGenerator: (ctx) => getClientIp(ctx) ?? "unknown",
+		limit: 10,
+		standardHeaders: "draft-7",
+		store: new RedisStore({ client: redisRateLimitClient, prefix: `rate-limit:auth:${route}:` }),
+		...overrides,
+		windowMs,
+	};
+};
+
+const authRateLimiterOptions = {
+	"change-password": createAuthRateLimiterOptions("change-password"),
+	"forgot-password": createAuthRateLimiterOptions("forgot-password"),
+	"resend-verification-email": createAuthRateLimiterOptions("resend-verification-email"),
+	"reset-password": createAuthRateLimiterOptions("reset-password"),
+
+	// == Keyed on IP + the normalised email, and only failed attempts count, so a typo-prone user on a
+	// == shared pharmacy IP doesn't lock out colleagues and a successful sign-in costs nothing
+	signin: createAuthRateLimiterOptions<{ out: { json: { email: string } } }>("signin", {
+		keyGenerator: (ctx) => `${getClientIp(ctx) ?? "unknown"}:${ctx.req.valid("json").email}`,
+		limit: 10,
+		skipSuccessfulRequests: true,
+		windowMs: 15 * 60 * 1000,
+	}),
+
+	// == Looser per-IP backstop against credential stuffing spread across many emails
+	"signin-ip": createAuthRateLimiterOptions("signin-ip", {
+		limit: 50,
+		skipSuccessfulRequests: true,
+		windowMs: 60 * 60 * 1000,
+	}),
+
+	signup: createAuthRateLimiterOptions("signup"),
+	"verify-email": createAuthRateLimiterOptions("verify-email"),
 };
 
 export { authRateLimiterOptions, globalRateLimiterOptions, userRateLimiterOptions };

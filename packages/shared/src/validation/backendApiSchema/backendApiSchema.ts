@@ -47,6 +47,13 @@ const fallbackRouteSchema = () => {
 
 const PasswordSchema = z.string().min(8, "Password must be at least 8 characters long");
 
+// == Emails are stored lowercase, so request emails are normalised before lookups (z.email() checks before transforms)
+export const RequestEmailSchema = z
+	.string()
+	.trim()
+	.toLowerCase()
+	.pipe(z.email("Please enter a valid email"));
+
 export const WorkspaceRoleSchema = z.enum(ROLES);
 export const EmailAlertDeliveryPolicySchema = z.enum(EMAIL_ALERT_DELIVERY_POLICIES);
 
@@ -66,7 +73,7 @@ type SignUpPayloadType = Prettify<
 
 export const SignUpSchema = z.toZod<SignUpPayloadType>()(
 	z.object({
-		email: z.email("Please enter a valid email"),
+		email: RequestEmailSchema,
 		fullName: z.string().min(1, "Name is required"),
 		password: PasswordSchema,
 		pharmacyName: z.string().min(1, "Pharmacy name is required"),
@@ -275,7 +282,7 @@ export const workspaceRoutes = () => {
 
 	const WorkspaceAlertSettingsSchema = z
 		.object({
-			alertEmail: z.email("Please enter a valid alert email").optional(),
+			alertEmail: RequestEmailSchema.optional(),
 			emailAlertDeliveryPolicy: EmailAlertDeliveryPolicySchema,
 			emailAlertsEnabled: z.boolean(),
 			lowStockThreshold: stringWithNumberValidation(z.number().int().min(0)),
@@ -336,7 +343,7 @@ export const workspaceRoutes = () => {
 		},
 
 		"@post/workspace/invitation/send": {
-			body: InvitationDataSchema.omit({ expiresAt: true }),
+			body: InvitationDataSchema.omit({ expiresAt: true }).extend({ inviteeEmail: RequestEmailSchema }),
 			data: withBaseSuccessResponse(
 				z.object({
 					invitation: InvitationDataSchema.pick({

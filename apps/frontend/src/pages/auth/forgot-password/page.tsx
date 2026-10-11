@@ -51,6 +51,11 @@ function ForgotPasswordPage() {
 						<InputField
 							control={form.control}
 							name="email"
+							type="email"
+							autoCapitalize="none"
+							autoCorrect="off"
+							spellCheck={false}
+							autoComplete="email"
 							label="Email address"
 							placeholder="Email Address"
 							classNames={{
