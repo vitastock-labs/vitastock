@@ -204,7 +204,17 @@ const dashboardActivityColumns = dashboardActivityColumnHelper.columns([
 		{
 			cell: ({ row }) => (
 				<div>
-					<p className="text-[14px] font-medium text-black">{formatDrugLabel(row.original.drug)}</p>
+					<p className="text-[14px] font-medium text-black">
+						{formatDrugLabel(row.original.drug)}
+						{row.original.patientName && (
+							<span className="font-normal text-vitastock-body-color">
+								{" · "}
+								<span className="font-medium text-vitastock-primary-main">
+									{row.original.patientName}
+								</span>
+							</span>
+						)}
+					</p>
 					<p className="mt-0.5 text-[12px] text-vitastock-body-color">
 						{row.original.drug.genericName}
 					</p>

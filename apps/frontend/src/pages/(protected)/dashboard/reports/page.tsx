@@ -80,6 +80,24 @@ const activityColumns = activityColumnHelper.columns([
 		header: "Drug",
 		id: "drug",
 	}),
+	activityColumnHelper.accessor("patientName", {
+		cell: ({ getValue }) => {
+			const patientName = getValue();
+
+			return (
+				<span
+					className={cnJoin(
+						"block max-w-48 truncate",
+						patientName ? "font-medium text-black" : "text-vitastock-body-color"
+					)}
+				>
+					{patientName ?? EMPTY_DISPLAY_VALUE}
+				</span>
+			);
+		},
+		enableSorting: false,
+		header: "Patient",
+	}),
 	activityColumnHelper.accessor("logType", {
 		cell: ({ getValue }) => {
 			const logType = getValue();
@@ -250,7 +268,7 @@ function ReportsPage() {
 							emptyMessage="No stock movements match these filters."
 							errorMessage="Failed to load stock movements."
 							totalRows={activity?.pagination.total}
-							classNames={{ tableRoot: "min-w-[760px]" }}
+							classNames={{ tableRoot: "min-w-[880px]" }}
 						>
 							<DataTableQueryToolbar
 								table={table}
@@ -274,7 +292,7 @@ function ReportsPage() {
 								hasCustomFilters={[drugId, from, to].some(Boolean)}
 								isSearching={inventoryActivityQueryResult.isFetching && Boolean(search)}
 								onReset={() => void setReportFilters(null)}
-								searchPlaceholder="Search drug or person..."
+								searchPlaceholder="Search drug, patient or person..."
 								selectLabel="All movements"
 								selectOptions={STOCK_LOG_TYPE_FILTER_OPTIONS}
 							>

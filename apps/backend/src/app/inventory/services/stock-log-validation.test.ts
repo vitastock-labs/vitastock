@@ -53,3 +53,75 @@ test("Stock validation - stock-in uses its own branch", () => {
 
 	expect(result.success).toBe(true);
 });
+
+const dispenseSchema = backendApiSchemaRoutes["@post/inventory/stock-log/dispense"].body;
+
+test.each([
+	["  Mrs.   Adebayo  ", "Mrs. Adebayo"],
+	["Mr.\tOkon", "Mr. Okon"],
+	[" ".repeat(3), null],
+	["", null],
+	[null, null],
+])("Patient name validation - normalises %j to %j", (patientName, expected) => {
+	const result = dispenseSchema.parse({
+		items: [{ drugId: randomUUID(), patientName, quantity: 2, reason: "patient" }],
+	});
+
+	expect(result.items[0]?.patientName).toBe(expected);
+});
+
+test("Patient name validation - accepts 120 characters and rejects 121", () => {
+	const item = { drugId: randomUUID(), quantity: 2, reason: "patient" };
+
+	expect(dispenseSchema.safeParse({ items: [{ ...item, patientName: "a".repeat(120) }] }).success).toBe(
+		true
+	);
+	expect(
+		dispenseSchema.safeParse({ items: [{ ...item, patientName: "a".repeat(121) }] }).error?.issues
+	).toEqual([
+		expect.objectContaining({
+			message: "Patient name must be 120 characters or fewer.",
+			path: ["items", 0, "patientName"],
+		}),
+	]);
+});
+
+test("Patient name validation - allows the same drug for different patients in one cart", () => {
+	const drugId = randomUUID();
+	const result = dispenseSchema.safeParse({
+		items: [
+			{ drugId, patientName: "Mrs. Adebayo", quantity: 2, reason: "patient" },
+			{ drugId, patientName: "Mr. Okon", quantity: 2, reason: "patient" },
+			{ drugId, quantity: 2, reason: "patient" },
+		],
+	});
+
+	expect(result.success).toBe(true);
+});
+
+test("Patient name validation - flags the same drug twice for the same patient", () => {
+	const drugId = randomUUID();
+	const result = dispenseSchema.safeParse({
+		items: [
+			{ drugId, patientName: "Mrs. Adebayo", quantity: 2, reason: "patient" },
+			{ drugId, patientName: " Mrs.  Adebayo ", quantity: 2, reason: "patient" },
+		],
+	});
+
+	expect(result.error?.issues).toEqual([
+		expect.objectContaining({ message: "Duplicate of item 1", path: ["items", 1] }),
+	]);
+});
+
+test("Patient name validation - removal reasons drop any patient name", () => {
+	const result = schema.parse({
+		batchId: randomUUID(),
+		drugId: randomUUID(),
+		logType: "stock_out",
+		patientName: "Mrs. Adebayo",
+		quantity: 2,
+		reason: "damaged",
+	});
+
+	expect(result).not.toHaveProperty("patientName");
+});

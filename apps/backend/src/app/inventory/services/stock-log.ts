@@ -65,6 +65,7 @@ export const createInventoryStockLog = async (options: {
 			drugId,
 			idempotencyKey,
 			notes: notes ?? undefined,
+			patientName: body.reason === STOCK_OUT_REASONS[2] ? body.patientName : undefined,
 			quantity,
 			reason: body.reason,
 			requestHash,
@@ -125,6 +126,7 @@ const createStockOutLog = async (options: {
 	drugId: string;
 	idempotencyKey: string;
 	notes?: string;
+	patientName?: string | null;
 	quantity: number;
 	reason: StockOutReason;
 	requestHash: string;
@@ -219,6 +221,7 @@ const deductStockOut = async (options: {
 	drugId: string;
 	errorPath?: string;
 	notes?: string;
+	patientName?: string | null;
 	quantity: number;
 	reason: StockOutReason;
 	stockTransactionId: string;
@@ -232,6 +235,7 @@ const deductStockOut = async (options: {
 		drugId,
 		errorPath,
 		notes,
+		patientName,
 		quantity,
 		reason,
 		stockTransactionId,
@@ -293,6 +297,7 @@ const deductStockOut = async (options: {
 			drugId,
 			logType: "stock_out" as const,
 			notes,
+			patientName: reason === STOCK_OUT_REASONS[2] ? (patientName ?? null) : null,
 			performedByUserId: userId,
 			quantity: movement.quantity,
 			reason,
