@@ -5,7 +5,6 @@ import {
 	INVENTORY_BULK_IMPORT_COLUMNS,
 	INVENTORY_BULK_IMPORT_MAX_ROWS,
 } from "@vitastock/shared/validation/inventoryBulkImportSchema";
-import { waitFor } from "@zayne-labs/toolkit-core";
 import type { ExtractUnion } from "@zayne-labs/toolkit-type-helpers";
 import { useMemo, useState } from "react";
 import { DialogAnimated } from "@/components/animated/ui";
@@ -23,6 +22,7 @@ import { posthog } from "@/lib/posthog";
 import { inventoryDrugsQuery, sessionQuery } from "@/lib/react-query/queryOptions";
 import { cnJoin } from "@/lib/utils/cn";
 import { formatCalendarDateInTimezone, formatDate } from "@/lib/utils/formatters";
+import { waitFor } from "@/lib/utils/waitFor";
 import { EMPTY_DISPLAY_VALUE } from "@/pages/(protected)/dashboard/-components/constants";
 import {
 	MAX_BULK_IMPORT_FILE_SIZE_BYTES,

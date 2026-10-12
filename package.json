@@ -32,6 +32,7 @@
 		"lint:format:root": "prettier --write .",
 		"lint:type-check": "turbo run lint:type-check",
 		"prepare": "husky || true",
+		"test": "turbo run test",
 		"test:backend:integration": "pnpm db:test:start && pnpm --filter @vitastock/backend test:integration && pnpm db:test:stop"
 	},
 	"devDependencies": {
