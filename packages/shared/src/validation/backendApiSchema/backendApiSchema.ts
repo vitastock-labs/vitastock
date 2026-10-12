@@ -4,6 +4,7 @@ import {
 	INVENTORY_ALERT_STATUSES,
 	INVENTORY_ALERT_TYPES,
 	INVENTORY_STOCK_STATUS,
+	STOCK_LOG_PATIENT_NAME_MAX_LENGTH,
 	STOCK_LOG_TYPES,
 	STOCK_OUT_REASONS,
 	type SelectDrugType,
@@ -62,6 +63,20 @@ export const StockAdditionLogTypeSchema = z.enum(STOCK_ADDITION_LOG_TYPES);
 export const StockOutLogTypeSchema = z.enum(STOCK_OUT_LOG_TYPES);
 export const StockMovementLogTypeSchema = z.enum(STOCK_MOVEMENT_LOG_TYPES);
 export const StockReductionLogTypeSchema = z.enum(STOCK_REDUCTION_LOG_TYPES);
+
+export const PatientNameSchema = z
+	.string()
+	.transform((value) => value.trim().replaceAll(/\s+/g, " "))
+	.pipe(
+		z
+			.string()
+			.max(
+				STOCK_LOG_PATIENT_NAME_MAX_LENGTH,
+				`Patient name must be ${STOCK_LOG_PATIENT_NAME_MAX_LENGTH} characters or fewer.`
+			)
+	)
+	.transform((value) => (value === "" ? null : value))
+	.nullish();
 
 type SignUpPayloadType = Prettify<
 	Pick<InsertUserType, "email" | "fullName"> & {
@@ -454,6 +469,7 @@ const inventoryRoutes = () => {
 	});
 	const FEFOStockOutBodySchema = StockOutBodySchema.extend({
 		batchId: z.never({ error: "Batch selection is automatic for dispensing." }).optional(),
+		patientName: PatientNameSchema,
 		reason: z.enum([STOCK_OUT_REASONS[2], STOCK_OUT_REASONS[3]]),
 	});
 	const DisposalStockOutBodySchema = StockOutBodySchema.extend({
@@ -463,6 +479,7 @@ const inventoryRoutes = () => {
 
 	const DispenseCartItemsSchema = FEFOStockOutBodySchema.pick({
 		drugId: true,
+		patientName: true,
 		quantity: true,
 		reason: true,
 	})
@@ -473,7 +490,8 @@ const inventoryRoutes = () => {
 			const firstItemIndexByKey = new Map<string, number>();
 
 			for (const [itemIndex, item] of items.entries()) {
-				const itemKey = `${item.drugId}:${item.reason}`;
+				const patientName = item.reason === STOCK_OUT_REASONS[2] ? (item.patientName ?? "") : "";
+				const itemKey = `${item.drugId}:${item.reason}:${patientName}`;
 				const firstItemIndex = firstItemIndexByKey.get(itemKey);
 
 				if (firstItemIndex !== undefined) {
@@ -594,6 +612,7 @@ const inventoryRoutes = () => {
 		id: z.string(),
 		logType: StockLogTypeSchema,
 		notes: z.string().nullable(),
+		patientName: z.string().nullable(),
 		person: z.string(),
 		quantity: z.number(),
 		reason: StockOutReasonSchema.nullable(),
@@ -798,7 +817,10 @@ const inventoryRoutes = () => {
 
 const dashboardRoutes = () => {
 	type RecentStockActivityType = Prettify<
-		Pick<SelectStockLogType, "createdAt" | "id" | "logType" | "quantity" | "stockTransactionId"> & {
+		Pick<
+			SelectStockLogType,
+			"createdAt" | "id" | "logType" | "patientName" | "quantity" | "stockTransactionId"
+		> & {
 			batchCount: number;
 			drug: Pick<SelectDrugType, "genericName" | "id" | "name" | "strength">;
 			person: string;
@@ -817,6 +839,7 @@ const dashboardRoutes = () => {
 			}),
 			id: z.string(),
 			logType: StockLogTypeSchema,
+			patientName: z.string().nullable(),
 			person: z.string(),
 			quantity: z.number(),
 			stockTransactionId: z.uuid(),

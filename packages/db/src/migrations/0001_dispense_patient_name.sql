@@ -1,0 +1,2 @@
+ALTER TABLE "stock_logs" ADD COLUMN "patient_name" varchar(120);--> statement-breakpoint
+CREATE INDEX "stock_log_workspace_patient_name_index" ON "stock_logs" USING btree ("workspace_id","patient_name");

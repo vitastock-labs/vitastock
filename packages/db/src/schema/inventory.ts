@@ -105,6 +105,8 @@ export const STOCK_LOG_TYPES = defineEnum([
 
 export const STOCK_OUT_REASONS = defineEnum([STOCK_LOG_TYPES[0], STOCK_LOG_TYPES[1], "patient", "ward"]);
 
+export const STOCK_LOG_PATIENT_NAME_MAX_LENGTH = 120;
+
 export const INVENTORY_ALERT_TYPES = defineEnum(["expired", "expiring_soon", "low_stock", "out_of_stock"]);
 export const INVENTORY_ALERT_STATUSES = defineEnum(["active", "resolved"]);
 export const INVENTORY_ALERT_OUTBOX_TYPES = defineEnum(["alert_raised", "daily_digest"]);
@@ -147,6 +149,7 @@ export const stockLogs = pg.pgTable(
 		id: pg.uuid().defaultRandom().primaryKey(),
 		logType: pg.text({ enum: STOCK_LOG_TYPES }).notNull(),
 		notes: pg.text(),
+		patientName: pg.varchar({ length: STOCK_LOG_PATIENT_NAME_MAX_LENGTH }),
 		performedByUserId: pg
 			.uuid()
 			.notNull()
@@ -166,6 +169,7 @@ export const stockLogs = pg.pgTable(
 		pg.index("stock_log_drug_index").on(table.drugId),
 		pg.index("stock_log_workspace_created_index").on(table.workspaceId, table.createdAt),
 		pg.index("stock_log_transaction_index").on(table.stockTransactionId),
+		pg.index("stock_log_workspace_patient_name_index").on(table.workspaceId, table.patientName),
 		pg.check("stock_log_quantity_positive_check", sql`${table.quantity} > 0`),
 	]
 );
