@@ -68,7 +68,6 @@ const formatRetryDelay = (retryAfterMs: number) => {
 };
 
 export const getRateLimitedMessage = (ctx: Context, windowMs: number) => {
-	// == Set by hono-rate-limiter on the context right before it calls the handler
 	const { rateLimit } = ctx.var as { rateLimit?: RateLimitInfo };
 
 	const retryAfterMs = rateLimit?.resetTime ? rateLimit.resetTime.getTime() - Date.now() : windowMs;
@@ -91,7 +90,6 @@ type AuthRateLimiterOverrides<TInput extends Input> = Pick<
 	"keyGenerator" | "limit" | "skipSuccessfulRequests" | "windowMs"
 >;
 
-// == Each auth route gets its own counter, so e.g. signing up and verifying doesn't eat into sign-in attempts
 export const createAuthRateLimiterOptions = <TInput extends Input = Input>(
 	route: AuthRateLimitedRoute,
 	overrides?: Partial<AuthRateLimiterOverrides<TInput>>
@@ -102,7 +100,6 @@ export const createAuthRateLimiterOptions = <TInput extends Input = Input>(
 		handler: (ctx) => {
 			throw new AppError({ code: 429, message: getRateLimitedMessage(ctx, windowMs) });
 		},
-		// == Fail closed: an unidentifiable client still shares one strict bucket against credential stuffing
 		keyGenerator: (ctx) => getClientIp(ctx) ?? "unknown",
 		limit: 10,
 		standardHeaders: "draft-7",
@@ -118,8 +115,6 @@ const authRateLimiterOptions = {
 	"resend-verification-email": createAuthRateLimiterOptions("resend-verification-email"),
 	"reset-password": createAuthRateLimiterOptions("reset-password"),
 
-	// == Keyed on IP + the normalised email, and only failed attempts count, so a typo-prone user on a
-	// == shared pharmacy IP doesn't lock out colleagues and a successful sign-in costs nothing
 	signin: createAuthRateLimiterOptions<{ out: { json: { email: string } } }>("signin", {
 		keyGenerator: (ctx) => `${getClientIp(ctx) ?? "unknown"}:${ctx.req.valid("json").email}`,
 		limit: 10,
@@ -127,7 +122,6 @@ const authRateLimiterOptions = {
 		windowMs: 15 * 60 * 1000,
 	}),
 
-	// == Looser per-IP backstop against credential stuffing spread across many emails
 	"signin-ip": createAuthRateLimiterOptions("signin-ip", {
 		limit: 50,
 		skipSuccessfulRequests: true,

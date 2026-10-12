@@ -47,7 +47,6 @@ const fallbackRouteSchema = () => {
 
 const PasswordSchema = z.string().min(8, "Password must be at least 8 characters long");
 
-// == Emails are stored lowercase, so request emails are normalised before lookups (z.email() checks before transforms)
 export const RequestEmailSchema = z
 	.string()
 	.trim()

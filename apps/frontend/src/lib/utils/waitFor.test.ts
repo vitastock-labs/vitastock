@@ -4,7 +4,6 @@ import { waitFor } from "./waitFor";
 
 const withResolversDescriptor = Object.getOwnPropertyDescriptor(Promise, "withResolvers");
 
-// == Simulates browsers without Promise.withResolvers (Chrome < 119, Safari < 17.4, Firefox < 121)
 beforeEach(() => {
 	vi.useFakeTimers();
 	Reflect.deleteProperty(Promise, "withResolvers");

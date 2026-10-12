@@ -19,7 +19,6 @@ vi.mock("@/services/cache/cacheClient", () => ({
 	redisCacheClient: { scriptLoad: vi.fn(() => Promise.resolve("sha")) },
 }));
 
-// == Same options as production, with an in-memory store instead of Redis
 const withMemoryStore = <TOptions extends Pick<HonoConfigProps, "store">>(options: TOptions) => ({
 	...options,
 	store: new MemoryStore(),
@@ -27,7 +26,6 @@ const withMemoryStore = <TOptions extends Pick<HonoConfigProps, "store">>(option
 
 const VALID_PASSWORD = "correct-password";
 
-// == Mirrors the real /auth/signin chain: routes on a sub-app, errors handled by the parent's onError
 const createSignInApp = () => {
 	const signInRoutes = new Hono().post(
 		"/signin",
@@ -37,7 +35,6 @@ const createSignInApp = () => {
 		(ctx) => {
 			const { password } = ctx.req.valid("json");
 
-			// == Fake credential check; only the response status matters to the limiter
 			if ([VALID_PASSWORD].includes(password)) {
 				return ctx.json({ status: "success" });
 			}
@@ -70,22 +67,17 @@ const signIn = async (app: Hono<HonoAppBindings>, options: SignInOptions) => {
 	return { body, headers: response.headers, status: response.status };
 };
 
-// == Sequential on purpose: each request's outcome depends on the counts left by the previous ones
-const signInRepeatedly = async (
+const signInRepeatedly = (
 	app: Hono<HonoAppBindings>,
 	count: number,
 	getOptions: (attempt: number) => SignInOptions
 ) => {
-	const statuses: number[] = [];
+	return Array.from({ length: count }).reduce<Promise<number[]>>(async (previousStatuses, _, index) => {
+		const statuses = await previousStatuses;
+		const { status } = await signIn(app, getOptions(index + 1));
 
-	for (let attempt = 1; attempt <= count; attempt++) {
-		// eslint-disable-next-line no-await-in-loop -- requests must hit the limiter in order
-		const { status } = await signIn(app, getOptions(attempt));
-
-		statuses.push(status);
-	}
-
-	return statuses;
+		return [...statuses, status];
+	}, Promise.resolve([]));
 };
 
 const repeatStatus = (status: number, count: number) => Array.from({ length: count }, () => status);
@@ -107,7 +99,6 @@ describe("sign-in rate limiting", () => {
 		expect(blocked.headers.get("Retry-After")).toBeTruthy();
 		expect(blocked.body.message).toBe("Too many attempts. Please try again in about 15 minutes.");
 
-		// == Even the right password is refused once the limit is hit
 		const blockedValid = await signIn(app, { email: "jane@pharmacy.test", password: VALID_PASSWORD });
 
 		expect(blockedValid.status).toBe(429);
@@ -123,7 +114,6 @@ describe("sign-in rate limiting", () => {
 
 		expect(successStatuses).toEqual(repeatStatus(200, signInLimit * 2));
 
-		// == The full failure budget is still available after all those successes
 		const failureStatuses = await signInRepeatedly(app, signInLimit + 1, () => ({
 			email: "jane@pharmacy.test",
 		}));
@@ -136,15 +126,12 @@ describe("sign-in rate limiting", () => {
 
 		await signInRepeatedly(app, signInLimit, () => ({ email: "Jane@Pharmacy.test" }));
 
-		// == Same email after trim/lowercase -> same bucket
 		const sameEmail = await signIn(app, { email: "  jane@pharmacy.TEST " });
 		expect(sameEmail.status).toBe(429);
 
-		// == A colleague on the same pharmacy IP is unaffected
 		const colleague = await signIn(app, { email: "tunde@pharmacy.test" });
 		expect(colleague.status).toBe(401);
 
-		// == The same email from a different IP is unaffected
 		const otherIp = await signIn(app, { email: "jane@pharmacy.test", ip: "198.51.100.7" });
 		expect(otherIp.status).toBe(401);
 	});
@@ -163,7 +150,6 @@ describe("sign-in rate limiting", () => {
 		expect(blocked.status).toBe(429);
 		expect(blocked.body.message).toBe("Too many attempts. Please try again in about an hour.");
 
-		// == Other IPs are unaffected
 		const otherIp = await signIn(app, { email: "fresh@pharmacy.test", ip: "198.51.100.7" });
 		expect(otherIp.status).toBe(401);
 	});
@@ -213,7 +199,6 @@ describe("auth rate limiter options", () => {
 			"Too many attempts. Please try again in about an hour."
 		);
 
-		// == Falls back to the window when the store gives no reset time
 		await expect(getMessageForReset(null)).resolves.toBe(
 			"Too many attempts. Please try again in about 30 minutes."
 		);

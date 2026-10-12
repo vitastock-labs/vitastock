@@ -3,8 +3,6 @@ import type { Context } from "hono";
 
 type NodeBindings = { incoming?: IncomingMessage } | undefined;
 
-// == Same lookup as @hono/node-server's getConnInfo, minus the throw on non-Node runtimes.
-// == Only reached without any proxy header (local dev, direct hits)
 const getSocketAddress = (ctx: Context) => {
 	const env = ctx.env as (NodeBindings & { server?: NodeBindings }) | undefined;
 

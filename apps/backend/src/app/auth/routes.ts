@@ -136,7 +136,6 @@ const authRoutes = new Hono()
 		"/signin",
 		rateLimiter(authRateLimiterOptions["signin-ip"]),
 		validateWithZodMiddleware("json", backendApiSchemaRoutes["@post/auth/signin"].body),
-		// == After validation so the key uses the normalised email
 		rateLimiter(authRateLimiterOptions.signin),
 		async (ctx) => {
 			const { email, password } = ctx.req.valid("json");

@@ -18,8 +18,6 @@ const getDelayInMs = (delay: Delay) => {
 	return delay.milliseconds;
 };
 
-// == Same as toolkit-core's waitFor, which calls Promise.withResolvers (Chrome 119+, Safari 17.4+,
-// == Firefox 121+) and crashes on older browsers. The polyfill builds on plain `new Promise`
 const waitFor: typeof toolkitWaitFor = (delay) => {
 	const { promise, resolve } = createPromiseWithResolversPolyfill();
 

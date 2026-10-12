@@ -74,7 +74,6 @@ export const workspaceRoutes = new Hono()
 					return null;
 				}
 
-				// == Invitations sent before request emails were normalised may still hold mixed-case addresses
 				const inviteeEmail = invitationResult.inviteeEmail.trim().toLowerCase();
 
 				const [existingUser] = await tx
@@ -178,7 +177,6 @@ export const workspaceRoutes = new Hono()
 				.where(eq(users.email, inviteeEmail))
 				.limit(1);
 
-			// == A user can only belong to one workspace. Never reveal which other pharmacy holds the email
 			if (existingMembership) {
 				const isMemberOfCurrentWorkspace = existingMembership.workspaceId === currentUser.workspaceId;
 
