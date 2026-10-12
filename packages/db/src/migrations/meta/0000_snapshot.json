@@ -1,1685 +1,1577 @@
 {
-  "id": "d93da522-9add-416b-a3f1-1e488f8c9765",
-  "prevId": "00000000-0000-0000-0000-000000000000",
-  "version": "7",
-  "dialect": "postgresql",
-  "tables": {
-    "public.email_verification_codes": {
-      "name": "email_verification_codes",
-      "schema": "",
-      "columns": {
-        "code": {
-          "name": "code",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "expires_at": {
-          "name": "expires_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "email_verification_codes_user_id_users_id_fk": {
-          "name": "email_verification_codes_user_id_users_id_fk",
-          "tableFrom": "email_verification_codes",
-          "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "email_verification_codes_code_unique": {
-          "name": "email_verification_codes_code_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "code"
-          ]
-        },
-        "email_verification_codes_userId_unique": {
-          "name": "email_verification_codes_userId_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "user_id"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.password_reset_tokens": {
-      "name": "password_reset_tokens",
-      "schema": "",
-      "columns": {
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "email": {
-          "name": "email",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "expires_at": {
-          "name": "expires_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "retried_at": {
-          "name": "retried_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "retry_count": {
-          "name": "retry_count",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 1
-        },
-        "token_hash": {
-          "name": "token_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "password_reset_tokens_user_id_users_id_fk": {
-          "name": "password_reset_tokens_user_id_users_id_fk",
-          "tableFrom": "password_reset_tokens",
-          "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "password_reset_tokens_email_unique": {
-          "name": "password_reset_tokens_email_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
-        },
-        "password_reset_tokens_tokenHash_unique": {
-          "name": "password_reset_tokens_tokenHash_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "token_hash"
-          ]
-        },
-        "password_reset_tokens_userId_unique": {
-          "name": "password_reset_tokens_userId_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "user_id"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.users": {
-      "name": "users",
-      "schema": "",
-      "columns": {
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "email": {
-          "name": "email",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "email_verified_at": {
-          "name": "email_verified_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "full_name": {
-          "name": "full_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "last_login_at": {
-          "name": "last_login_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "login_retry_count": {
-          "name": "login_retry_count",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "must_change_password": {
-          "name": "must_change_password",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "password_changed_at": {
-          "name": "password_changed_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "password_hash": {
-          "name": "password_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "refresh_token_array": {
-          "name": "refresh_token_array",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
-        },
-        "temporary_password_issued_at": {
-          "name": "temporary_password_issued_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "users_email_unique": {
-          "name": "users_email_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.drugs": {
-      "name": "drugs",
-      "schema": "",
-      "columns": {
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "form": {
-          "name": "form",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "generic_name": {
-          "name": "generic_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "is_active": {
-          "name": "is_active",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
-        "low_stock_threshold": {
-          "name": "low_stock_threshold",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "strength": {
-          "name": "strength",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "unit": {
-          "name": "unit",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "workspace_id": {
-          "name": "workspace_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {
-        "drug_workspace_identity_index": {
-          "name": "drug_workspace_identity_index",
-          "columns": [
-            {
-              "expression": "workspace_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "lower(btrim(\"name\"))",
-              "asc": true,
-              "isExpression": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "lower(btrim(\"generic_name\"))",
-              "asc": true,
-              "isExpression": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "coalesce(lower(btrim(\"strength\")), '')",
-              "asc": true,
-              "isExpression": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "coalesce(lower(btrim(\"form\")), '')",
-              "asc": true,
-              "isExpression": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "coalesce(lower(btrim(\"unit\")), '')",
-              "asc": true,
-              "isExpression": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "drugs_workspace_id_workspaces_id_fk": {
-          "name": "drugs_workspace_id_workspaces_id_fk",
-          "tableFrom": "drugs",
-          "tableTo": "workspaces",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "drug_low_stock_threshold_nonnegative_check": {
-          "name": "drug_low_stock_threshold_nonnegative_check",
-          "value": "\"drugs\".\"low_stock_threshold\" >= 0"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.inventory_alert_outbox": {
-      "name": "inventory_alert_outbox",
-      "schema": "",
-      "columns": {
-        "alert_id": {
-          "name": "alert_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "dedupe_key": {
-          "name": "dedupe_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "dispatched_at": {
-          "name": "dispatched_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "recipient_email": {
-          "name": "recipient_email",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "recipient_name": {
-          "name": "recipient_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "type": {
-          "name": "type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "workspace_id": {
-          "name": "workspace_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {
-        "inventory_alert_outbox_dedupe_key_index": {
-          "name": "inventory_alert_outbox_dedupe_key_index",
-          "columns": [
-            {
-              "expression": "dedupe_key",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "inventory_alert_outbox_dispatched_at_index": {
-          "name": "inventory_alert_outbox_dispatched_at_index",
-          "columns": [
-            {
-              "expression": "dispatched_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "inventory_alert_outbox_alert_id_inventory_alerts_id_fk": {
-          "name": "inventory_alert_outbox_alert_id_inventory_alerts_id_fk",
-          "tableFrom": "inventory_alert_outbox",
-          "tableTo": "inventory_alerts",
-          "columnsFrom": [
-            "alert_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "inventory_alert_outbox_workspace_id_workspaces_id_fk": {
-          "name": "inventory_alert_outbox_workspace_id_workspaces_id_fk",
-          "tableFrom": "inventory_alert_outbox",
-          "tableTo": "workspaces",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.inventory_alerts": {
-      "name": "inventory_alerts",
-      "schema": "",
-      "columns": {
-        "acknowledged_at": {
-          "name": "acknowledged_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "acknowledged_by_user_id": {
-          "name": "acknowledged_by_user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "batch_id": {
-          "name": "batch_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "dedupe_key": {
-          "name": "dedupe_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "drug_id": {
-          "name": "drug_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "expiry_date": {
-          "name": "expiry_date",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "last_notified_at": {
-          "name": "last_notified_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "quantity_affected": {
-          "name": "quantity_affected",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "resolved_at": {
-          "name": "resolved_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'active'"
-        },
-        "threshold": {
-          "name": "threshold",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "type": {
-          "name": "type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "workspace_id": {
-          "name": "workspace_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {
-        "inventory_alert_workspace_dedupe_key_index": {
-          "name": "inventory_alert_workspace_dedupe_key_index",
-          "columns": [
-            {
-              "expression": "workspace_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "dedupe_key",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "inventory_alert_workspace_status_created_index": {
-          "name": "inventory_alert_workspace_status_created_index",
-          "columns": [
-            {
-              "expression": "workspace_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "status",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "inventory_alert_workspace_acknowledged_index": {
-          "name": "inventory_alert_workspace_acknowledged_index",
-          "columns": [
-            {
-              "expression": "workspace_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "acknowledged_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "inventory_alerts_acknowledged_by_user_id_users_id_fk": {
-          "name": "inventory_alerts_acknowledged_by_user_id_users_id_fk",
-          "tableFrom": "inventory_alerts",
-          "tableTo": "users",
-          "columnsFrom": [
-            "acknowledged_by_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "inventory_alerts_batch_id_stock_batches_id_fk": {
-          "name": "inventory_alerts_batch_id_stock_batches_id_fk",
-          "tableFrom": "inventory_alerts",
-          "tableTo": "stock_batches",
-          "columnsFrom": [
-            "batch_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "inventory_alerts_drug_id_drugs_id_fk": {
-          "name": "inventory_alerts_drug_id_drugs_id_fk",
-          "tableFrom": "inventory_alerts",
-          "tableTo": "drugs",
-          "columnsFrom": [
-            "drug_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "inventory_alerts_workspace_id_workspaces_id_fk": {
-          "name": "inventory_alerts_workspace_id_workspaces_id_fk",
-          "tableFrom": "inventory_alerts",
-          "tableTo": "workspaces",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.stock_batches": {
-      "name": "stock_batches",
-      "schema": "",
-      "columns": {
-        "batch_number": {
-          "name": "batch_number",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "drug_id": {
-          "name": "drug_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "expiry_date": {
-          "name": "expiry_date",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "quantity_available": {
-          "name": "quantity_available",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "quantity_received": {
-          "name": "quantity_received",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "workspace_id": {
-          "name": "workspace_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {
-        "stock_batch_drug_index": {
-          "name": "stock_batch_drug_index",
-          "columns": [
-            {
-              "expression": "drug_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "stock_batch_workspace_expiry_index": {
-          "name": "stock_batch_workspace_expiry_index",
-          "columns": [
-            {
-              "expression": "workspace_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "expiry_date",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "stock_batch_identity_index": {
-          "name": "stock_batch_identity_index",
-          "columns": [
-            {
-              "expression": "workspace_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "drug_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "coalesce(lower(btrim(\"batch_number\")), '')",
-              "asc": true,
-              "isExpression": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "expiry_date",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "stock_batches_drug_id_drugs_id_fk": {
-          "name": "stock_batches_drug_id_drugs_id_fk",
-          "tableFrom": "stock_batches",
-          "tableTo": "drugs",
-          "columnsFrom": [
-            "drug_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "stock_batches_user_id_users_id_fk": {
-          "name": "stock_batches_user_id_users_id_fk",
-          "tableFrom": "stock_batches",
-          "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "stock_batches_workspace_id_workspaces_id_fk": {
-          "name": "stock_batches_workspace_id_workspaces_id_fk",
-          "tableFrom": "stock_batches",
-          "tableTo": "workspaces",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "stock_batch_quantity_available_check": {
-          "name": "stock_batch_quantity_available_check",
-          "value": "\"stock_batches\".\"quantity_available\" >= 0"
-        },
-        "stock_batch_quantity_received_check": {
-          "name": "stock_batch_quantity_received_check",
-          "value": "\"stock_batches\".\"quantity_received\" > 0"
-        },
-        "stock_batch_available_lte_received_check": {
-          "name": "stock_batch_available_lte_received_check",
-          "value": "\"stock_batches\".\"quantity_available\" <= \"stock_batches\".\"quantity_received\""
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.stock_logs": {
-      "name": "stock_logs",
-      "schema": "",
-      "columns": {
-        "batch_id": {
-          "name": "batch_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "drug_id": {
-          "name": "drug_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "log_type": {
-          "name": "log_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "notes": {
-          "name": "notes",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "performed_by_user_id": {
-          "name": "performed_by_user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "quantity": {
-          "name": "quantity",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "reason": {
-          "name": "reason",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "stock_transaction_id": {
-          "name": "stock_transaction_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "workspace_id": {
-          "name": "workspace_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {
-        "stock_log_drug_index": {
-          "name": "stock_log_drug_index",
-          "columns": [
-            {
-              "expression": "drug_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "stock_log_workspace_created_index": {
-          "name": "stock_log_workspace_created_index",
-          "columns": [
-            {
-              "expression": "workspace_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "stock_log_transaction_index": {
-          "name": "stock_log_transaction_index",
-          "columns": [
-            {
-              "expression": "stock_transaction_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "stock_logs_batch_id_stock_batches_id_fk": {
-          "name": "stock_logs_batch_id_stock_batches_id_fk",
-          "tableFrom": "stock_logs",
-          "tableTo": "stock_batches",
-          "columnsFrom": [
-            "batch_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "stock_logs_drug_id_drugs_id_fk": {
-          "name": "stock_logs_drug_id_drugs_id_fk",
-          "tableFrom": "stock_logs",
-          "tableTo": "drugs",
-          "columnsFrom": [
-            "drug_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "stock_logs_performed_by_user_id_users_id_fk": {
-          "name": "stock_logs_performed_by_user_id_users_id_fk",
-          "tableFrom": "stock_logs",
-          "tableTo": "users",
-          "columnsFrom": [
-            "performed_by_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "stock_logs_stock_transaction_id_stock_transactions_id_fk": {
-          "name": "stock_logs_stock_transaction_id_stock_transactions_id_fk",
-          "tableFrom": "stock_logs",
-          "tableTo": "stock_transactions",
-          "columnsFrom": [
-            "stock_transaction_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "stock_logs_workspace_id_workspaces_id_fk": {
-          "name": "stock_logs_workspace_id_workspaces_id_fk",
-          "tableFrom": "stock_logs",
-          "tableTo": "workspaces",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "stock_log_quantity_positive_check": {
-          "name": "stock_log_quantity_positive_check",
-          "value": "\"stock_logs\".\"quantity\" > 0"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.stock_transactions": {
-      "name": "stock_transactions",
-      "schema": "",
-      "columns": {
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "idempotency_key": {
-          "name": "idempotency_key",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "operation": {
-          "name": "operation",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "performed_by_user_id": {
-          "name": "performed_by_user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "request_hash": {
-          "name": "request_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "workspace_id": {
-          "name": "workspace_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {
-        "stock_transaction_workspace_idempotency_key_index": {
-          "name": "stock_transaction_workspace_idempotency_key_index",
-          "columns": [
-            {
-              "expression": "workspace_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "idempotency_key",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "stock_transaction_workspace_created_index": {
-          "name": "stock_transaction_workspace_created_index",
-          "columns": [
-            {
-              "expression": "workspace_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "stock_transactions_performed_by_user_id_users_id_fk": {
-          "name": "stock_transactions_performed_by_user_id_users_id_fk",
-          "tableFrom": "stock_transactions",
-          "tableTo": "users",
-          "columnsFrom": [
-            "performed_by_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "stock_transactions_workspace_id_workspaces_id_fk": {
-          "name": "stock_transactions_workspace_id_workspaces_id_fk",
-          "tableFrom": "stock_transactions",
-          "tableTo": "workspaces",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.workspace_invitations": {
-      "name": "workspace_invitations",
-      "schema": "",
-      "columns": {
-        "accepted_at": {
-          "name": "accepted_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "default_password_hash": {
-          "name": "default_password_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "expires_at": {
-          "name": "expires_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "invited_by_user_id": {
-          "name": "invited_by_user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "invitee_email": {
-          "name": "invitee_email",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "invitee_name": {
-          "name": "invitee_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "role": {
-          "name": "role",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'pharmacist'"
-        },
-        "token_hash": {
-          "name": "token_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "workspace_id": {
-          "name": "workspace_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "workspace_invitations_invited_by_user_id_users_id_fk": {
-          "name": "workspace_invitations_invited_by_user_id_users_id_fk",
-          "tableFrom": "workspace_invitations",
-          "tableTo": "users",
-          "columnsFrom": [
-            "invited_by_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "workspace_invitations_workspace_id_workspaces_id_fk": {
-          "name": "workspace_invitations_workspace_id_workspaces_id_fk",
-          "tableFrom": "workspace_invitations",
-          "tableTo": "workspaces",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "workspace_invitations_tokenHash_unique": {
-          "name": "workspace_invitations_tokenHash_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "token_hash"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.workspace_memberships": {
-      "name": "workspace_memberships",
-      "schema": "",
-      "columns": {
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "role": {
-          "name": "role",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "suspended_at": {
-          "name": "suspended_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "workspace_id": {
-          "name": "workspace_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {
-        "workspace_membership_single_workspace_per_user_index": {
-          "name": "workspace_membership_single_workspace_per_user_index",
-          "columns": [
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "workspace_membership_single_owner_index": {
-          "name": "workspace_membership_single_owner_index",
-          "columns": [
-            {
-              "expression": "workspace_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "\"workspace_memberships\".\"role\" = 'owner'",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "workspace_membership_workspace_index": {
-          "name": "workspace_membership_workspace_index",
-          "columns": [
-            {
-              "expression": "workspace_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "workspace_memberships_user_id_users_id_fk": {
-          "name": "workspace_memberships_user_id_users_id_fk",
-          "tableFrom": "workspace_memberships",
-          "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "workspace_memberships_workspace_id_workspaces_id_fk": {
-          "name": "workspace_memberships_workspace_id_workspaces_id_fk",
-          "tableFrom": "workspace_memberships",
-          "tableTo": "workspaces",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.workspaces": {
-      "name": "workspaces",
-      "schema": "",
-      "columns": {
-        "alert_email": {
-          "name": "alert_email",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "email_alert_delivery_policy": {
-          "name": "email_alert_delivery_policy",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'critical_immediate'"
-        },
-        "email_alerts_enabled_at": {
-          "name": "email_alerts_enabled_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "low_stock_threshold": {
-          "name": "low_stock_threshold",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 10
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "near_expiry_days": {
-          "name": "near_expiry_days",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 90
-        },
-        "timezone": {
-          "name": "timezone",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'Africa/Lagos'"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "workspaces_name_unique": {
-          "name": "workspaces_name_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "name"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    }
-  },
-  "enums": {},
-  "schemas": {},
-  "sequences": {},
-  "roles": {},
-  "policies": {},
-  "views": {},
-  "_meta": {
-    "columns": {},
-    "schemas": {},
-    "tables": {}
-  }
+	"id": "d93da522-9add-416b-a3f1-1e488f8c9765",
+	"prevId": "00000000-0000-0000-0000-000000000000",
+	"version": "7",
+	"dialect": "postgresql",
+	"tables": {
+		"public.email_verification_codes": {
+			"name": "email_verification_codes",
+			"schema": "",
+			"columns": {
+				"code": {
+					"name": "code",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"expires_at": {
+					"name": "expires_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"id": {
+					"name": "id",
+					"type": "uuid",
+					"primaryKey": true,
+					"notNull": true,
+					"default": "gen_random_uuid()"
+				},
+				"user_id": {
+					"name": "user_id",
+					"type": "uuid",
+					"primaryKey": false,
+					"notNull": true
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {
+				"email_verification_codes_user_id_users_id_fk": {
+					"name": "email_verification_codes_user_id_users_id_fk",
+					"tableFrom": "email_verification_codes",
+					"tableTo": "users",
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"email_verification_codes_code_unique": {
+					"name": "email_verification_codes_code_unique",
+					"nullsNotDistinct": false,
+					"columns": ["code"]
+				},
+				"email_verification_codes_userId_unique": {
+					"name": "email_verification_codes_userId_unique",
+					"nullsNotDistinct": false,
+					"columns": ["user_id"]
+				}
+			},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.password_reset_tokens": {
+			"name": "password_reset_tokens",
+			"schema": "",
+			"columns": {
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"email": {
+					"name": "email",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"expires_at": {
+					"name": "expires_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"id": {
+					"name": "id",
+					"type": "uuid",
+					"primaryKey": true,
+					"notNull": true,
+					"default": "gen_random_uuid()"
+				},
+				"retried_at": {
+					"name": "retried_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"retry_count": {
+					"name": "retry_count",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"default": 1
+				},
+				"token_hash": {
+					"name": "token_hash",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"user_id": {
+					"name": "user_id",
+					"type": "uuid",
+					"primaryKey": false,
+					"notNull": true
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {
+				"password_reset_tokens_user_id_users_id_fk": {
+					"name": "password_reset_tokens_user_id_users_id_fk",
+					"tableFrom": "password_reset_tokens",
+					"tableTo": "users",
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"password_reset_tokens_email_unique": {
+					"name": "password_reset_tokens_email_unique",
+					"nullsNotDistinct": false,
+					"columns": ["email"]
+				},
+				"password_reset_tokens_tokenHash_unique": {
+					"name": "password_reset_tokens_tokenHash_unique",
+					"nullsNotDistinct": false,
+					"columns": ["token_hash"]
+				},
+				"password_reset_tokens_userId_unique": {
+					"name": "password_reset_tokens_userId_unique",
+					"nullsNotDistinct": false,
+					"columns": ["user_id"]
+				}
+			},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.users": {
+			"name": "users",
+			"schema": "",
+			"columns": {
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"email": {
+					"name": "email",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"email_verified_at": {
+					"name": "email_verified_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"full_name": {
+					"name": "full_name",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"id": {
+					"name": "id",
+					"type": "uuid",
+					"primaryKey": true,
+					"notNull": true,
+					"default": "gen_random_uuid()"
+				},
+				"last_login_at": {
+					"name": "last_login_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"login_retry_count": {
+					"name": "login_retry_count",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"default": 0
+				},
+				"must_change_password": {
+					"name": "must_change_password",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"password_changed_at": {
+					"name": "password_changed_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"password_hash": {
+					"name": "password_hash",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"refresh_token_array": {
+					"name": "refresh_token_array",
+					"type": "jsonb",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'[]'::jsonb"
+				},
+				"temporary_password_issued_at": {
+					"name": "temporary_password_issued_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"users_email_unique": {
+					"name": "users_email_unique",
+					"nullsNotDistinct": false,
+					"columns": ["email"]
+				}
+			},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.drugs": {
+			"name": "drugs",
+			"schema": "",
+			"columns": {
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"form": {
+					"name": "form",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"generic_name": {
+					"name": "generic_name",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"id": {
+					"name": "id",
+					"type": "uuid",
+					"primaryKey": true,
+					"notNull": true,
+					"default": "gen_random_uuid()"
+				},
+				"is_active": {
+					"name": "is_active",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": true
+				},
+				"low_stock_threshold": {
+					"name": "low_stock_threshold",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"name": {
+					"name": "name",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"strength": {
+					"name": "strength",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"unit": {
+					"name": "unit",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"workspace_id": {
+					"name": "workspace_id",
+					"type": "uuid",
+					"primaryKey": false,
+					"notNull": true
+				}
+			},
+			"indexes": {
+				"drug_workspace_identity_index": {
+					"name": "drug_workspace_identity_index",
+					"columns": [
+						{
+							"expression": "workspace_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "lower(btrim(\"name\"))",
+							"asc": true,
+							"isExpression": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "lower(btrim(\"generic_name\"))",
+							"asc": true,
+							"isExpression": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "coalesce(lower(btrim(\"strength\")), '')",
+							"asc": true,
+							"isExpression": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "coalesce(lower(btrim(\"form\")), '')",
+							"asc": true,
+							"isExpression": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "coalesce(lower(btrim(\"unit\")), '')",
+							"asc": true,
+							"isExpression": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": true,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"drugs_workspace_id_workspaces_id_fk": {
+					"name": "drugs_workspace_id_workspaces_id_fk",
+					"tableFrom": "drugs",
+					"tableTo": "workspaces",
+					"columnsFrom": ["workspace_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {
+				"drug_low_stock_threshold_nonnegative_check": {
+					"name": "drug_low_stock_threshold_nonnegative_check",
+					"value": "\"drugs\".\"low_stock_threshold\" >= 0"
+				}
+			},
+			"isRLSEnabled": false
+		},
+		"public.inventory_alert_outbox": {
+			"name": "inventory_alert_outbox",
+			"schema": "",
+			"columns": {
+				"alert_id": {
+					"name": "alert_id",
+					"type": "uuid",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"dedupe_key": {
+					"name": "dedupe_key",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"dispatched_at": {
+					"name": "dispatched_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"id": {
+					"name": "id",
+					"type": "uuid",
+					"primaryKey": true,
+					"notNull": true,
+					"default": "gen_random_uuid()"
+				},
+				"recipient_email": {
+					"name": "recipient_email",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"recipient_name": {
+					"name": "recipient_name",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"type": {
+					"name": "type",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"workspace_id": {
+					"name": "workspace_id",
+					"type": "uuid",
+					"primaryKey": false,
+					"notNull": true
+				}
+			},
+			"indexes": {
+				"inventory_alert_outbox_dedupe_key_index": {
+					"name": "inventory_alert_outbox_dedupe_key_index",
+					"columns": [
+						{
+							"expression": "dedupe_key",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": true,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"inventory_alert_outbox_dispatched_at_index": {
+					"name": "inventory_alert_outbox_dispatched_at_index",
+					"columns": [
+						{
+							"expression": "dispatched_at",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"inventory_alert_outbox_alert_id_inventory_alerts_id_fk": {
+					"name": "inventory_alert_outbox_alert_id_inventory_alerts_id_fk",
+					"tableFrom": "inventory_alert_outbox",
+					"tableTo": "inventory_alerts",
+					"columnsFrom": ["alert_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"inventory_alert_outbox_workspace_id_workspaces_id_fk": {
+					"name": "inventory_alert_outbox_workspace_id_workspaces_id_fk",
+					"tableFrom": "inventory_alert_outbox",
+					"tableTo": "workspaces",
+					"columnsFrom": ["workspace_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.inventory_alerts": {
+			"name": "inventory_alerts",
+			"schema": "",
+			"columns": {
+				"acknowledged_at": {
+					"name": "acknowledged_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"acknowledged_by_user_id": {
+					"name": "acknowledged_by_user_id",
+					"type": "uuid",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"batch_id": {
+					"name": "batch_id",
+					"type": "uuid",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"dedupe_key": {
+					"name": "dedupe_key",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"drug_id": {
+					"name": "drug_id",
+					"type": "uuid",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"expiry_date": {
+					"name": "expiry_date",
+					"type": "date",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"id": {
+					"name": "id",
+					"type": "uuid",
+					"primaryKey": true,
+					"notNull": true,
+					"default": "gen_random_uuid()"
+				},
+				"last_notified_at": {
+					"name": "last_notified_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"quantity_affected": {
+					"name": "quantity_affected",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"resolved_at": {
+					"name": "resolved_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"status": {
+					"name": "status",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'active'"
+				},
+				"threshold": {
+					"name": "threshold",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"type": {
+					"name": "type",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"workspace_id": {
+					"name": "workspace_id",
+					"type": "uuid",
+					"primaryKey": false,
+					"notNull": true
+				}
+			},
+			"indexes": {
+				"inventory_alert_workspace_dedupe_key_index": {
+					"name": "inventory_alert_workspace_dedupe_key_index",
+					"columns": [
+						{
+							"expression": "workspace_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "dedupe_key",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": true,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"inventory_alert_workspace_status_created_index": {
+					"name": "inventory_alert_workspace_status_created_index",
+					"columns": [
+						{
+							"expression": "workspace_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "status",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "created_at",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"inventory_alert_workspace_acknowledged_index": {
+					"name": "inventory_alert_workspace_acknowledged_index",
+					"columns": [
+						{
+							"expression": "workspace_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "acknowledged_at",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"inventory_alerts_acknowledged_by_user_id_users_id_fk": {
+					"name": "inventory_alerts_acknowledged_by_user_id_users_id_fk",
+					"tableFrom": "inventory_alerts",
+					"tableTo": "users",
+					"columnsFrom": ["acknowledged_by_user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "set null",
+					"onUpdate": "no action"
+				},
+				"inventory_alerts_batch_id_stock_batches_id_fk": {
+					"name": "inventory_alerts_batch_id_stock_batches_id_fk",
+					"tableFrom": "inventory_alerts",
+					"tableTo": "stock_batches",
+					"columnsFrom": ["batch_id"],
+					"columnsTo": ["id"],
+					"onDelete": "set null",
+					"onUpdate": "no action"
+				},
+				"inventory_alerts_drug_id_drugs_id_fk": {
+					"name": "inventory_alerts_drug_id_drugs_id_fk",
+					"tableFrom": "inventory_alerts",
+					"tableTo": "drugs",
+					"columnsFrom": ["drug_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"inventory_alerts_workspace_id_workspaces_id_fk": {
+					"name": "inventory_alerts_workspace_id_workspaces_id_fk",
+					"tableFrom": "inventory_alerts",
+					"tableTo": "workspaces",
+					"columnsFrom": ["workspace_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.stock_batches": {
+			"name": "stock_batches",
+			"schema": "",
+			"columns": {
+				"batch_number": {
+					"name": "batch_number",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"drug_id": {
+					"name": "drug_id",
+					"type": "uuid",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"expiry_date": {
+					"name": "expiry_date",
+					"type": "date",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"id": {
+					"name": "id",
+					"type": "uuid",
+					"primaryKey": true,
+					"notNull": true,
+					"default": "gen_random_uuid()"
+				},
+				"quantity_available": {
+					"name": "quantity_available",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"quantity_received": {
+					"name": "quantity_received",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"user_id": {
+					"name": "user_id",
+					"type": "uuid",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"workspace_id": {
+					"name": "workspace_id",
+					"type": "uuid",
+					"primaryKey": false,
+					"notNull": true
+				}
+			},
+			"indexes": {
+				"stock_batch_drug_index": {
+					"name": "stock_batch_drug_index",
+					"columns": [
+						{
+							"expression": "drug_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"stock_batch_workspace_expiry_index": {
+					"name": "stock_batch_workspace_expiry_index",
+					"columns": [
+						{
+							"expression": "workspace_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "expiry_date",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"stock_batch_identity_index": {
+					"name": "stock_batch_identity_index",
+					"columns": [
+						{
+							"expression": "workspace_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "drug_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "coalesce(lower(btrim(\"batch_number\")), '')",
+							"asc": true,
+							"isExpression": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "expiry_date",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": true,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"stock_batches_drug_id_drugs_id_fk": {
+					"name": "stock_batches_drug_id_drugs_id_fk",
+					"tableFrom": "stock_batches",
+					"tableTo": "drugs",
+					"columnsFrom": ["drug_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"stock_batches_user_id_users_id_fk": {
+					"name": "stock_batches_user_id_users_id_fk",
+					"tableFrom": "stock_batches",
+					"tableTo": "users",
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"stock_batches_workspace_id_workspaces_id_fk": {
+					"name": "stock_batches_workspace_id_workspaces_id_fk",
+					"tableFrom": "stock_batches",
+					"tableTo": "workspaces",
+					"columnsFrom": ["workspace_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {
+				"stock_batch_quantity_available_check": {
+					"name": "stock_batch_quantity_available_check",
+					"value": "\"stock_batches\".\"quantity_available\" >= 0"
+				},
+				"stock_batch_quantity_received_check": {
+					"name": "stock_batch_quantity_received_check",
+					"value": "\"stock_batches\".\"quantity_received\" > 0"
+				},
+				"stock_batch_available_lte_received_check": {
+					"name": "stock_batch_available_lte_received_check",
+					"value": "\"stock_batches\".\"quantity_available\" <= \"stock_batches\".\"quantity_received\""
+				}
+			},
+			"isRLSEnabled": false
+		},
+		"public.stock_logs": {
+			"name": "stock_logs",
+			"schema": "",
+			"columns": {
+				"batch_id": {
+					"name": "batch_id",
+					"type": "uuid",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"drug_id": {
+					"name": "drug_id",
+					"type": "uuid",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"id": {
+					"name": "id",
+					"type": "uuid",
+					"primaryKey": true,
+					"notNull": true,
+					"default": "gen_random_uuid()"
+				},
+				"log_type": {
+					"name": "log_type",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"notes": {
+					"name": "notes",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"performed_by_user_id": {
+					"name": "performed_by_user_id",
+					"type": "uuid",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"quantity": {
+					"name": "quantity",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"reason": {
+					"name": "reason",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"stock_transaction_id": {
+					"name": "stock_transaction_id",
+					"type": "uuid",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"workspace_id": {
+					"name": "workspace_id",
+					"type": "uuid",
+					"primaryKey": false,
+					"notNull": true
+				}
+			},
+			"indexes": {
+				"stock_log_drug_index": {
+					"name": "stock_log_drug_index",
+					"columns": [
+						{
+							"expression": "drug_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"stock_log_workspace_created_index": {
+					"name": "stock_log_workspace_created_index",
+					"columns": [
+						{
+							"expression": "workspace_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "created_at",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"stock_log_transaction_index": {
+					"name": "stock_log_transaction_index",
+					"columns": [
+						{
+							"expression": "stock_transaction_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"stock_logs_batch_id_stock_batches_id_fk": {
+					"name": "stock_logs_batch_id_stock_batches_id_fk",
+					"tableFrom": "stock_logs",
+					"tableTo": "stock_batches",
+					"columnsFrom": ["batch_id"],
+					"columnsTo": ["id"],
+					"onDelete": "set null",
+					"onUpdate": "no action"
+				},
+				"stock_logs_drug_id_drugs_id_fk": {
+					"name": "stock_logs_drug_id_drugs_id_fk",
+					"tableFrom": "stock_logs",
+					"tableTo": "drugs",
+					"columnsFrom": ["drug_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"stock_logs_performed_by_user_id_users_id_fk": {
+					"name": "stock_logs_performed_by_user_id_users_id_fk",
+					"tableFrom": "stock_logs",
+					"tableTo": "users",
+					"columnsFrom": ["performed_by_user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "restrict",
+					"onUpdate": "no action"
+				},
+				"stock_logs_stock_transaction_id_stock_transactions_id_fk": {
+					"name": "stock_logs_stock_transaction_id_stock_transactions_id_fk",
+					"tableFrom": "stock_logs",
+					"tableTo": "stock_transactions",
+					"columnsFrom": ["stock_transaction_id"],
+					"columnsTo": ["id"],
+					"onDelete": "restrict",
+					"onUpdate": "no action"
+				},
+				"stock_logs_workspace_id_workspaces_id_fk": {
+					"name": "stock_logs_workspace_id_workspaces_id_fk",
+					"tableFrom": "stock_logs",
+					"tableTo": "workspaces",
+					"columnsFrom": ["workspace_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {
+				"stock_log_quantity_positive_check": {
+					"name": "stock_log_quantity_positive_check",
+					"value": "\"stock_logs\".\"quantity\" > 0"
+				}
+			},
+			"isRLSEnabled": false
+		},
+		"public.stock_transactions": {
+			"name": "stock_transactions",
+			"schema": "",
+			"columns": {
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"id": {
+					"name": "id",
+					"type": "uuid",
+					"primaryKey": true,
+					"notNull": true,
+					"default": "gen_random_uuid()"
+				},
+				"idempotency_key": {
+					"name": "idempotency_key",
+					"type": "uuid",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"operation": {
+					"name": "operation",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"performed_by_user_id": {
+					"name": "performed_by_user_id",
+					"type": "uuid",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"request_hash": {
+					"name": "request_hash",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"workspace_id": {
+					"name": "workspace_id",
+					"type": "uuid",
+					"primaryKey": false,
+					"notNull": true
+				}
+			},
+			"indexes": {
+				"stock_transaction_workspace_idempotency_key_index": {
+					"name": "stock_transaction_workspace_idempotency_key_index",
+					"columns": [
+						{
+							"expression": "workspace_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "idempotency_key",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": true,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"stock_transaction_workspace_created_index": {
+					"name": "stock_transaction_workspace_created_index",
+					"columns": [
+						{
+							"expression": "workspace_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "created_at",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"stock_transactions_performed_by_user_id_users_id_fk": {
+					"name": "stock_transactions_performed_by_user_id_users_id_fk",
+					"tableFrom": "stock_transactions",
+					"tableTo": "users",
+					"columnsFrom": ["performed_by_user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "restrict",
+					"onUpdate": "no action"
+				},
+				"stock_transactions_workspace_id_workspaces_id_fk": {
+					"name": "stock_transactions_workspace_id_workspaces_id_fk",
+					"tableFrom": "stock_transactions",
+					"tableTo": "workspaces",
+					"columnsFrom": ["workspace_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.workspace_invitations": {
+			"name": "workspace_invitations",
+			"schema": "",
+			"columns": {
+				"accepted_at": {
+					"name": "accepted_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"default_password_hash": {
+					"name": "default_password_hash",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"expires_at": {
+					"name": "expires_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"id": {
+					"name": "id",
+					"type": "uuid",
+					"primaryKey": true,
+					"notNull": true,
+					"default": "gen_random_uuid()"
+				},
+				"invited_by_user_id": {
+					"name": "invited_by_user_id",
+					"type": "uuid",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"invitee_email": {
+					"name": "invitee_email",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"invitee_name": {
+					"name": "invitee_name",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"role": {
+					"name": "role",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'pharmacist'"
+				},
+				"token_hash": {
+					"name": "token_hash",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"workspace_id": {
+					"name": "workspace_id",
+					"type": "uuid",
+					"primaryKey": false,
+					"notNull": true
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {
+				"workspace_invitations_invited_by_user_id_users_id_fk": {
+					"name": "workspace_invitations_invited_by_user_id_users_id_fk",
+					"tableFrom": "workspace_invitations",
+					"tableTo": "users",
+					"columnsFrom": ["invited_by_user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"workspace_invitations_workspace_id_workspaces_id_fk": {
+					"name": "workspace_invitations_workspace_id_workspaces_id_fk",
+					"tableFrom": "workspace_invitations",
+					"tableTo": "workspaces",
+					"columnsFrom": ["workspace_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"workspace_invitations_tokenHash_unique": {
+					"name": "workspace_invitations_tokenHash_unique",
+					"nullsNotDistinct": false,
+					"columns": ["token_hash"]
+				}
+			},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.workspace_memberships": {
+			"name": "workspace_memberships",
+			"schema": "",
+			"columns": {
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"id": {
+					"name": "id",
+					"type": "uuid",
+					"primaryKey": true,
+					"notNull": true,
+					"default": "gen_random_uuid()"
+				},
+				"role": {
+					"name": "role",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"suspended_at": {
+					"name": "suspended_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"user_id": {
+					"name": "user_id",
+					"type": "uuid",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"workspace_id": {
+					"name": "workspace_id",
+					"type": "uuid",
+					"primaryKey": false,
+					"notNull": true
+				}
+			},
+			"indexes": {
+				"workspace_membership_single_workspace_per_user_index": {
+					"name": "workspace_membership_single_workspace_per_user_index",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": true,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"workspace_membership_single_owner_index": {
+					"name": "workspace_membership_single_owner_index",
+					"columns": [
+						{
+							"expression": "workspace_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": true,
+					"where": "\"workspace_memberships\".\"role\" = 'owner'",
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"workspace_membership_workspace_index": {
+					"name": "workspace_membership_workspace_index",
+					"columns": [
+						{
+							"expression": "workspace_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"workspace_memberships_user_id_users_id_fk": {
+					"name": "workspace_memberships_user_id_users_id_fk",
+					"tableFrom": "workspace_memberships",
+					"tableTo": "users",
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"workspace_memberships_workspace_id_workspaces_id_fk": {
+					"name": "workspace_memberships_workspace_id_workspaces_id_fk",
+					"tableFrom": "workspace_memberships",
+					"tableTo": "workspaces",
+					"columnsFrom": ["workspace_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.workspaces": {
+			"name": "workspaces",
+			"schema": "",
+			"columns": {
+				"alert_email": {
+					"name": "alert_email",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"email_alert_delivery_policy": {
+					"name": "email_alert_delivery_policy",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'critical_immediate'"
+				},
+				"email_alerts_enabled_at": {
+					"name": "email_alerts_enabled_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"id": {
+					"name": "id",
+					"type": "uuid",
+					"primaryKey": true,
+					"notNull": true,
+					"default": "gen_random_uuid()"
+				},
+				"low_stock_threshold": {
+					"name": "low_stock_threshold",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"default": 10
+				},
+				"name": {
+					"name": "name",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"near_expiry_days": {
+					"name": "near_expiry_days",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"default": 90
+				},
+				"timezone": {
+					"name": "timezone",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'Africa/Lagos'"
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"workspaces_name_unique": {
+					"name": "workspaces_name_unique",
+					"nullsNotDistinct": false,
+					"columns": ["name"]
+				}
+			},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		}
+	},
+	"enums": {},
+	"schemas": {},
+	"sequences": {},
+	"roles": {},
+	"policies": {},
+	"views": {},
+	"_meta": {
+		"columns": {},
+		"schemas": {},
+		"tables": {}
+	}
 }
