@@ -171,7 +171,7 @@ export const workspaceRoutes = new Hono()
 			assertAdminCanOnlyManagePharmacist({ actorRole: currentUser.role, targetRole: role });
 
 			const [existingMembership] = await db
-				.select(pickKeys(workspaceMemberships, ["workspaceId"]))
+				.select(pickKeys(workspaceMemberships, ["userId", "workspaceId"]))
 				.from(users)
 				.innerJoin(workspaceMemberships, eq(users.id, workspaceMemberships.userId))
 				.where(eq(users.email, inviteeEmail))
@@ -188,8 +188,8 @@ export const workspaceRoutes = new Hono()
 						:	"This email is already linked to another pharmacy on VitaStock, so it can't be added to yours. Ask them to use a different email address.",
 					realReason:
 						isMemberOfCurrentWorkspace ?
-							"Invitee is already a member of this workspace"
-						:	"Invitee is a member of another workspace",
+							`Invite blocked: ${inviteeEmail} (user ${existingMembership.userId}) is already a member of the inviter's own workspace ${currentUser.workspaceId}`
+						:	`Invite blocked by the one-workspace-per-user rule: ${inviteeEmail} (user ${existingMembership.userId}) already belongs to workspace ${existingMembership.workspaceId}, so they can't join the inviter's workspace ${currentUser.workspaceId}`,
 				});
 			}
 
