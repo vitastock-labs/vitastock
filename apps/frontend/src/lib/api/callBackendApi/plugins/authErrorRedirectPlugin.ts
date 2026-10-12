@@ -1,8 +1,9 @@
 import type { GetCallApiContext, RequestContext } from "@zayne-labs/callapi";
 import { definePluginWithContext } from "@zayne-labs/callapi/utils";
-import { isBrowser, waitFor } from "@zayne-labs/toolkit-core";
+import { isBrowser } from "@zayne-labs/toolkit-core";
 import type { Awaitable } from "@zayne-labs/toolkit-type-helpers";
 import type { MainAppRoutes } from "@/components/common/NavLink";
+import { waitFor } from "@/lib/utils/waitFor";
 import type { BaseApiErrorResponse } from "../apiSchema";
 import { isAuthErrorThatNeedsRedirect, isPathnameMatchingRoute, redirectTo } from "./utils/common";
 
