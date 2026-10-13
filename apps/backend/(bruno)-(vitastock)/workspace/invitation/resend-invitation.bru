@@ -1,0 +1,80 @@
+meta {
+  name: resend-invitation
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseURL}}/workspace/invitation/resend
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "invitationId": "{{invitationId}}",
+    "defaultPassword": "TempPassword@123"
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  # Resend Invitation
+
+  Reissues an unaccepted workspace invitation with a new token, temporary password, and seven-day expiry.
+
+  ## Authorization
+
+  Requires an authenticated `owner` or `admin`.
+
+  - Owners may resend admin or pharmacist invitations.
+  - Admins may resend pharmacist invitations only.
+
+  ## Request Body
+
+  | Field | Type | Required | Description |
+  |-------|------|----------|-------------|
+  | `invitationId` | UUID | Yes | Unaccepted invitation ID from the workspace-members response. |
+  | `defaultPassword` | string | Yes | New temporary password sent to the invitee and stored only as a hash. |
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Invitation resent successfully",
+    "data": null
+  }
+  ```
+
+  ## Rotation Behavior
+
+  - Generates a new random invitation token.
+  - Stores only the new token hash.
+  - Replaces the temporary-password hash.
+  - Sets `expiresAt` to seven days from the resend time.
+  - Sends a new invitation email containing the replacement credentials.
+  - Invalidates the previously issued invitation token.
+
+  ## Safety Rules
+
+  - The invitation must be unaccepted and belong to the authenticated workspace.
+  - Admins cannot resend invitations for the admin role.
+  - Plaintext token and password are not returned by the API or stored in the database.
+
+  ## Errors
+
+  | Status | Message / Description |
+  |--------|-----------------------|
+  | `401 Unauthorized` | Authentication is invalid or membership is suspended. |
+  | `403 Forbidden` | Actor lacks permission for the invitation role. |
+  | `404 Not Found` | `Pending invitation not found`. |
+  | `422 Unprocessable Entity` | Invitation ID or password is invalid. |
+  | `500 Internal Server Error` | Persistence or email sending failed. |
+}

@@ -1,0 +1,92 @@
+meta {
+  name: change-member-suspension
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseURL}}/workspace/member/suspension
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "action": "suspend",
+    "memberId": "{{memberId}}"
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  # Suspend or Unsuspend Member
+
+  Suspends or restores an eligible workspace membership while keeping the member visible in workspace management.
+
+  ## Authorization
+
+  Requires an authenticated `owner` or `admin`.
+
+  - Owners may manage admins and pharmacists.
+  - Admins may manage pharmacists only.
+  - Owners cannot be targeted.
+
+  ## Request Body
+
+  | Field | Type | Required | Allowed Values / Description |
+  |-------|------|----------|------------------------------|
+  | `memberId` | UUID | Yes | User ID from the workspace-members response. |
+  | `action` | string | Yes | `suspend` or `unsuspend`. |
+
+  ## Success Responses
+
+  **Suspend**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Member suspended successfully",
+    "data": null
+  }
+  ```
+
+  **Unsuspend**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Member unsuspended successfully",
+    "data": null
+  }
+  ```
+
+  Repeating the current state is a successful no-op with `Member is already suspended` or `Member is not suspended`.
+
+  ## Suspension Behavior
+
+  - `suspend` sets `workspaceMemberships.suspendedAt` to the current time.
+  - `suspend` clears all refresh tokens for the target user, invalidating existing sessions.
+  - `unsuspend` sets `suspendedAt` to null.
+  - User and membership caches are invalidated after a real state transition.
+  - Suspended members remain visible with `status: suspended` but cannot access protected workspace routes.
+
+  ## Safety Rules
+
+  - A member cannot target their own account.
+  - Workspace owners cannot be modified.
+  - Admins cannot manage owners or other admins.
+
+  ## Errors
+
+  | Status | Message / Description |
+  |--------|-----------------------|
+  | `400 Bad Request` | Self-target or owner target. |
+  | `401 Unauthorized` | Authentication is invalid or actor membership is suspended. |
+  | `403 Forbidden` | Role is not permitted, or an admin targets a non-pharmacist. |
+  | `404 Not Found` | Target is outside the workspace or does not exist. |
+  | `422 Unprocessable Entity` | UUID or action is invalid. |
+}

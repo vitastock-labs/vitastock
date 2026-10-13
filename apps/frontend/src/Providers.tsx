@@ -27,7 +27,7 @@ export function Providers(props: ProvidersProps) {
 				{children}
 			</ProgressProvider>
 
-			<ReactQueryDevtools buttonPosition="bottom-left" initialIsOpen={false} />
+			<ReactQueryDevtools buttonPosition="bottom-right" initialIsOpen={false} />
 		</QueryClientProvider>
 	);
 }

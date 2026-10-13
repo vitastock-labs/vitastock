@@ -29,8 +29,12 @@ function TooltipTrigger(props: React.ComponentProps<typeof TooltipPrimitive.Trig
 	return <TooltipPrimitive.Trigger data-slot="tooltip-trigger" {...props} />;
 }
 
-function TooltipContent(props: React.ComponentProps<typeof TooltipPrimitive.Content>) {
-	const { children, className, sideOffset = 0, ...restOfProps } = props;
+function TooltipContent(
+	props: React.ComponentProps<typeof TooltipPrimitive.Content> & {
+		classNames?: { arrow?: string; base?: string };
+	}
+) {
+	const { children, className, classNames, sideOffset = 0, ...restOfProps } = props;
 
 	return (
 		<TooltipPrimitive.Portal>
@@ -44,14 +48,18 @@ function TooltipContent(props: React.ComponentProps<typeof TooltipPrimitive.Cont
 					data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2
 					data-[state=closed]:animate-out data-[state=closed]:fade-out-0
 					data-[state=closed]:zoom-out-95`,
-					className
+					className,
+					classNames?.base
 				)}
 				{...restOfProps}
 			>
 				{children}
 				<TooltipPrimitive.Arrow
-					className="z-50 size-2.5 translate-y-[calc(-50%-2px)] rotate-45 rounded-[2px]
-						bg-shadcn-primary fill-shadcn-primary"
+					className={cnMerge(
+						`z-50 size-2.5 translate-y-[calc(-50%-2px)] rotate-45 rounded-[2px] bg-shadcn-primary
+						fill-shadcn-primary`,
+						classNames?.arrow
+					)}
 				/>
 			</TooltipPrimitive.Content>
 		</TooltipPrimitive.Portal>

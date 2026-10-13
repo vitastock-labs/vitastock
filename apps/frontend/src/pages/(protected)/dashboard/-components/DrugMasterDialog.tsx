@@ -1,0 +1,631 @@
+"use client";
+
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { addYears, endOfYear, startOfYear, subYears } from "date-fns";
+import { parseAsString, useQueryState } from "nuqs";
+import { useMemo, useState, type ReactNode } from "react";
+import { useForm, useFormContext, type FieldValues, type UseFormReturn } from "react-hook-form";
+import { useDialogContext } from "@/components/animated/primitives/dialog-radix";
+import { DialogAnimated } from "@/components/animated/ui";
+import { For } from "@/components/common/for";
+import { IconBox } from "@/components/common/IconBox";
+import { Badge } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import {
+	createDataTableColumnHelper,
+	DataTableColumnHeader,
+	DataTableQueryToolbar,
+	useDataTable,
+	useDataTableQueryState,
+	type DataTableQueryKeys,
+} from "@/components/ui/data-table";
+import { DateTimePicker } from "@/components/ui/datetime-picker";
+import { Form } from "@/components/ui/form";
+import * as ScrollArea from "@/components/ui/scroll-area";
+import { callBackendApiForQuery } from "@/lib/api/callBackendApi";
+import { backendApiSchemaRoutes } from "@/lib/api/callBackendApi/apiSchema";
+import { posthog } from "@/lib/posthog";
+import { handleInventoryDrugActionMutation } from "@/lib/react-query/mutationOptions";
+import {
+	dashboardOverviewQuery,
+	inventoryAlertsQuery,
+	inventoryAlertsStatusQuery,
+	inventoryDrugBatchesQuery,
+	inventoryDrugsQuery,
+	inventorySummaryQuery,
+	sessionQuery,
+	type InventoryDrugBatchesQueryResultType,
+	type InventoryDrugsQueryResultType,
+} from "@/lib/react-query/queryOptions";
+import { cnJoin } from "@/lib/utils/cn";
+import { formatDate, formatDrugLabel } from "@/lib/utils/formatters";
+import { InputField } from "@/pages/(home)/-components/FormPartsShared";
+import { EMPTY_DISPLAY_VALUE } from "./constants";
+import { DashboardDataTable } from "./DashboardDataTableShared";
+
+type Drug = InventoryDrugsQueryResultType["drugs"][number];
+type DrugBatch = InventoryDrugBatchesQueryResultType["batches"][number];
+
+const EMPTY_DRUGS: Drug[] = [];
+const drugColumnHelper = createDataTableColumnHelper<Drug>();
+const BATCH_EXPIRY_DATE_PICKER_RANGE = (() => {
+	const today = new Date();
+
+	return {
+		endMonth: endOfYear(addYears(today, 20)),
+		startMonth: startOfYear(subYears(today, 20)),
+	};
+})();
+
+const DrugCreateSchema = backendApiSchemaRoutes["@post/inventory/drugs"].body;
+const DrugUpdateSchema = backendApiSchemaRoutes["@patch/inventory/drugs/:drugId"].body.required();
+const DRUG_TABLE_QUERY_KEYS = {
+	page: "drugPage",
+	perPage: "drugPageSize",
+	search: "drugSearch",
+} as const satisfies DataTableQueryKeys;
+
+function DrugStatusBadge(props: { className?: string; isActive: boolean }) {
+	const { className, isActive } = props;
+
+	return (
+		<Badge
+			className={cnJoin(
+				"border-none px-2 py-0.5 text-[11px] font-bold",
+				isActive && "bg-emerald-50 text-emerald-700",
+				!isActive && "bg-shadcn-muted text-vitastock-body-color",
+				className
+			)}
+		>
+			{isActive ? "Active" : "Inactive"}
+		</Badge>
+	);
+}
+
+export function DrugMasterDialog() {
+	const { onPaginationChange, pagination } = useDataTableQueryState({
+		queryKeys: DRUG_TABLE_QUERY_KEYS,
+	});
+	const [search] = useQueryState(DRUG_TABLE_QUERY_KEYS.search, parseAsString.withDefault(""));
+	const inventoryDrugsQueryResult = useQuery(
+		inventoryDrugsQuery({
+			page: pagination.pageIndex + 1,
+			pageSize: pagination.pageSize,
+			...(search && { search }),
+		})
+	);
+	const result = inventoryDrugsQueryResult.data;
+	const drugs = result?.drugs ?? EMPTY_DRUGS;
+
+	const [drugToEdit, setDrugToEdit] = useState<Drug | null>(null);
+
+	const columns = useMemo(
+		() =>
+			drugColumnHelper.columns([
+				drugColumnHelper.accessor((drug) => formatDrugLabel(drug, { includeGenericName: true }), {
+					cell: ({ row }) => (
+						<div>
+							<p className="font-bold text-black">{row.original.name}</p>
+							<p className="mt-0.5 text-[12px] text-vitastock-body-color">
+								{row.original.genericName} / {row.original.strength ?? EMPTY_DISPLAY_VALUE}
+							</p>
+							<p className="mt-0.5 text-[12px] text-vitastock-body-color md:hidden">
+								{row.original.form ?? EMPTY_DISPLAY_VALUE} ·{" "}
+								{row.original.unit ?? EMPTY_DISPLAY_VALUE}
+							</p>
+							<DrugStatusBadge isActive={row.original.isActive} className="mt-2 md:hidden" />
+						</div>
+					),
+					enableSorting: false,
+					header: ({ column }) => <DataTableColumnHeader column={column}>Drug</DataTableColumnHeader>,
+					id: "name",
+				}),
+				drugColumnHelper.accessor("form", {
+					cell: ({ getValue }) => getValue() ?? EMPTY_DISPLAY_VALUE,
+					enableSorting: false,
+					header: ({ column }) => (
+						<DataTableColumnHeader column={column}>Dosage Form</DataTableColumnHeader>
+					),
+					meta: { classNames: { column: "hidden md:table-cell" } },
+				}),
+				drugColumnHelper.accessor("unit", {
+					cell: ({ getValue }) => getValue() ?? EMPTY_DISPLAY_VALUE,
+					enableSorting: false,
+					header: ({ column }) => <DataTableColumnHeader column={column}>Unit</DataTableColumnHeader>,
+					meta: { classNames: { column: "hidden md:table-cell" } },
+				}),
+				drugColumnHelper.accessor("isActive", {
+					cell: ({ getValue }) => <DrugStatusBadge isActive={getValue()} />,
+					enableSorting: false,
+					header: "Status",
+					meta: { classNames: { column: "hidden md:table-cell" } },
+				}),
+				drugColumnHelper.display({
+					cell: ({ row }) => (
+						<div className="flex justify-end gap-1">
+							<Button
+								unstyled={true}
+								className="grid size-8 place-items-center rounded-lg text-vitastock-primary-main
+									hover:bg-vitastock-primary-main/10"
+								onClick={() => setDrugToEdit(row.original)}
+							>
+								<IconBox icon="lucide:pencil" className="size-4" />
+								<span className="sr-only">Edit {row.original.name}</span>
+							</Button>
+							<DrugLifecycleButton drug={row.original} />
+						</div>
+					),
+					enableSorting: false,
+					header: () => <span className="block text-right max-md:sr-only">Actions</span>,
+					id: "actions",
+				}),
+			]),
+		[]
+	);
+
+	const table = useDataTable({
+		columns,
+		data: drugs,
+		getRowId: (drug) => drug.id,
+		manualPagination: true,
+		meta: { queryKeys: DRUG_TABLE_QUERY_KEYS },
+		onPaginationChange,
+		rowCount: result?.pagination?.total ?? 0,
+		state: { pagination },
+	});
+
+	return (
+		<>
+			<DialogAnimated.Content
+				withCloseButton={false}
+				className="flex h-[min(720px,calc(100svh-32px))] max-w-[820px] flex-col gap-0 overflow-hidden
+					rounded-xl border-shadcn-border bg-white p-0 shadow-2xl"
+			>
+				<header
+					className="flex items-start justify-between gap-6 border-b border-shadcn-border/70 p-5
+						md:px-6"
+				>
+					<div className="flex flex-col gap-1">
+						<DialogAnimated.Title className="text-[20px] font-extrabold text-black">
+							Drug Management
+						</DialogAnimated.Title>
+						<DialogAnimated.Description className="text-[13px] font-medium text-vitastock-body-color">
+							Manage the Drug Master records used across inventory.
+						</DialogAnimated.Description>
+					</div>
+					<DialogAnimated.Close
+						className="rounded-lg p-1 text-vitastock-body-color hover:bg-shadcn-muted"
+					>
+						<IconBox icon="lucide:x" className="size-6" />
+						<span className="sr-only">Close</span>
+					</DialogAnimated.Close>
+				</header>
+
+				<DashboardDataTable
+					table={table}
+					isError={inventoryDrugsQueryResult.isError}
+					isLoading={inventoryDrugsQueryResult.isLoading}
+					emptyMessage="No Drug Master records found."
+					errorMessage="Failed to load Drug Master records."
+					totalRows={result?.pagination?.total}
+					classNames={{
+						base: "min-h-0 flex-1",
+						pagination: "shrink-0",
+						tableCell: "px-5 md:px-6",
+						tableContainer: "min-h-0 flex-1",
+						tableHead: "px-5 md:px-6",
+						tableRoot: "md:min-w-[720px]",
+					}}
+				>
+					<DataTableQueryToolbar
+						table={table}
+						isSearching={inventoryDrugsQueryResult.isFetching && Boolean(search)}
+						searchPlaceholder="Search drugs..."
+						actions={
+							<DialogAnimated.Root>
+								<DialogAnimated.Trigger asChild={true}>
+									<Button className="h-10 rounded-lg px-4">
+										<IconBox icon="lucide:plus" className="size-4" />
+										Add Drug
+									</Button>
+								</DialogAnimated.Trigger>
+								<CreateDrugDialog />
+							</DialogAnimated.Root>
+						}
+					/>
+				</DashboardDataTable>
+			</DialogAnimated.Content>
+
+			<DialogAnimated.Root
+				open={drugToEdit !== null}
+				onOpenChange={(isOpen) => !isOpen && setDrugToEdit(null)}
+			>
+				{drugToEdit && <EditDrugDialog drug={drugToEdit} onComplete={() => setDrugToEdit(null)} />}
+			</DialogAnimated.Root>
+		</>
+	);
+}
+
+export function CreateDrugDialog(props: { initialName?: string; onComplete?: (drug: Drug) => void }) {
+	const { initialName = "", onComplete } = props;
+	const dialogContext = useDialogContext();
+	const queryClient = useQueryClient();
+	const form = useForm({
+		defaultValues: {
+			form: "",
+			genericName: "",
+			lowStockThreshold: "",
+			name: initialName,
+			strength: "",
+			unit: "",
+		},
+		resolver: zodResolver(DrugCreateSchema),
+	});
+
+	const onSubmit = form.handleSubmit(async (data) => {
+		await callBackendApiForQuery("@post/inventory/drugs", {
+			body: data,
+			meta: { toast: { success: true } },
+			onSuccess: (ctx) => {
+				posthog?.capture("inventory_drug_created");
+
+				void Promise.all([
+					queryClient.invalidateQueries({
+						queryKey: inventoryDrugsQuery().queryKey.slice(0, -1),
+					}),
+					queryClient.invalidateQueries(inventorySummaryQuery()),
+					queryClient.invalidateQueries(dashboardOverviewQuery()),
+				]);
+				form.reset();
+				onComplete?.(ctx.data.data.drug);
+				dialogContext.setIsOpen(false);
+			},
+		});
+	});
+
+	return (
+		<DrugFormDialog
+			description="Create a Drug Master record for stock movements."
+			form={form}
+			submitLabel="Add Drug"
+			title="Add New Drug"
+			onSubmit={onSubmit}
+		/>
+	);
+}
+
+export function EditDrugDialog(props: { drug: Drug; onComplete: () => void }) {
+	const { drug, onComplete } = props;
+	const queryClient = useQueryClient();
+	const form = useForm({
+		defaultValues: {
+			form: drug.form ?? "",
+			genericName: drug.genericName,
+			lowStockThreshold: drug.lowStockThreshold ?? "",
+			name: drug.name,
+			strength: drug.strength ?? "",
+			unit: drug.unit ?? "",
+		},
+		resolver: zodResolver(DrugUpdateSchema),
+	});
+
+	const onSubmit = form.handleSubmit(async (data) => {
+		await callBackendApiForQuery("@patch/inventory/drugs/:drugId", {
+			body: data,
+			meta: { toast: { success: true } },
+			onSuccess: () => {
+				posthog?.capture("inventory_drug_updated");
+
+				void Promise.all([
+					queryClient.invalidateQueries({
+						queryKey: inventoryDrugsQuery().queryKey.slice(0, -1),
+					}),
+					queryClient.invalidateQueries(inventorySummaryQuery()),
+					queryClient.invalidateQueries(dashboardOverviewQuery()),
+					queryClient.invalidateQueries({ queryKey: inventoryAlertsQuery().queryKey.slice(0, -1) }),
+					queryClient.invalidateQueries(inventoryAlertsStatusQuery()),
+				]);
+				onComplete();
+			},
+			params: { drugId: drug.id },
+		});
+	});
+
+	return (
+		<DrugFormDialog
+			batchExpiryEditor={<BatchExpiryEditor drug={drug} />}
+			description="Update the Drug Master record used by inventory movements."
+			form={form}
+			submitLabel="Save Changes"
+			title="Edit Drug"
+			onSubmit={onSubmit}
+		/>
+	);
+}
+
+function DrugFormDialog<TFieldValues extends FieldValues, TTransformedValues extends FieldValues>(props: {
+	batchExpiryEditor?: ReactNode;
+	description: string;
+	form: UseFormReturn<TFieldValues, unknown, TTransformedValues>;
+	onSubmit: (event?: React.BaseSyntheticEvent) => Promise<void>;
+	submitLabel: string;
+	title: string;
+}) {
+	const { batchExpiryEditor, description, form, onSubmit, submitLabel, title } = props;
+
+	return (
+		<DialogAnimated.Content
+			withCloseButton={false}
+			className={cnJoin(
+				`flex max-h-[calc(100svh-32px)] max-w-[560px] flex-col gap-0 overflow-hidden rounded-xl
+				border-shadcn-border bg-white p-0 shadow-2xl`,
+				batchExpiryEditor && "h-[min(760px,calc(100svh-32px))]"
+			)}
+		>
+			<header
+				className="flex items-start justify-between gap-6 border-b border-shadcn-border/70 px-5 py-4"
+			>
+				<div className="flex flex-col gap-1">
+					<DialogAnimated.Title className="text-[17px] font-extrabold text-black">
+						{title}
+					</DialogAnimated.Title>
+					<DialogAnimated.Description className="text-[12px] font-medium text-vitastock-body-color/90">
+						{description}
+					</DialogAnimated.Description>
+				</div>
+				<DialogAnimated.Close
+					className="rounded-lg p-1 text-vitastock-body-color hover:bg-shadcn-muted"
+				>
+					<IconBox icon="lucide:x" className="size-6" />
+					<span className="sr-only">Close</span>
+				</DialogAnimated.Close>
+			</header>
+
+			<Form.Root
+				form={form}
+				className="flex min-h-0 flex-1 flex-col"
+				onSubmit={(event) => void onSubmit(event)}
+			>
+				<ScrollArea.Root classNames={{ base: "grid min-h-0 flex-1", viewport: "h-auto min-h-0" }}>
+					<DrugFormFields />
+					{batchExpiryEditor}
+				</ScrollArea.Root>
+
+				<DialogAnimated.Footer
+					className="flex-row justify-end gap-3 border-t border-shadcn-border/70 bg-shadcn-muted/30
+						p-4 *:flex-1 md:*:flex-none"
+				>
+					<DialogAnimated.Close asChild={true}>
+						<Button theme="primary-ghost" className="h-10 px-4">
+							Cancel
+						</Button>
+					</DialogAnimated.Close>
+					<Form.Submit asChild={true}>
+						{(formState) => (
+							<Button
+								isDisabled={formState.isSubmitting}
+								isLoading={formState.isSubmitting}
+								className="h-10 px-4"
+							>
+								{submitLabel}
+							</Button>
+						)}
+					</Form.Submit>
+				</DialogAnimated.Footer>
+			</Form.Root>
+		</DialogAnimated.Content>
+	);
+}
+
+function BatchExpiryEditor(props: { drug: Drug }) {
+	const { drug } = props;
+	const batchesQuery = inventoryDrugBatchesQuery({ drugId: drug.id }, { availability: "all" });
+	const batchesQueryResult = useQuery(batchesQuery);
+	const batches = batchesQueryResult.data?.batches ?? [];
+
+	return (
+		<div className="border-t border-shadcn-border/70 px-5 py-4">
+			<div className="flex flex-col gap-1">
+				<h3 className="text-[14px] font-bold text-black">Batch Expiry Dates</h3>
+				<p className="text-[12px]/5 text-vitastock-body-color">
+					Update an expiry date by matching the batch number and remaining quantity with the physical
+					stock.
+				</p>
+			</div>
+
+			{batchesQueryResult.isLoading && (
+				<p className="mt-4 text-[13px] text-vitastock-body-color">Loading stocked batches...</p>
+			)}
+
+			{batchesQueryResult.isError && (
+				<p className="mt-4 text-[13px] text-shadcn-destructive">
+					Unable to load stocked batches. Try reopening this dialog.
+				</p>
+			)}
+
+			{batchesQueryResult.isSuccess && batches.length === 0 && (
+				<p className="mt-4 rounded-lg bg-shadcn-muted/60 p-3 text-[13px] text-vitastock-body-color">
+					This drug has no batch with remaining stock.
+				</p>
+			)}
+
+			<div className="mt-4 flex flex-col gap-3">
+				<For
+					each={batches}
+					renderItem={(batch) => (
+						<BatchExpiryRow key={batch.id} batch={batch} drugId={drug.id} drugUnit={drug.unit} />
+					)}
+				/>
+			</div>
+		</div>
+	);
+}
+
+function BatchExpiryRow(props: { batch: DrugBatch; drugId: string; drugUnit: string | null }) {
+	const { batch, drugId, drugUnit } = props;
+	const queryClient = useQueryClient();
+	const [expiryDate, setExpiryDate] = useState(batch.expiryDate);
+	const mutation = useMutation({
+		mutationFn: () =>
+			callBackendApiForQuery("@patch/inventory/batches/:batchId", {
+				body: { expiryDate },
+				meta: { toast: { success: true } },
+				params: { batchId: batch.id },
+			}),
+		onSuccess: (result) => {
+			setExpiryDate(result.data.batch.expiryDate);
+			posthog?.capture("inventory_batch_expiry_corrected");
+
+			void Promise.all([
+				queryClient.invalidateQueries(inventoryDrugBatchesQuery({ drugId }, { availability: "all" })),
+				queryClient.invalidateQueries(inventorySummaryQuery()),
+				queryClient.invalidateQueries(dashboardOverviewQuery()),
+				queryClient.invalidateQueries({ queryKey: inventoryAlertsQuery().queryKey.slice(0, -1) }),
+				queryClient.invalidateQueries(inventoryAlertsStatusQuery()),
+			]);
+		},
+	});
+
+	return (
+		<article className="rounded-lg border border-shadcn-border/70 bg-shadcn-muted/25 p-3">
+			<div className="flex flex-wrap items-start justify-between gap-2">
+				<div>
+					<p className="text-[13px] font-bold text-black">
+						{batch.batchNumber ?? "Unnumbered batch"}
+					</p>
+					<p className="mt-0.5 text-[12px] text-vitastock-body-color">
+						{batch.quantityAvailable.toLocaleString()} {drugUnit ?? "units"} remaining · Recorded
+						expiry: {formatDate(batch.expiryDate)}
+					</p>
+				</div>
+			</div>
+
+			<div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+				<DateTimePicker
+					variant="date"
+					dateString={expiryDate}
+					placeholder="Select corrected expiry date"
+					dateFormats={{ onChangeDate: "yyyy-MM-dd", visibleDate: "MMM d, yyyy" }}
+					datePickerProps={BATCH_EXPIRY_DATE_PICKER_RANGE}
+					className="h-10 min-w-0 rounded-lg border border-shadcn-border bg-white px-3 sm:flex-1"
+					onDateStringChange={(value) => setExpiryDate(value ?? "")}
+				/>
+				<Button
+					type="button"
+					isDisabled={!expiryDate || expiryDate === batch.expiryDate || mutation.isPending}
+					isLoading={mutation.isPending}
+					className="h-10 shrink-0 px-4"
+					onClick={() => mutation.mutate()}
+				>
+					Update expiry
+				</Button>
+			</div>
+		</article>
+	);
+}
+
+function DrugFormFields() {
+	const form = useFormContext();
+	const sessionQueryResult = useQuery(sessionQuery());
+	const workspaceDefault = sessionQueryResult.data?.workspace.lowStockThreshold;
+	const lowStockThresholdDescription = (() => {
+		if (workspaceDefault === undefined) {
+			return "Leave blank to use the workspace default.";
+		}
+
+		return `Leave blank to use the workspace default of ${workspaceDefault}.`;
+	})();
+
+	return (
+		<div className="grid gap-4 p-5 sm:grid-cols-2">
+			<InputField
+				control={form.control}
+				name="name"
+				label="Drug Name"
+				placeholder="e.g. Coartem"
+				required={true}
+			/>
+			<InputField
+				control={form.control}
+				name="genericName"
+				label="Generic Name"
+				placeholder="e.g. Artemether/Lumefantrine"
+				required={true}
+			/>
+			<InputField
+				control={form.control}
+				name="strength"
+				label="Strength (Optional)"
+				placeholder="e.g. 20mg/120mg"
+			/>
+			<InputField
+				control={form.control}
+				name="form"
+				label="Dosage Form (Optional)"
+				placeholder="e.g. Tablet"
+			/>
+			<InputField control={form.control} name="unit" label="Unit (Optional)" placeholder="e.g. Box" />
+			<InputField
+				control={form.control}
+				name="lowStockThreshold"
+				type="number"
+				inputMode="numeric"
+				min={0}
+				step={1}
+				label="Low Stock Threshold (Optional)"
+				description={lowStockThresholdDescription}
+				placeholder={workspaceDefault?.toString() ?? "e.g. 10"}
+				classNames={{ base: "sm:col-span-2" }}
+			/>
+		</div>
+	);
+}
+
+function DrugLifecycleButton(props: { drug: Drug }) {
+	const { drug } = props;
+	const queryClient = useQueryClient();
+	const handleInventoryDrugActionMutationResult = useMutation(
+		handleInventoryDrugActionMutation({ drugId: drug.id })
+	);
+	const action = drug.isActive ? "deactivate" : "reactivate";
+
+	const handleAction = () => {
+		handleInventoryDrugActionMutationResult.mutate(
+			{ action },
+			{
+				onSuccess: () => {
+					posthog?.capture("inventory_drug_lifecycle_changed", { action });
+
+					void Promise.all([
+						queryClient.invalidateQueries({
+							queryKey: inventoryDrugsQuery().queryKey.slice(0, -1),
+						}),
+						queryClient.invalidateQueries(inventorySummaryQuery()),
+						queryClient.invalidateQueries(dashboardOverviewQuery()),
+					]);
+				},
+			}
+		);
+	};
+
+	return (
+		<Button
+			unstyled={true}
+			isDisabled={handleInventoryDrugActionMutationResult.isPending}
+			isLoading={handleInventoryDrugActionMutationResult.isPending}
+			loadingStyle="side-by-side"
+			className={cnJoin(
+				"grid size-8 place-items-center rounded-lg hover:bg-shadcn-muted",
+				drug.isActive && "text-shadcn-destructive",
+				!drug.isActive && "text-emerald-700"
+			)}
+			onClick={handleAction}
+		>
+			<IconBox icon={drug.isActive ? "lucide:archive" : "lucide:refresh-cw"} className="size-4" />
+			<span className="sr-only">
+				{drug.isActive ? "Deactivate" : "Reactivate"} {drug.name}
+			</span>
+		</Button>
+	);
+}

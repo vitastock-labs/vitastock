@@ -1,0 +1,76 @@
+meta {
+  name: change-member-role
+  type: http
+  seq: 3
+}
+
+patch {
+  url: {{baseURL}}/workspace/member/role
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "memberId": "{{memberId}}",
+    "role": "admin"
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  # Change Member Role
+
+  Changes an eligible workspace membership between `admin` and `pharmacist`.
+
+  ## Authorization
+
+  Requires the workspace `owner`. Admins and pharmacists receive `403 Forbidden`.
+
+  ## Request Body
+
+  | Field | Type | Required | Rules / Description |
+  |-------|------|----------|---------------------|
+  | `memberId` | UUID | Yes | User ID from the workspace-members response. |
+  | `role` | string | Yes | `admin` or `pharmacist`. |
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Member role updated successfully",
+    "data": null
+  }
+  ```
+
+  ## Safety Rules
+
+  - The authenticated owner cannot change their own role.
+  - A workspace owner cannot be modified.
+  - The `owner` role is not accepted in the request schema.
+  - The target must belong to the authenticated workspace.
+
+  ## Side Effects
+
+  - Updates the role on `workspace_memberships`, not on the user identity record.
+  - Invalidates the target user's membership cache.
+  - Emits a safe role-change observability event.
+
+  ## Errors
+
+  | Status | Message / Description |
+  |--------|-----------------------|
+  | `400 Bad Request` | Self-target: `You cannot perform this action on your own account`. |
+  | `400 Bad Request` | Owner target: `Workspace owners cannot be modified`. |
+  | `401 Unauthorized` | Authentication is invalid or membership is suspended. |
+  | `403 Forbidden` | The authenticated member is not the owner. |
+  | `404 Not Found` | `Workspace member not found`. |
+  | `422 Unprocessable Entity` | `memberId` or `role` is invalid. |
+}

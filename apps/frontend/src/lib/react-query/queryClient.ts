@@ -7,6 +7,8 @@ const makeQueryClient = () => {
 		defaultOptions: {
 			queries: {
 				retry: 0,
+				// == Absorbs refetch bursts from focus/remounts; mutations still invalidate what they change
+				staleTime: 10_000,
 			},
 		},
 	});
