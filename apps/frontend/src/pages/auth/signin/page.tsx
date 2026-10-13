@@ -10,7 +10,6 @@ import { NavLink } from "@/components/common/NavLink";
 import { Button } from "@/components/ui";
 import { Form } from "@/components/ui/form";
 import { callBackendApiForQuery } from "@/lib/api/callBackendApi";
-import { checkUserSessionForQuery } from "@/lib/api/callBackendApi/plugins/utils/session";
 import { posthog } from "@/lib/posthog";
 import { sessionQuery } from "@/lib/react-query/queryOptions";
 import { InputField } from "@/pages/(home)/-components/FormPartsShared";
@@ -48,9 +47,8 @@ function SigninPage() {
 				}
 			},
 
-			onSuccess: async () => {
-				const session = await checkUserSessionForQuery();
-				const user = session.data.user;
+			onSuccess: async (ctx) => {
+				const user = ctx.data.data.user;
 
 				posthog?.identify(user.id, { email: user.email, name: user.fullName, role: user.role });
 				posthog?.capture("user_signed_in");
