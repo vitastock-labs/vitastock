@@ -62,8 +62,10 @@ const dispenseReasonOptions = DispenseReasonSchema.options.map((reason) => ({
 	value: reason,
 }));
 
-const getCartItemPatientName = (item: Pick<DispenseCartFormItem, "patientName" | "reason">) => {
-	if (item.reason !== DispenseReasonSchema.enum.patient) {
+const getCartItemPatientName = (
+	item: Pick<DispenseCartFormItem, "patientName" | "reason"> | undefined
+) => {
+	if (!item || item.reason !== DispenseReasonSchema.enum.patient) {
 		return null;
 	}
 
@@ -734,7 +736,13 @@ function CartLinePatientName(props: {
 	const { control, index, onPatientNameChange } = props;
 
 	const [draftPatientName, setDraftPatientName] = useState<string | null>(null);
+
 	const cartItem = useWatch({ control, name: `items.${index}` });
+
+	// eslint-disable-next-line ts-eslint/no-unnecessary-condition
+	if (!cartItem) {
+		return null;
+	}
 
 	const commitDraftPatientName = () => {
 		if (draftPatientName === null) return;
@@ -745,7 +753,7 @@ function CartLinePatientName(props: {
 
 	if (draftPatientName !== null) {
 		return (
-			<input
+			<Form.InputPrimitive
 				ref={(node) => node?.focus()}
 				value={draftPatientName}
 				aria-label="Patient name for this medication"
