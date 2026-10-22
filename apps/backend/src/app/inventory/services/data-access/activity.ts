@@ -25,7 +25,9 @@ const activityId = sql<string>`
 	  ':',
 	  ${stockLogs.logType},
 	  ':',
-	  coalesce(${stockLogs.reason}, '')
+	  coalesce(${stockLogs.reason}, ''),
+	  ':',
+	  coalesce(${stockLogs.patientName}, '')
 	)
 `;
 
@@ -34,7 +36,8 @@ const logicalMovementCount = sql<number>`
 	  ${stockLogs.stockTransactionId},
 	  ${stockLogs.drugId},
 	  ${stockLogs.logType},
-	  ${stockLogs.reason}
+	  ${stockLogs.reason},
+	  ${stockLogs.patientName}
 	))
 `.mapWith(Number);
 
@@ -60,6 +63,7 @@ const getLogicalActivityRows = (options: {
 			id: activityId,
 			logType: stockLogs.logType,
 			notes: stockLogs.notes,
+			patientName: stockLogs.patientName,
 			person: users.fullName,
 			quantity: sql<number>`sum(${stockLogs.quantity})`.mapWith(Number),
 			reason: stockLogs.reason,
@@ -74,6 +78,7 @@ const getLogicalActivityRows = (options: {
 			stockLogs.drugId,
 			stockLogs.logType,
 			stockLogs.reason,
+			stockLogs.patientName,
 			stockLogs.notes,
 			drugs.id,
 			users.id
@@ -110,7 +115,8 @@ const getInventoryActivityWhereConditions = (options: {
 				ilike(drugs.genericName, `%${query.search}%`),
 				ilike(drugs.name, `%${query.search}%`),
 				ilike(drugs.strength, `%${query.search}%`),
-				ilike(users.fullName, `%${query.search}%`)
+				ilike(users.fullName, `%${query.search}%`),
+				ilike(stockLogs.patientName, `%${query.search}%`)
 			)
 		);
 	}

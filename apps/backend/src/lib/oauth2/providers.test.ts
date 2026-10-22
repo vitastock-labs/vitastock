@@ -1,6 +1,6 @@
 import { generateKeyPairSync } from "node:crypto";
 import { decode } from "jsonwebtoken";
-import { describe, expect, test, vi } from "vitest";
+import { expect, test, vi } from "vitest";
 import * as providerCatalog from "./providers";
 import {
 	createAppleOAuth2Client,
@@ -211,28 +211,26 @@ test("OAuth2 providers - unwraps Withings token responses", async () => {
 	expect(getRequestBody(customFetchImpl).get("action")).toBe("requesttoken");
 });
 
-describe("OAuth2 providers - Apple", () => {
-	test("creates a short-lived ES256 client secret", async () => {
-		const { privateKey } = generateKeyPairSync("ec", { namedCurve: "P-256" });
-		const customFetchImpl = createJsonFetch({ access_token: "apple-token", token_type: "Bearer" });
-		const apple = createAppleOAuth2Client({
-			callApiConfig: { customFetchImpl },
-			clientId: "com.example.web",
-			keyId: "APPLE_KEY_ID",
-			privateKey: privateKey.export({ format: "pem", type: "pkcs8" }),
-			redirectUri: "https://example.com/auth/apple/callback",
-			teamId: "APPLE_TEAM_ID",
-		});
+test("OAuth2 providers - Apple - creates a short-lived ES256 client secret", async () => {
+	const { privateKey } = generateKeyPairSync("ec", { namedCurve: "P-256" });
+	const customFetchImpl = createJsonFetch({ access_token: "apple-token", token_type: "Bearer" });
+	const apple = createAppleOAuth2Client({
+		callApiConfig: { customFetchImpl },
+		clientId: "com.example.web",
+		keyId: "APPLE_KEY_ID",
+		privateKey: privateKey.export({ format: "pem", type: "pkcs8" }),
+		redirectUri: "https://example.com/auth/apple/callback",
+		teamId: "APPLE_TEAM_ID",
+	});
 
-		await apple.exchangeAuthorizationCode({ code: "code" });
-		const clientSecret = getRequestBody(customFetchImpl).get("client_secret");
-		const decoded = decode(clientSecret ?? "", { complete: true });
+	await apple.exchangeAuthorizationCode({ code: "code" });
+	const clientSecret = getRequestBody(customFetchImpl).get("client_secret");
+	const decoded = decode(clientSecret ?? "", { complete: true });
 
-		expect(decoded?.header).toMatchObject({ alg: "ES256", kid: "APPLE_KEY_ID", typ: "JWT" });
-		expect(decoded?.payload).toMatchObject({
-			aud: "https://appleid.apple.com",
-			iss: "APPLE_TEAM_ID",
-			sub: "com.example.web",
-		});
+	expect(decoded?.header).toMatchObject({ alg: "ES256", kid: "APPLE_KEY_ID", typ: "JWT" });
+	expect(decoded?.payload).toMatchObject({
+		aud: "https://appleid.apple.com",
+		iss: "APPLE_TEAM_ID",
+		sub: "com.example.web",
 	});
 });

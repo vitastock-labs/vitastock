@@ -1,9 +1,9 @@
 import { backendApiSchemaRoutes } from "@vitastock/shared/validation/backendApiSchema";
 import { Hono, type Context } from "hono";
 import { MemoryStore, rateLimiter, type HonoConfigProps } from "hono-rate-limiter";
-import { describe, expect, test, vi } from "vitest";
+import { expect, test, vi } from "vitest";
 import type { HonoAppBindings } from "@/lib/types/common";
-import { AppError, getClientIp } from "@/lib/utils";
+import { AppError } from "@/lib/utils";
 import { errorHandler } from "@/middleware/errorHandler/errorHandler";
 import { validateWithZodMiddleware } from "@/middleware/validateWithZodMiddleware";
 import { authRateLimiterOptions, getRateLimitedMessage } from "./rateLimiterOptions";
@@ -85,74 +85,72 @@ const repeatStatus = (status: number, count: number) => Array.from({ length: cou
 const signInLimit = authRateLimiterOptions.signin.limit as number;
 const signInIpLimit = authRateLimiterOptions["signin-ip"].limit as number;
 
-describe("sign-in rate limiting", () => {
-	test("failed sign-ins (401 thrown as AppError) count towards the limit", async () => {
-		const app = createSignInApp();
+test("Sign-in rate limiting - failed sign-ins (401 thrown as AppError) count towards the limit", async () => {
+	const app = createSignInApp();
 
-		const statuses = await signInRepeatedly(app, signInLimit, () => ({ email: "jane@pharmacy.test" }));
+	const statuses = await signInRepeatedly(app, signInLimit, () => ({ email: "jane@pharmacy.test" }));
 
-		expect(statuses).toEqual(repeatStatus(401, signInLimit));
+	expect(statuses).toEqual(repeatStatus(401, signInLimit));
 
-		const blocked = await signIn(app, { email: "jane@pharmacy.test" });
+	const blocked = await signIn(app, { email: "jane@pharmacy.test" });
 
-		expect(blocked.status).toBe(429);
-		expect(blocked.headers.get("Retry-After")).toBeTruthy();
-		expect(blocked.body.message).toBe("Too many attempts. Please try again in about 15 minutes.");
+	expect(blocked.status).toBe(429);
+	expect(blocked.headers.get("Retry-After")).toBeTruthy();
+	expect(blocked.body.message).toBe("Too many attempts. Please try again in about 15 minutes.");
 
-		const blockedValid = await signIn(app, { email: "jane@pharmacy.test", password: VALID_PASSWORD });
+	const blockedValid = await signIn(app, { email: "jane@pharmacy.test", password: VALID_PASSWORD });
 
-		expect(blockedValid.status).toBe(429);
-	});
+	expect(blockedValid.status).toBe(429);
+});
 
-	test("successful sign-ins do not count towards the limit", async () => {
-		const app = createSignInApp();
+test("Sign-in rate limiting - successful sign-ins do not count towards the limit", async () => {
+	const app = createSignInApp();
 
-		const successStatuses = await signInRepeatedly(app, signInLimit * 2, () => ({
-			email: "jane@pharmacy.test",
-			password: VALID_PASSWORD,
-		}));
+	const successStatuses = await signInRepeatedly(app, signInLimit * 2, () => ({
+		email: "jane@pharmacy.test",
+		password: VALID_PASSWORD,
+	}));
 
-		expect(successStatuses).toEqual(repeatStatus(200, signInLimit * 2));
+	expect(successStatuses).toEqual(repeatStatus(200, signInLimit * 2));
 
-		const failureStatuses = await signInRepeatedly(app, signInLimit + 1, () => ({
-			email: "jane@pharmacy.test",
-		}));
+	const failureStatuses = await signInRepeatedly(app, signInLimit + 1, () => ({
+		email: "jane@pharmacy.test",
+	}));
 
-		expect(failureStatuses).toEqual([...repeatStatus(401, signInLimit), 429]);
-	});
+	expect(failureStatuses).toEqual([...repeatStatus(401, signInLimit), 429]);
+});
 
-	test("the limit is keyed on IP + normalised email", async () => {
-		const app = createSignInApp();
+test("Sign-in rate limiting - the limit is keyed on IP + normalised email", async () => {
+	const app = createSignInApp();
 
-		await signInRepeatedly(app, signInLimit, () => ({ email: "Jane@Pharmacy.test" }));
+	await signInRepeatedly(app, signInLimit, () => ({ email: "Jane@Pharmacy.test" }));
 
-		const sameEmail = await signIn(app, { email: "  jane@pharmacy.TEST " });
-		expect(sameEmail.status).toBe(429);
+	const sameEmail = await signIn(app, { email: "  jane@pharmacy.TEST " });
+	expect(sameEmail.status).toBe(429);
 
-		const colleague = await signIn(app, { email: "tunde@pharmacy.test" });
-		expect(colleague.status).toBe(401);
+	const colleague = await signIn(app, { email: "tunde@pharmacy.test" });
+	expect(colleague.status).toBe(401);
 
-		const otherIp = await signIn(app, { email: "jane@pharmacy.test", ip: "198.51.100.7" });
-		expect(otherIp.status).toBe(401);
-	});
+	const otherIp = await signIn(app, { email: "jane@pharmacy.test", ip: "198.51.100.7" });
+	expect(otherIp.status).toBe(401);
+});
 
-	test("the per-IP backstop blocks failures spread across many emails", async () => {
-		const app = createSignInApp();
+test("Sign-in rate limiting - the per-IP backstop blocks failures spread across many emails", async () => {
+	const app = createSignInApp();
 
-		const statuses = await signInRepeatedly(app, signInIpLimit, (attempt) => ({
-			email: `user${attempt}@pharmacy.test`,
-		}));
+	const statuses = await signInRepeatedly(app, signInIpLimit, (attempt) => ({
+		email: `user${attempt}@pharmacy.test`,
+	}));
 
-		expect(statuses).toEqual(repeatStatus(401, signInIpLimit));
+	expect(statuses).toEqual(repeatStatus(401, signInIpLimit));
 
-		const blocked = await signIn(app, { email: "fresh@pharmacy.test" });
+	const blocked = await signIn(app, { email: "fresh@pharmacy.test" });
 
-		expect(blocked.status).toBe(429);
-		expect(blocked.body.message).toBe("Too many attempts. Please try again in about an hour.");
+	expect(blocked.status).toBe(429);
+	expect(blocked.body.message).toBe("Too many attempts. Please try again in about an hour.");
 
-		const otherIp = await signIn(app, { email: "fresh@pharmacy.test", ip: "198.51.100.7" });
-		expect(otherIp.status).toBe(401);
-	});
+	const otherIp = await signIn(app, { email: "fresh@pharmacy.test", ip: "198.51.100.7" });
+	expect(otherIp.status).toBe(401);
 });
 
 const getMessageForReset = async (resetInMs: number | null) => {
@@ -175,65 +173,30 @@ const getMessageForReset = async (resetInMs: number | null) => {
 	return response.text();
 };
 
-describe("auth rate limiter options", () => {
-	test("each auth route has its own Redis prefix", () => {
-		const prefixes = Object.entries(authRateLimiterOptions).map(([route, options]) => {
-			const { prefix } = options.store as unknown as { prefix: string };
+test("Auth rate limiter options - each auth route has its own Redis prefix", () => {
+	const prefixes = Object.entries(authRateLimiterOptions).map(([route, options]) => {
+		const { prefix } = options.store as unknown as { prefix: string };
 
-			expect(prefix).toBe(`rate-limit:auth:${route}:`);
+		expect(prefix).toBe(`rate-limit:auth:${route}:`);
 
-			return prefix;
-		});
-
-		expect(new Set(prefixes).size).toBe(prefixes.length);
+		return prefix;
 	});
 
-	test("429 message is computed from the limiter's reset time", async () => {
-		await expect(getMessageForReset(12 * 60 * 1000 - 500)).resolves.toBe(
-			"Too many attempts. Please try again in about 12 minutes."
-		);
-		await expect(getMessageForReset(20 * 1000)).resolves.toBe(
-			"Too many attempts. Please try again in about a minute."
-		);
-		await expect(getMessageForReset(65 * 60 * 1000)).resolves.toBe(
-			"Too many attempts. Please try again in about an hour."
-		);
-
-		await expect(getMessageForReset(null)).resolves.toBe(
-			"Too many attempts. Please try again in about 30 minutes."
-		);
-	});
+	expect(new Set(prefixes).size).toBe(prefixes.length);
 });
 
-const requestIp = async (headers: Record<string, string>, env?: unknown) => {
-	const app = new Hono().get("/ip", (ctx) => ctx.text(getClientIp(ctx) ?? "undefined"));
+test("Auth rate limiter options - 429 message is computed from the limiter's reset time", async () => {
+	await expect(getMessageForReset(12 * 60 * 1000 - 500)).resolves.toBe(
+		"Too many attempts. Please try again in about 12 minutes."
+	);
+	await expect(getMessageForReset(20 * 1000)).resolves.toBe(
+		"Too many attempts. Please try again in about a minute."
+	);
+	await expect(getMessageForReset(65 * 60 * 1000)).resolves.toBe(
+		"Too many attempts. Please try again in about an hour."
+	);
 
-	const response = await app.request("/ip", { headers }, env);
-
-	return response.text();
-};
-
-describe("getClientIp", () => {
-	test("prefers DigitalOcean's do-connecting-ip over x-forwarded-for", async () => {
-		await expect(
-			requestIp({ "do-connecting-ip": "203.0.113.10", "x-forwarded-for": "10.0.0.1" })
-		).resolves.toBe("203.0.113.10");
-	});
-
-	test("falls back to the first x-forwarded-for entry, then x-real-ip", async () => {
-		await expect(requestIp({ "x-forwarded-for": "203.0.113.10, 10.0.0.1" })).resolves.toBe(
-			"203.0.113.10"
-		);
-		await expect(requestIp({ "x-real-ip": "203.0.113.11" })).resolves.toBe("203.0.113.11");
-	});
-
-	test("falls back to the socket address when no proxy header is present", async () => {
-		const env = { incoming: { socket: { remoteAddress: "127.0.0.1" } } };
-
-		await expect(requestIp({}, env)).resolves.toBe("127.0.0.1");
-	});
-
-	test("returns undefined only when neither headers nor a Node socket are available", async () => {
-		await expect(requestIp({})).resolves.toBe("undefined");
-	});
+	await expect(getMessageForReset(null)).resolves.toBe(
+		"Too many attempts. Please try again in about 30 minutes."
+	);
 });

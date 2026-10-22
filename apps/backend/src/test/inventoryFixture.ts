@@ -7,7 +7,9 @@ import {
 	workspaces,
 	type SelectWorkspaceType,
 } from "@vitastock/db/schema/workspace";
+import { addDays, format } from "date-fns";
 import { eq } from "drizzle-orm";
+import { createInventoryStockLog } from "@/app/inventory/services/stock-log";
 
 type InventoryFixtureOptions = {
 	emailAlertDeliveryPolicy?: SelectWorkspaceType["emailAlertDeliveryPolicy"];
@@ -88,4 +90,44 @@ export const createInventoryFixture = async (options: InventoryFixtureOptions = 
 			});
 		},
 	};
+};
+
+export type InventoryFixture = Awaited<ReturnType<typeof createInventoryFixture>>;
+
+export const getDateFromToday = (days: number) => format(addDays(new Date(), days), "yyyy-MM-dd");
+
+export const receiveTestStock = (options: {
+	drugId: string;
+	expiresInDays: number;
+	fixture: InventoryFixture;
+	quantity: number;
+}) => {
+	const { drugId, expiresInDays, fixture, quantity } = options;
+
+	return createInventoryStockLog({
+		body: {
+			batchNumber: `BATCH-${expiresInDays}`,
+			drugId,
+			expiryDate: getDateFromToday(expiresInDays),
+			logType: "stock_in",
+			quantity,
+		},
+		idempotencyKey: randomUUID(),
+		timezone: fixture.workspace.timezone,
+		userId: fixture.user.id,
+		workspaceId: fixture.workspace.id,
+	});
+};
+
+export const createSecondTestDrug = async (fixture: InventoryFixture) => {
+	const [drug] = await db
+		.insert(drugs)
+		.values({ genericName: "Amoxicillin", name: "Amoxil", workspaceId: fixture.workspace.id })
+		.returning();
+
+	if (!drug) {
+		throw new Error("Failed to create second test drug");
+	}
+
+	return drug;
 };

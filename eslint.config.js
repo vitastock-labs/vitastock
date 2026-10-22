@@ -42,10 +42,19 @@ export default zayne(
 				{
 					property: "toSorted",
 					message:
-						"Some pharmacy are using older browsers that <= Chrome v109 lack toSorted(). Use .sort() on a fresh array instead.",
+						"Use .sort() on a new array instead because some pharmacies still use older browser versions (<= Chrome v109)",
+				},
+			],
+			"no-restricted-properties": [
+				"error",
+				{
+					property: "toArray",
+					message:
+						"Use spread operator instead of toArray() because some pharmacies still use older browser versions (<= Chrome v109)",
 				},
 			],
 			"unicorn/no-array-sort": "off",
+			"unicorn/prefer-iterator-to-array": "off",
 		},
 	},
 	{
@@ -68,7 +77,9 @@ export default zayne(
 	},
 	{
 		files: ["apps/frontend/**/*.ts"],
-		rules: { "node/no-process-env": "off" },
+		rules: {
+			"node/no-process-env": "off",
+		},
 	},
 	{
 		files: ["apps/backend/testing.ts"],

@@ -203,10 +203,8 @@ function TimePicker(props: TimePickerProps) {
 		minuteOrder = "preserve",
 	} = timeSettings ?? {};
 
-	// eslint-disable-next-line unicorn/prefer-iterator-to-array
 	const hourRange = timeSettings?.hourRange ?? [...Array(24).keys()];
 
-	// eslint-disable-next-line unicorn/prefer-iterator-to-array
 	const minuteRange = timeSettings?.minuteRange ?? [...Array(60).keys()];
 
 	function handleTimeChange(variant: "am-pm" | "hour" | "minute", value: number | string) {
