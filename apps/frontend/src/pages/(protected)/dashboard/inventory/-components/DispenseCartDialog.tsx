@@ -65,7 +65,7 @@ const dispenseReasonOptions = DispenseReasonSchema.options.map((reason) => ({
 const getCartItemPatientName = (
 	item: Pick<DispenseCartFormItem, "patientName" | "reason"> | undefined
 ) => {
-	if (!item || item.reason !== DispenseReasonSchema.enum.patient) {
+	if (item?.reason !== DispenseReasonSchema.enum.patient) {
 		return null;
 	}
 
@@ -738,11 +738,6 @@ function CartLinePatientName(props: {
 	const [draftPatientName, setDraftPatientName] = useState<string | null>(null);
 
 	const cartItem = useWatch({ control, name: `items.${index}` });
-
-	// eslint-disable-next-line ts-eslint/no-unnecessary-condition
-	if (!cartItem) {
-		return null;
-	}
 
 	const commitDraftPatientName = () => {
 		if (draftPatientName === null) return;
