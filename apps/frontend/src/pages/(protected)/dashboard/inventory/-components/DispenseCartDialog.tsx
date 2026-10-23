@@ -221,7 +221,8 @@ function DispenseCartDialogContent(props: {
 				posthog?.capture("inventory_dispense_cart_submitted", { item_count: data.items.length });
 
 				void invalidateStockMovementQueries(queryClient);
-				cartForm.reset();
+				// == Clear through the field array: reset() lets the still-mounted lines re-register blank items
+				cartItems.remove();
 				onDispensed();
 				dialogContext.setIsOpen(false);
 			},
