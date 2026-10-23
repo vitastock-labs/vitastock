@@ -1,5 +1,5 @@
 import { backendApiSchema } from "@vitastock/shared/validation/backendApiSchema";
-import { createFetchClientWithContext, type GetCallApiContext } from "@zayne-labs/callapi";
+import { createFetchClient } from "@zayne-labs/callapi";
 import { loggerPlugin } from "@zayne-labs/callapi-plugins";
 import { defineBaseConfig } from "@zayne-labs/callapi/utils";
 import { BASE_API_URL } from "./constants";
@@ -23,7 +23,7 @@ export const sharedBaseConfig = defineBaseConfig({
 		authErrorRedirectPlugin({
 			redirectDelay: 1500,
 			redirectRoute: "/auth/signin",
-			routesToExemptFromErrorRedirect: ["/", "/library/**", "/daily-tips/**", "/auth/**"],
+			routesToExemptFromErrorRedirect: ["/", "/auth/**"],
 		}),
 		toastPlugin({
 			endpointsToSkip: [
@@ -40,8 +40,6 @@ export const sharedBaseConfig = defineBaseConfig({
 
 	schema: backendApiSchema,
 });
-
-const createFetchClient = createFetchClientWithContext<GetCallApiContext<{ Meta: GlobalMeta }>>();
 
 export const callBackendApi = createFetchClient(sharedBaseConfig);
 

@@ -1,0 +1,99 @@
+meta {
+  name: stock-in
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseURL}}/inventory/stock-log
+  body: json
+  auth: inherit
+}
+
+headers {
+  x-idempotency-key: {{stockInIdempotencyKey}}
+}
+
+body:json {
+  {
+    "drugId": "{{drugId}}",
+    "logType": "stock_in",
+    "quantity": "100",
+    "expiryDate": "2027-12-31",
+    "batchNumber": "BATCH-001",
+    "notes": "Supplier delivery"
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  # Record Stock In
+
+  Records incoming stock or an opening balance for an existing drug. The stock transaction, batch update/creation, and audit log are committed atomically.
+
+  ## Authorization
+
+  Requires an authenticated user with an active workspace membership.
+
+  ## Required Header
+
+  | Header | Type | Required | Description |
+  |--------|------|----------|-------------|
+  | `x-idempotency-key` | UUID | Yes | Stable identifier for this logical stock transaction. |
+
+  Generate a new UUID for each distinct movement. Reuse the same key only when retrying the exact same request.
+
+  ## Request Body
+
+  | Field | Type | Required | Rules / Description |
+  |-------|------|----------|---------------------|
+  | `drugId` | UUID | Yes | Existing active drug in the authenticated workspace. |
+  | `logType` | string | Yes | `stock_in` or `opening_stock`. |
+  | `quantity` | numeric string | Yes | Must be greater than `0`. |
+  | `expiryDate` | calendar-date string | Yes | `YYYY-MM-DD`; today or a future date in the workspace timezone. |
+  | `batchNumber` | string or null | No | Supplier/manufacturer batch identifier. |
+  | `notes` | string or null | No | Operational context for the movement. |
+
+  ## Batch Matching
+
+  - When `batchNumber` is supplied and that number already exists for the same workspace and drug, the existing batch is locked and incremented.
+  - An existing batch number must keep its original expiry date; a different expiry is rejected.
+  - When no matching batch number exists, a new batch is created.
+  - Receipts match on drug, normalized batch number (including no number), and expiry date. Matching receipts add quantity; different expiry dates or batch numbers remain separate.
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Stock movement recorded successfully",
+    "data": null
+  }
+  ```
+
+  ## Side Effects
+
+  - Creates an idempotency transaction record.
+  - Creates or increments a stock batch.
+  - Writes an immutable stock log with the authenticated user as actor.
+  - Re-evaluates persisted low-stock and expiry alerts after the transaction commits.
+
+  ## Errors
+
+  | Status | Description |
+  |--------|-------------|
+  | `400 Bad Request` | The referenced drug is inactive or the movement cannot be applied. |
+  | `401 Unauthorized` | Authentication is invalid or workspace access is suspended. |
+  | `404 Not Found` | The drug does not exist in the authenticated workspace. |
+  | `422 Unprocessable Entity` | Header or body validation failed. |
+
+  ## Idempotency
+
+  Retrying the exact request with the same key does not add stock twice. Reusing the key with another operation or payload returns `409 Conflict`.
+}

@@ -33,7 +33,7 @@ class AppError extends Error {
 	}
 
 	static override isError(error: unknown): error is AppError {
-		return error instanceof AppError;
+		return error instanceof this;
 	}
 }
 
