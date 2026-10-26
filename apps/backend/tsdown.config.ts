@@ -6,7 +6,9 @@ export default defineConfig({
 		alwaysBundle: ["@vitastock/**"],
 	},
 	dts: {
-		eager: true,
+		tsc: {
+			eager: true,
+		},
 	},
 	entry: ["./src/server.ts", "./src/worker.ts"],
 	fixedExtension: false,
