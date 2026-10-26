@@ -14,6 +14,9 @@ const HEADER_ROW = [
 	"Low Stock Threshold",
 	"Quantity",
 	"Expiry Date",
+	"Cost Price ₦ (per unit)",
+	"Retail Price ₦ (per unit)",
+	"Wholesale Price ₦ (per unit)",
 ];
 
 const futureDate = format(addDays(new Date(), 180), "yyyy-MM-dd");
@@ -21,14 +24,17 @@ const pastDate = format(subDays(new Date(), 10), "yyyy-MM-dd");
 
 const validRow = (overrides: Partial<Record<string, unknown>> = {}) => {
 	const base: Record<string, unknown> = {
+		"Cost Price ₦ (per unit)": "",
 		"Dosage Form": "Tablet",
 		"Drug Name": "Paracetamol",
 		"Expiry Date": futureDate,
 		"Generic Name": "Paracetamol",
 		"Low Stock Threshold": "",
 		Quantity: "100",
+		"Retail Price ₦ (per unit)": "",
 		Strength: "500mg",
 		Unit: "Tablets",
+		"Wholesale Price ₦ (per unit)": "",
 	};
 
 	return HEADER_ROW.map((column) =>
@@ -258,4 +264,67 @@ test("Bulk import template - parses the shipped xlsx Data sheet with the expecte
 		totalRows: 0,
 		validRows: [],
 	});
+});
+
+test("Prices - reads naira amounts written with commas and the naira sign", () => {
+	const result = validateBulkImportSheet([
+		HEADER_ROW,
+		validRow({
+			"Cost Price ₦ (per unit)": "₦1,250",
+			"Retail Price ₦ (per unit)": "NGN 1,500.50",
+			"Wholesale Price ₦ (per unit)": 1400,
+		}),
+	]);
+
+	expect(result.status).toBe("parsed");
+	if (result.status !== "parsed") return;
+	expect(result.validRows[0]?.data).toMatchObject({
+		costPrice: 1250,
+		retailPrice: 1500.5,
+		wholesalePrice: 1400,
+	});
+});
+
+test("Prices - flags a price that is not a positive amount on that row only", () => {
+	const result = validateBulkImportSheet([
+		HEADER_ROW,
+		validRow({ "Retail Price ₦ (per unit)": "about 500" }),
+		validRow({ "Drug Name": "Amoxil", "Generic Name": "Amoxicillin" }),
+	]);
+
+	expect(result.status).toBe("parsed");
+	if (result.status !== "parsed") return;
+	expect(result.validRows).toHaveLength(1);
+	expect(result.invalidRows).toEqual([
+		expect.objectContaining({
+			errors: [expect.objectContaining({ field: "retailPrice" })],
+			rowNumber: 1,
+		}),
+	]);
+});
+
+test("Prices - still accepts files using the older Unit Cost column", () => {
+	const header = ["Drug Name", "Generic Name", "Quantity", "Expiry Date", "Unit Cost ₦"];
+	const result = validateBulkImportSheet([
+		header,
+		["Paracetamol", "Paracetamol", "10", futureDate, "300"],
+	]);
+
+	expect(result.status).toBe("parsed");
+	if (result.status !== "parsed") return;
+	expect(result.validRows[0]?.data.costPrice).toBe(300);
+});
+
+test("Prices - rejects a file that has both cost columns", () => {
+	const header = [
+		"Drug Name",
+		"Generic Name",
+		"Quantity",
+		"Expiry Date",
+		"Unit Cost ₦",
+		"Cost Price ₦ (per unit)",
+	];
+	const result = validateBulkImportSheet([header]);
+
+	expect(result.status).toBe("header-error");
 });

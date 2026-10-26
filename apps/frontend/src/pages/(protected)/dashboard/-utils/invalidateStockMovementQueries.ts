@@ -4,6 +4,8 @@ import {
 	inventoryActivityQuery,
 	inventoryAlertsQuery,
 	inventoryAlertsStatusQuery,
+	inventoryBulkImportsQuery,
+	inventoryPriceListQuery,
 	inventorySummaryQuery,
 } from "@/lib/react-query/queryOptions";
 
@@ -14,5 +16,7 @@ export const invalidateStockMovementQueries = (queryClient: QueryClient) => {
 		queryClient.invalidateQueries(inventoryAlertsStatusQuery()),
 		queryClient.invalidateQueries({ queryKey: inventoryAlertsQuery().queryKey.slice(0, -1) }),
 		queryClient.invalidateQueries({ queryKey: inventoryActivityQuery().queryKey.slice(0, -1) }),
+		queryClient.invalidateQueries({ queryKey: inventoryPriceListQuery().queryKey.slice(0, -1) }),
+		queryClient.invalidateQueries(inventoryBulkImportsQuery()),
 	]);
 };

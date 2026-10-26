@@ -34,11 +34,11 @@ export const necessaryMembershipDetails = defineEnum([
 export const necessaryWorkspaceDetails = defineEnum([
 	"id",
 	"name",
-	"alertEmail",
-	"emailAlertDeliveryPolicy",
 	"lowStockThreshold",
 	"nearExpiryDays",
 	"timezone",
+	"weeklyEmailEnabled",
+	"weeklyEmailTime",
 ] as const satisfies Array<keyof SelectWorkspaceType>);
 
 export const getNecessaryUserDetails = <const TKeys extends Array<keyof SelectUserType> = []>(
@@ -72,7 +72,7 @@ export const getCurrentMembership = async (userId: string) => {
 };
 
 export const getCurrentWorkspace = async (workspaceId: string) => {
-	const workspace = await getFromCache(`workspace:${workspaceId}`, {
+	const workspace = await getFromCache(`workspace:v2:${workspaceId}`, {
 		onCacheMiss: async () => {
 			const [workspaceResult] = await db
 				.select(pickKeys(workspaces, necessaryWorkspaceDetails))

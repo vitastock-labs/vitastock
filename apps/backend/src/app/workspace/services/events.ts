@@ -19,7 +19,7 @@ export const getWorkspaceEventPayload = (options: { requestId: string; user: Wor
 const clearWorkspaceCache = async (workspaceId: string | undefined) => {
 	if (!workspaceId) return;
 
-	await removeFromCache(`workspace:${workspaceId}`);
+	await removeFromCache(`workspace:v2:${workspaceId}`);
 };
 
 let hasRegisteredWorkspaceEventSubscribers = false;

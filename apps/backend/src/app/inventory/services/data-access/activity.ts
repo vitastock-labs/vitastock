@@ -3,7 +3,8 @@ import { users } from "@vitastock/db/schema/auth";
 import { drugs, stockLogs } from "@vitastock/db/schema/inventory";
 import type { backendApiSchemaRoutes } from "@vitastock/shared/validation/backendApiSchema";
 import { subDays } from "date-fns";
-import { and, count, desc, eq, gte, ilike, lt, or, sql, type SQL } from "drizzle-orm";
+import { and, count, desc, eq, gte, ilike, isNull, lt, or, sql, type SQL } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import type { z } from "zod";
 import { AppError } from "@/lib/utils";
 import { getWorkspaceDateRange, getWorkspaceToday } from "../utils/date";
@@ -16,6 +17,8 @@ type InventoryActivityQuery = z.infer<
 >;
 
 export const INVENTORY_ACTIVITY_EXPORT_MAX_ROWS = 10_000;
+
+const undoneByUsers = alias(users, "undone_by_users");
 
 const activityId = sql<string>`
 	concat(
@@ -64,14 +67,19 @@ const getLogicalActivityRows = (options: {
 			logType: stockLogs.logType,
 			notes: stockLogs.notes,
 			patientName: stockLogs.patientName,
+			// == The joined, grouped user id: Postgres rejects the ungrouped stock_logs column
+			performedByUserId: users.id,
 			person: users.fullName,
 			quantity: sql<number>`sum(${stockLogs.quantity})`.mapWith(Number),
 			reason: stockLogs.reason,
 			stockTransactionId: stockLogs.stockTransactionId,
+			undoneAt: stockLogs.undoneAt,
+			undoneBy: undoneByUsers.fullName,
 		})
 		.from(stockLogs)
 		.innerJoin(drugs, eq(stockLogs.drugId, drugs.id))
 		.innerJoin(users, eq(stockLogs.performedByUserId, users.id))
+		.leftJoin(undoneByUsers, eq(stockLogs.undoneByUserId, undoneByUsers.id))
 		.where(and(...whereConditions))
 		.groupBy(
 			stockLogs.stockTransactionId,
@@ -80,8 +88,10 @@ const getLogicalActivityRows = (options: {
 			stockLogs.reason,
 			stockLogs.patientName,
 			stockLogs.notes,
+			stockLogs.undoneAt,
 			drugs.id,
-			users.id
+			users.id,
+			undoneByUsers.id
 		)
 		.orderBy(desc(sql`min(${stockLogs.createdAt})`), desc(stockLogs.stockTransactionId))
 		.limit(limit)
@@ -190,7 +200,13 @@ export const getInventoryActivity = async (options: {
 					`.mapWith(Number),
 				})
 				.from(stockLogs)
-				.where(and(eq(stockLogs.workspaceId, workspaceId), gte(stockLogs.createdAt, sevenDaysAgo))),
+				.where(
+					and(
+						eq(stockLogs.workspaceId, workspaceId),
+						gte(stockLogs.createdAt, sevenDaysAgo),
+						isNull(stockLogs.undoneAt)
+					)
+				),
 			db
 				.select({
 					expiredLossQuantity: sql<number>`coalesce(sum(${stockLogs.quantity}), 0)`.mapWith(Number),
@@ -200,6 +216,7 @@ export const getInventoryActivity = async (options: {
 					and(
 						eq(stockLogs.workspaceId, workspaceId),
 						gte(stockLogs.createdAt, thirtyDaysAgo),
+						isNull(stockLogs.undoneAt),
 						or(eq(stockLogs.logType, "expired"), eq(stockLogs.reason, "expired"))
 					)
 				),

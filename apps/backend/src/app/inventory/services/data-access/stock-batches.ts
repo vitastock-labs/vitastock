@@ -6,6 +6,7 @@ import { AppError } from "@/lib/utils";
 // Call within the stock transaction after locking and validating the drug.
 export const receiveStockBatch = async (options: {
 	batchNumber?: string | null;
+	costPrice?: number | null;
 	drugId: string;
 	expiryDate: string;
 	quantity: number;
@@ -13,7 +14,7 @@ export const receiveStockBatch = async (options: {
 	userId: string;
 	workspaceId: string;
 }) => {
-	const { batchNumber, drugId, expiryDate, quantity, tx, userId, workspaceId } = options;
+	const { batchNumber, costPrice, drugId, expiryDate, quantity, tx, userId, workspaceId } = options;
 	const normalizedBatchNumber = batchNumber?.trim() ?? "";
 	const [existingBatch] = await tx
 		.select()
@@ -23,7 +24,8 @@ export const receiveStockBatch = async (options: {
 				eq(stockBatches.workspaceId, workspaceId),
 				eq(stockBatches.drugId, drugId),
 				eq(stockBatches.expiryDate, expiryDate),
-				sql`coalesce(lower(btrim(${stockBatches.batchNumber})), '') = ${normalizedBatchNumber.toLowerCase()}`
+				sql`coalesce(lower(btrim(${stockBatches.batchNumber})), '') = ${normalizedBatchNumber.toLowerCase()}`,
+				sql`coalesce(${stockBatches.costPrice}, 0) = ${costPrice ?? 0}`
 			)
 		)
 		.limit(1)
@@ -45,6 +47,7 @@ export const receiveStockBatch = async (options: {
 		.insert(stockBatches)
 		.values({
 			batchNumber: normalizedBatchNumber === "" ? null : normalizedBatchNumber,
+			costPrice: costPrice ?? null,
 			drugId,
 			expiryDate,
 			quantityAvailable: quantity,

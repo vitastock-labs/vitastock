@@ -30,3 +30,25 @@ export const formatEnumLabel = (value: string) => {
 		.map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`)
 		.join(" ");
 };
+
+const nairaFormatter = new Intl.NumberFormat("en-NG", {
+	currency: "NGN",
+	maximumFractionDigits: 2,
+	minimumFractionDigits: 0,
+	style: "currency",
+});
+
+export const formatNaira = (amount: number) => {
+	return nairaFormatter.format(amount);
+};
+
+const compactNairaFormatter = new Intl.NumberFormat("en-NG", {
+	currency: "NGN",
+	maximumFractionDigits: 1,
+	notation: "compact",
+	style: "currency",
+});
+
+export const formatNairaCompact = (amount: number) => {
+	return compactNairaFormatter.format(amount);
+};

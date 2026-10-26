@@ -7,6 +7,7 @@ import {
 } from "@vitastock/shared/validation/inventoryBulkImportSchema";
 import type { ExtractUnion } from "@zayne-labs/toolkit-type-helpers";
 import { useMemo, useState } from "react";
+import type { z } from "zod";
 import { DialogAnimated } from "@/components/animated/ui";
 import * as DropZoneInput from "@/components/common/DropZoneInput";
 import { For, ForWithWrapper } from "@/components/common/for";
@@ -18,10 +19,11 @@ import { ScrollArea } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import { createDataTableColumnHelper, useDataTable } from "@/components/ui/data-table";
 import { callBackendApiForQuery } from "@/lib/api/callBackendApi";
+import type { BackendApiRoutes } from "@/lib/api/callBackendApi/apiSchema";
 import { posthog } from "@/lib/posthog";
 import { inventoryDrugsQuery, sessionQuery } from "@/lib/react-query/queryOptions";
 import { cnJoin } from "@/lib/utils/cn";
-import { formatCalendarDateInTimezone, formatDate } from "@/lib/utils/formatters";
+import { formatCalendarDateInTimezone, formatDate, formatNaira } from "@/lib/utils/formatters";
 import { waitFor } from "@/lib/utils/waitFor";
 import { EMPTY_DISPLAY_VALUE } from "@/pages/(protected)/dashboard/-components/constants";
 import {
@@ -31,10 +33,12 @@ import {
 	validateBulkImportSheet,
 	type BulkImportRowResult,
 } from "../-utils/bulkImportParsers";
-import { invalidateStockMovementQueries } from "../-utils/invalidateStockMovementQueries";
 import { DashboardDataTable } from "../../-components/DashboardDataTableShared";
+import { invalidateStockMovementQueries } from "../../-utils/invalidateStockMovementQueries";
 
 type BulkImportProcessingStep = "detecting-columns" | "preparing-preview" | "reading" | "validating-rows";
+
+type BulkImportResultType = z.infer<BackendApiRoutes["@post/inventory/bulk-import"]["data"]>["data"];
 
 const BULK_IMPORT_PROCESSING_STEPS = [
 	{ key: "reading", label: "Reading spreadsheet" },
@@ -47,22 +51,21 @@ const BULK_IMPORT_IMPORTING_STEPS = [
 	{ key: "importing", label: "Creating inventory records and alerts" },
 ] as const;
 
+type BulkImportPriceChange = BulkImportResultType["priceChanges"][number];
+
+type BulkImportPreviewState = {
+	duplicateRows: Array<Extract<BulkImportRowResult, { status: "duplicate" }>>;
+	idempotencyKey: string;
+	invalidRows: Array<Extract<BulkImportRowResult, { status: "invalid" }>>;
+	validRows: Array<Extract<BulkImportRowResult, { status: "valid" }>>;
+	warnings: Array<{ message: string; rowNumber: number }>;
+};
+
 type BulkImportStage =
-	| {
-			duplicateRows: Array<Extract<BulkImportRowResult, { status: "duplicate" }>>;
-			idempotencyKey: string;
-			invalidRows: Array<Extract<BulkImportRowResult, { status: "invalid" }>>;
-			stage: "importing";
-			validRows: Array<Extract<BulkImportRowResult, { status: "valid" }>>;
-	  }
-	| {
-			duplicateRows: Array<Extract<BulkImportRowResult, { status: "duplicate" }>>;
-			idempotencyKey: string;
-			invalidRows: Array<Extract<BulkImportRowResult, { status: "invalid" }>>;
-			stage: "preview";
-			validRows: Array<Extract<BulkImportRowResult, { status: "valid" }>>;
-	  }
+	| (BulkImportPreviewState & { stage: "importing" })
+	| (BulkImportPreviewState & { stage: "preview" })
 	| { error?: string; file: File | null; stage: "upload" }
+	| { importedCount: number; priceChanges: BulkImportPriceChange[]; stage: "complete" }
 	| { stage: "processing"; step: BulkImportProcessingStep };
 
 const describeBulkImportHeaderIssues = (issues: string[]) => issues.join(". ");
@@ -104,6 +107,12 @@ const partitionBulkImportRows = (
 	return { invalidRows, validRows };
 };
 
+const BULK_IMPORT_PRICE_FIELDS = new Set<BulkImportPreviewField>([
+	"costPrice",
+	"retailPrice",
+	"wholesalePrice",
+]);
+
 const getBulkImportPreviewFieldValue = (result: BulkImportRowResult, field: BulkImportPreviewField) => {
 	if (result.status === "valid") {
 		const value = result.data[field];
@@ -114,6 +123,10 @@ const getBulkImportPreviewFieldValue = (result: BulkImportRowResult, field: Bulk
 
 		if (field === "expiryDate") {
 			return formatDate(String(value));
+		}
+
+		if (BULK_IMPORT_PRICE_FIELDS.has(field) && typeof value === "number") {
+			return formatNaira(value);
 		}
 
 		return String(value);
@@ -373,6 +386,24 @@ const bulkImportPreviewColumns = bulkImportPreviewColumnHelper.columns([
 		meta: { classNames: { column: "min-w-40" } },
 	}),
 	bulkImportPreviewColumnHelper.display({
+		cell: ({ row }) => <BulkImportPreviewCell field="costPrice" result={row.original} />,
+		header: () => "Cost Price",
+		id: "costPrice",
+		meta: { classNames: { column: "min-w-32" } },
+	}),
+	bulkImportPreviewColumnHelper.display({
+		cell: ({ row }) => <BulkImportPreviewCell field="retailPrice" result={row.original} />,
+		header: () => "Retail Price",
+		id: "retailPrice",
+		meta: { classNames: { column: "min-w-32" } },
+	}),
+	bulkImportPreviewColumnHelper.display({
+		cell: ({ row }) => <BulkImportPreviewCell field="wholesalePrice" result={row.original} />,
+		header: () => "Wholesale Price",
+		id: "wholesalePrice",
+		meta: { classNames: { column: "min-w-36" } },
+	}),
+	bulkImportPreviewColumnHelper.display({
 		cell: ({ row }) => <BulkImportPreviewCell field="quantity" result={row.original} />,
 		header: () => "Quantity",
 		id: "quantity",
@@ -391,6 +422,65 @@ const bulkImportPreviewColumns = bulkImportPreviewColumnHelper.columns([
 		meta: { classNames: { column: "w-20 min-w-20" } },
 	}),
 ]);
+
+const PRICE_FIELD_LABELS = {
+	retailPrice: "Retail",
+	wholesalePrice: "Wholesale",
+} satisfies Record<BulkImportPriceChange["field"], string>;
+
+function BulkImportPriceChangesScreen(props: {
+	importedCount: number;
+	onDone: () => void;
+	priceChanges: BulkImportPriceChange[];
+}) {
+	const { importedCount, onDone, priceChanges } = props;
+
+	return (
+		<div className="flex flex-col gap-4 p-5 md:p-7">
+			<header className="flex flex-col gap-1">
+				<DialogAnimated.Title className="text-[20px] font-extrabold text-shadcn-foreground">
+					Import complete
+				</DialogAnimated.Title>
+				<DialogAnimated.Description className="text-[13px] font-medium text-vitastock-body-color">
+					{importedCount} rows imported. The file changed {priceChanges.length} selling{" "}
+					{priceChanges.length === 1 ? "price" : "prices"} you had already set:
+				</DialogAnimated.Description>
+			</header>
+
+			<ScrollArea.Root className="max-h-80 rounded-lg border border-shadcn-border">
+				<ForWithWrapper
+					as="ul"
+					className="flex flex-col divide-y divide-shadcn-border"
+					each={priceChanges}
+					renderItem={(change) => (
+						<li
+							key={`${change.drugName}-${change.field}`}
+							className="flex items-center justify-between gap-4 px-4 py-2.5 text-[13px]"
+						>
+							<span className="font-semibold text-shadcn-foreground">
+								{change.drugName}
+								<span className="font-normal text-vitastock-body-color">
+									{" "}
+									· {PRICE_FIELD_LABELS[change.field]}
+								</span>
+							</span>
+							<span className="shrink-0 text-vitastock-body-color">
+								{change.previousPrice === null ? "Not set" : formatNaira(change.previousPrice)} →{" "}
+								<span className="font-bold text-shadcn-foreground">
+									{formatNaira(change.newPrice)}
+								</span>
+							</span>
+						</li>
+					)}
+				/>
+			</ScrollArea.Root>
+
+			<Button className="h-11 self-end px-6" onClick={onDone}>
+				Done
+			</Button>
+		</div>
+	);
+}
 
 function BulkImportDialog(props: { onImported?: () => void }) {
 	const { onImported } = props;
@@ -478,6 +568,7 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 					invalidRows: result.invalidRows,
 					stage: "preview",
 					validRows: [],
+					warnings: [],
 				});
 				return;
 			}
@@ -489,6 +580,11 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 				body: { rows: result.validRows.map((row) => row.data) },
 			});
 			const partitionedRows = partitionBulkImportRows(result.validRows, backendValidation.data.issues);
+			const warnings = backendValidation.data.warnings.flatMap((warning) => {
+				const row = result.validRows[warning.rowIndex];
+
+				return row ? [{ message: warning.message, rowNumber: row.rowNumber }] : [];
+			});
 
 			setState({
 				duplicateRows: result.duplicateRows,
@@ -496,6 +592,7 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 				invalidRows: [...result.invalidRows, ...partitionedRows.invalidRows],
 				stage: "preview",
 				validRows: partitionedRows.validRows,
+				warnings,
 			});
 		} catch (error) {
 			setState({
@@ -509,29 +606,29 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 	const handleImport = async () => {
 		if (state.stage !== "preview") return;
 
-		const { duplicateRows, idempotencyKey, invalidRows, validRows } = state;
+		const previewSnapshot = {
+			duplicateRows: state.duplicateRows,
+			idempotencyKey: state.idempotencyKey,
+			invalidRows: state.invalidRows,
+			validRows: state.validRows,
+			warnings: state.warnings,
+		};
 
-		setState({
-			duplicateRows,
-			idempotencyKey,
-			invalidRows,
-			stage: "importing",
-			validRows,
-		});
+		setState({ ...previewSnapshot, stage: "importing" });
 		await yieldToUi();
 
 		try {
-			await callBackendApiForQuery("@post/inventory/bulk-import", {
+			const importResult = await callBackendApiForQuery("@post/inventory/bulk-import", {
 				body: {
-					rows: validRows.map((row) => row.data),
+					rows: previewSnapshot.validRows.map((row) => row.data),
 				},
 				headers: {
-					"x-idempotency-key": idempotencyKey,
+					"x-idempotency-key": previewSnapshot.idempotencyKey,
 				},
 				meta: { toast: { success: true } },
 				onSuccess: () => {
 					posthog?.capture("inventory_bulk_import_completed", {
-						imported_row_count: validRows.length,
+						imported_row_count: previewSnapshot.validRows.length,
 					});
 
 					void invalidateStockMovementQueries(queryClient);
@@ -541,10 +638,17 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 				},
 			});
 
+			const { importedCount, priceChanges } = importResult.data;
+
+			if (priceChanges.length > 0) {
+				setState({ importedCount, priceChanges, stage: "complete" });
+				return;
+			}
+
 			setState({ file: null, stage: "upload" });
 			onImported?.();
 		} catch {
-			setState({ duplicateRows, idempotencyKey, invalidRows, stage: "preview", validRows });
+			setState({ ...previewSnapshot, stage: "preview" });
 		}
 	};
 
@@ -812,6 +916,30 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 											</span>
 										</aside>
 
+										<Show.Root when={previewState.warnings.length > 0}>
+											<aside
+												className="flex flex-col gap-1 rounded-lg bg-amber-50 px-3 py-2
+													text-[13px] font-medium text-amber-800"
+											>
+												<p className="flex items-center gap-2 font-bold">
+													<IconBox icon="lucide:triangle-alert" className="size-4 shrink-0" />
+													{previewState.warnings.length} price{" "}
+													{previewState.warnings.length === 1 ? "warning" : "warnings"} (the
+													import can still go ahead)
+												</p>
+												<ForWithWrapper
+													as="ul"
+													className="flex max-h-24 flex-col gap-0.5 overflow-y-auto pl-6"
+													each={previewState.warnings}
+													renderItem={(warning) => (
+														<li key={`${warning.rowNumber}-${warning.message}`}>
+															Row {warning.rowNumber}: {warning.message}
+														</li>
+													)}
+												/>
+											</aside>
+										</Show.Root>
+
 										<DashboardDataTable
 											table={previewTable}
 											emptyMessage="No rows detected in this file."
@@ -819,7 +947,7 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 												base: "min-h-0 grow",
 												tableContainer: "min-h-0 grow rounded-lg border border-shadcn-border",
 												tableHead: "sticky top-0 z-1 bg-shadcn-muted",
-												tableRoot: "min-w-250",
+												tableRoot: "min-w-[1400px]",
 											}}
 										/>
 									</div>
@@ -895,6 +1023,19 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 						)}
 						title="Processing Inventory File"
 					/>
+				</Switch.Match>
+
+				<Switch.Match when={state.stage === "complete"}>
+					{state.stage === "complete" && (
+						<BulkImportPriceChangesScreen
+							importedCount={state.importedCount}
+							priceChanges={state.priceChanges}
+							onDone={() => {
+								setState({ file: null, stage: "upload" });
+								onImported?.();
+							}}
+						/>
+					)}
 				</Switch.Match>
 
 				<Switch.Match when={importingState !== undefined}>

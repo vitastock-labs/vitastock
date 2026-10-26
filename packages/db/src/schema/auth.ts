@@ -43,13 +43,13 @@ export type SessionMembershipType = Pick<
 
 export type SessionWorkspaceType = Pick<
 	SelectWorkspaceType,
-	| "alertEmail"
-	| "emailAlertDeliveryPolicy"
 	| "id"
 	| "lowStockThreshold"
 	| "name"
 	| "nearExpiryDays"
 	| "timezone"
+	| "weeklyEmailEnabled"
+	| "weeklyEmailTime"
 >;
 
 export type SessionUserType = SelectUserType & {

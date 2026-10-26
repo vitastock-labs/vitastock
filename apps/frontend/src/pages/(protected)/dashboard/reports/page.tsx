@@ -99,23 +99,31 @@ const activityColumns = activityColumnHelper.columns([
 		header: "Patient",
 	}),
 	activityColumnHelper.accessor("logType", {
-		cell: ({ getValue }) => {
+		cell: ({ getValue, row }) => {
 			const logType = getValue();
 
 			return (
-				<Badge
-					className={cnJoin(
-						"border-none px-2.5 py-1 text-[11px] font-bold capitalize",
-						stockAdditionLogTypes.has(logType)
-							&& "bg-vitastock-primary-subtle text-vitastock-primary-dark",
-						logType === "stock_out" && "bg-shadcn-muted text-vitastock-body-color",
-						!stockAdditionLogTypes.has(logType)
-							&& logType !== "stock_out"
-							&& "bg-shadcn-destructive/10 text-shadcn-destructive"
+				<div className="flex flex-col items-start gap-1">
+					<Badge
+						className={cnJoin(
+							"border-none px-2.5 py-1 text-[11px] font-bold capitalize",
+							stockAdditionLogTypes.has(logType)
+								&& "bg-vitastock-primary-subtle text-vitastock-primary-dark",
+							logType === "stock_out" && "bg-shadcn-muted text-vitastock-body-color",
+							!stockAdditionLogTypes.has(logType)
+								&& logType !== "stock_out"
+								&& "bg-shadcn-destructive/10 text-shadcn-destructive"
+						)}
+					>
+						{formatEnumLabel(logType)}
+					</Badge>
+					{row.original.undoneAt && (
+						<span className="text-[11px] font-semibold text-shadcn-destructive">
+							{logType === "opening_stock" ? "Import removed by" : "Undone by"}{" "}
+							{row.original.undoneBy ?? "a team member"}
+						</span>
 					)}
-				>
-					{formatEnumLabel(logType)}
-				</Badge>
+				</div>
 			);
 		},
 		enableSorting: false,

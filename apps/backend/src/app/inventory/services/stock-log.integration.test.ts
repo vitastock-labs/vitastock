@@ -2,20 +2,23 @@ import { randomUUID } from "node:crypto";
 import { db } from "@vitastock/db";
 import { stockBatches, stockLogs, stockTransactions } from "@vitastock/db/schema/inventory";
 import { backendApiSchemaRoutes } from "@vitastock/shared/validation/backendApiSchema";
+import { subMinutes } from "date-fns";
 import { and, asc, eq } from "drizzle-orm";
 import { expect, test } from "vitest";
 import { AppError } from "@/lib/utils";
 import {
 	createInventoryFixture,
 	createSecondTestDrug,
+	dispenseTestStock,
 	getDateFromToday,
 	receiveTestStock,
 	type InventoryFixture,
 } from "@/test/inventoryFixture";
 import { createInventoryActivityCsv } from "./activity-export";
 import { getInventoryActivity, getRecentInventoryActivity } from "./data-access/activity";
+import { updateDrug } from "./data-access/drugs";
 import { getInventorySummaryRows } from "./data-access/summary";
-import { createInventoryDispenseCart, createInventoryStockLog } from "./stock-log";
+import { createInventoryDispenseCart, createInventoryStockLog, undoInventoryDispense } from "./stock-log";
 import { getWorkspaceToday } from "./utils/date";
 
 const getStockOutLogs = (fixture: InventoryFixture) => {
@@ -189,6 +192,43 @@ test("Stock receipts - merges receipts with the same batch attributes", async ()
 
 	expect(batches).toHaveLength(1);
 	expect(batches[0]).toMatchObject({ quantityAvailable: 15, quantityReceived: 15 });
+});
+
+test("Stock receipts - keeps deliveries of the same lot at different costs apart", async () => {
+	await using fixture = await createInventoryFixture();
+	const expiryDate = getDateFromToday(180);
+	const createReceipt = (quantity: number, costPrice?: number) =>
+		createInventoryStockLog({
+			body: {
+				batchNumber: "BATCH-COST",
+				costPrice,
+				drugId: fixture.drug.id,
+				expiryDate,
+				logType: "stock_in",
+				quantity,
+			},
+			idempotencyKey: randomUUID(),
+			timezone: fixture.workspace.timezone,
+			userId: fixture.user.id,
+			workspaceId: fixture.workspace.id,
+		});
+
+	await createReceipt(10, 2000);
+	await createReceipt(5, 2600);
+	await createReceipt(4, 2000);
+	await createReceipt(3);
+
+	const batches = await db
+		.select({ costPrice: stockBatches.costPrice, quantityAvailable: stockBatches.quantityAvailable })
+		.from(stockBatches)
+		.where(eq(stockBatches.drugId, fixture.drug.id))
+		.orderBy(asc(stockBatches.createdAt));
+
+	expect(batches).toEqual([
+		{ costPrice: 2000, quantityAvailable: 14 },
+		{ costPrice: 2600, quantityAvailable: 5 },
+		{ costPrice: null, quantityAvailable: 3 },
+	]);
 });
 
 test("Stock receipts - separates receipts with different expiry dates", async () => {
@@ -432,8 +472,9 @@ test("Dispense cart - deducts every item with FEFO in one transaction", async ()
 		body: {
 			items: [
 				{ drugId: fixture.drug.id, quantity: 8, reason: "patient" },
-				{ drugId: secondDrug.id, quantity: 3, reason: "ward" },
+				{ drugId: secondDrug.id, quantity: 3, reason: "patient" },
 			],
+			saleType: "retail",
 		},
 		idempotencyKey: randomUUID(),
 		timezone: fixture.workspace.timezone,
@@ -467,7 +508,7 @@ test("Dispense cart - deducts every item with FEFO in one transaction", async ()
 	expect(report.rows).toEqual(
 		expect.arrayContaining([
 			expect.objectContaining({ batchCount: 2, quantity: 8, reason: "patient" }),
-			expect.objectContaining({ batchCount: 1, quantity: 3, reason: "ward" }),
+			expect.objectContaining({ batchCount: 1, quantity: 3, reason: "patient" }),
 		])
 	);
 });
@@ -486,6 +527,7 @@ test("Dispense cart - rolls back every item when one item is short", async () =>
 				{ drugId: secondDrug.id, quantity: 3, reason: "patient" },
 				{ drugId: fixture.drug.id, quantity: 6, reason: "patient" },
 			],
+			saleType: "retail",
 		},
 		idempotencyKey,
 		timezone: fixture.workspace.timezone,
@@ -524,7 +566,10 @@ test("Dispense cart - replays a repeated cart only once", async () => {
 	await receiveTestStock({ drugId: fixture.drug.id, expiresInDays: 90, fixture, quantity: 10 });
 
 	const options = {
-		body: { items: [{ drugId: fixture.drug.id, quantity: 4, reason: "patient" as const }] },
+		body: {
+			items: [{ drugId: fixture.drug.id, quantity: 4, reason: "patient" as const }],
+			saleType: "retail" as const,
+		},
 		idempotencyKey: randomUUID(),
 		timezone: fixture.workspace.timezone,
 		userId: fixture.user.id,
@@ -537,7 +582,10 @@ test("Dispense cart - replays a repeated cart only once", async () => {
 	await expect(
 		createInventoryDispenseCart({
 			...options,
-			body: { items: [{ drugId: fixture.drug.id, quantity: 5, reason: "patient" }] },
+			body: {
+				items: [{ drugId: fixture.drug.id, quantity: 5, reason: "patient" }],
+				saleType: "retail",
+			},
 		})
 	).rejects.toEqual(expect.objectContaining<Partial<AppError>>({ statusCode: 409 }));
 
@@ -554,7 +602,10 @@ test("Dispense cart - rejects a drug that belongs to another workspace", async (
 	await using secondFixture = await createInventoryFixture();
 
 	const result = createInventoryDispenseCart({
-		body: { items: [{ drugId: firstFixture.drug.id, quantity: 1, reason: "patient" }] },
+		body: {
+			items: [{ drugId: firstFixture.drug.id, quantity: 1, reason: "patient" }],
+			saleType: "retail",
+		},
 		idempotencyKey: randomUUID(),
 		timezone: secondFixture.workspace.timezone,
 		userId: secondFixture.user.id,
@@ -604,6 +655,7 @@ test("Patient names - FEFO split writes the same name and transaction on every r
 	await createInventoryDispenseCart({
 		body: {
 			items: [{ drugId: fixture.drug.id, patientName: "Mrs. Adebayo", quantity: 9, reason: "patient" }],
+			saleType: "retail",
 		},
 		idempotencyKey: randomUUID(),
 		timezone: fixture.workspace.timezone,
@@ -638,6 +690,7 @@ test("Patient names - a multi-patient cart keeps each line's name in one transac
 				{ drugId: fixture.drug.id, patientName: "Mr. Okon", quantity: 10, reason: "patient" },
 				{ drugId: secondDrug.id, patientName: null, quantity: 6, reason: "patient" },
 			],
+			saleType: "retail",
 		},
 		idempotencyKey: randomUUID(),
 		timezone: fixture.workspace.timezone,
@@ -722,25 +775,6 @@ test.each(["damaged", "expired"] as const)(
 	}
 );
 
-test("Patient names - ward dispenses never save a patient name", async () => {
-	await using fixture = await createInventoryFixture();
-
-	await receiveTestStock({ drugId: fixture.drug.id, expiresInDays: 90, fixture, quantity: 10 });
-	await createInventoryDispenseCart({
-		body: {
-			items: [{ drugId: fixture.drug.id, patientName: "Mrs. Adebayo", quantity: 2, reason: "ward" }],
-		},
-		idempotencyKey: randomUUID(),
-		timezone: fixture.workspace.timezone,
-		userId: fixture.user.id,
-		workspaceId: fixture.workspace.id,
-	});
-
-	const logs = await getStockOutLogs(fixture);
-
-	expect(logs).toEqual([expect.objectContaining({ patientName: null, reason: "ward" })]);
-});
-
 test("Patient names - the single stock-out endpoint saves a patient name", async () => {
 	await using fixture = await createInventoryFixture();
 
@@ -765,4 +799,333 @@ test("Patient names - the single stock-out endpoint saves a patient name", async
 	expect(logs).toHaveLength(2);
 	expect(new Set(logs.map((log) => log.stockTransactionId)).size).toBe(1);
 	expect(logs.every((log) => log.patientName === "Mr. Okon")).toBe(true);
+});
+
+const getBatchQuantities = async (fixture: InventoryFixture) => {
+	const batches = await db
+		.select({ quantityAvailable: stockBatches.quantityAvailable })
+		.from(stockBatches)
+		.where(eq(stockBatches.workspaceId, fixture.workspace.id))
+		.orderBy(asc(stockBatches.expiryDate));
+
+	return batches.map((batch) => batch.quantityAvailable);
+};
+
+test("Dispense undo - restores every FEFO batch and stamps the logs", async () => {
+	await using fixture = await createInventoryFixture();
+
+	await receiveTestStock({ drugId: fixture.drug.id, expiresInDays: 30, fixture, quantity: 5 });
+	await receiveTestStock({ drugId: fixture.drug.id, expiresInDays: 90, fixture, quantity: 10 });
+
+	const { stockTransactionId, undoExpiresAt } = await dispenseTestStock(fixture, 8);
+
+	expect(await getBatchQuantities(fixture)).toEqual([0, 7]);
+	expect(undoExpiresAt.getTime()).toBeGreaterThan(Date.now());
+
+	await undoInventoryDispense({
+		stockTransactionId,
+		userId: fixture.user.id,
+		workspaceId: fixture.workspace.id,
+	});
+
+	const logs = await db
+		.select({ undoneAt: stockLogs.undoneAt, undoneByUserId: stockLogs.undoneByUserId })
+		.from(stockLogs)
+		.where(eq(stockLogs.stockTransactionId, stockTransactionId));
+
+	expect(await getBatchQuantities(fixture)).toEqual([5, 10]);
+	expect(logs).toHaveLength(2);
+	for (const log of logs) {
+		expect(log.undoneAt).toBeInstanceOf(Date);
+		expect(log.undoneByUserId).toBe(fixture.user.id);
+	}
+});
+
+test("Dispense undo - restores stock only once when repeated", async () => {
+	await using fixture = await createInventoryFixture();
+
+	await receiveTestStock({ drugId: fixture.drug.id, expiresInDays: 90, fixture, quantity: 10 });
+
+	const { stockTransactionId } = await dispenseTestStock(fixture, 4);
+	const undo = () =>
+		undoInventoryDispense({
+			stockTransactionId,
+			userId: fixture.user.id,
+			workspaceId: fixture.workspace.id,
+		});
+
+	await undo();
+
+	await expect(undo()).rejects.toEqual(expect.objectContaining<Partial<AppError>>({ statusCode: 409 }));
+	expect(await getBatchQuantities(fixture)).toEqual([10]);
+});
+
+test("Dispense undo - refuses another user's dispense", async () => {
+	await using fixture = await createInventoryFixture();
+
+	await receiveTestStock({ drugId: fixture.drug.id, expiresInDays: 90, fixture, quantity: 10 });
+
+	const { stockTransactionId } = await dispenseTestStock(fixture, 4);
+
+	await expect(
+		undoInventoryDispense({
+			stockTransactionId,
+			userId: randomUUID(),
+			workspaceId: fixture.workspace.id,
+		})
+	).rejects.toEqual(expect.objectContaining<Partial<AppError>>({ statusCode: 403 }));
+	expect(await getBatchQuantities(fixture)).toEqual([6]);
+});
+
+test("Dispense undo - refuses a dispense older than two minutes", async () => {
+	await using fixture = await createInventoryFixture();
+
+	await receiveTestStock({ drugId: fixture.drug.id, expiresInDays: 90, fixture, quantity: 10 });
+
+	const { stockTransactionId } = await dispenseTestStock(fixture, 4);
+
+	await db
+		.update(stockTransactions)
+		.set({ createdAt: subMinutes(new Date(), 3) })
+		.where(eq(stockTransactions.id, stockTransactionId));
+
+	await expect(
+		undoInventoryDispense({
+			stockTransactionId,
+			userId: fixture.user.id,
+			workspaceId: fixture.workspace.id,
+		})
+	).rejects.toEqual(expect.objectContaining<Partial<AppError>>({ statusCode: 409 }));
+	expect(await getBatchQuantities(fixture)).toEqual([6]);
+});
+
+test("Dispense undo - refuses a stock receipt", async () => {
+	await using fixture = await createInventoryFixture();
+
+	const idempotencyKey = randomUUID();
+
+	await createInventoryStockLog({
+		body: {
+			batchNumber: "BATCH-RECEIPT",
+			drugId: fixture.drug.id,
+			expiryDate: getDateFromToday(90),
+			logType: "stock_in",
+			quantity: 10,
+		},
+		idempotencyKey,
+		timezone: fixture.workspace.timezone,
+		userId: fixture.user.id,
+		workspaceId: fixture.workspace.id,
+	});
+
+	const [receipt] = await db
+		.select({ id: stockTransactions.id })
+		.from(stockTransactions)
+		.where(
+			and(
+				eq(stockTransactions.workspaceId, fixture.workspace.id),
+				eq(stockTransactions.idempotencyKey, idempotencyKey)
+			)
+		);
+
+	if (!receipt) {
+		throw new Error("Expected the stock receipt transaction to exist");
+	}
+
+	await expect(
+		undoInventoryDispense({
+			stockTransactionId: receipt.id,
+			userId: fixture.user.id,
+			workspaceId: fixture.workspace.id,
+		})
+	).rejects.toEqual(expect.objectContaining<Partial<AppError>>({ statusCode: 400 }));
+});
+
+const receivePricedStock = (options: {
+	costPrice: number;
+	expiresInDays: number;
+	fixture: InventoryFixture;
+	quantity: number;
+}) => {
+	const { costPrice, expiresInDays, fixture, quantity } = options;
+
+	return createInventoryStockLog({
+		body: {
+			batchNumber: `BATCH-PRICED-${expiresInDays}`,
+			costPrice,
+			drugId: fixture.drug.id,
+			expiryDate: getDateFromToday(expiresInDays),
+			logType: "stock_in",
+			quantity,
+		},
+		idempotencyKey: randomUUID(),
+		timezone: fixture.workspace.timezone,
+		userId: fixture.user.id,
+		workspaceId: fixture.workspace.id,
+	});
+};
+
+const setDrugPrices = (
+	fixture: InventoryFixture,
+	prices: { retailPrice?: number; wholesalePrice?: number }
+) => {
+	return updateDrug({
+		drugId: fixture.drug.id,
+		...prices,
+		userId: fixture.user.id,
+		workspaceId: fixture.workspace.id,
+	});
+};
+
+const getSaleRows = (fixture: InventoryFixture) => {
+	return db
+		.select({
+			notes: stockLogs.notes,
+			paymentMethod: stockLogs.paymentMethod,
+			quantity: stockLogs.quantity,
+			saleType: stockLogs.saleType,
+			unitCostPrice: stockLogs.unitCostPrice,
+			unitSellingPrice: stockLogs.unitSellingPrice,
+		})
+		.from(stockLogs)
+		.where(and(eq(stockLogs.workspaceId, fixture.workspace.id), eq(stockLogs.logType, "stock_out")))
+		.orderBy(asc(stockLogs.createdAt), asc(stockLogs.quantity));
+};
+
+test("Sale prices - a FEFO split keeps each delivery's cost and one selling price", async () => {
+	await using fixture = await createInventoryFixture();
+
+	await receivePricedStock({ costPrice: 2000, expiresInDays: 30, fixture, quantity: 20 });
+	await receivePricedStock({ costPrice: 2600, expiresInDays: 90, fixture, quantity: 20 });
+	await setDrugPrices(fixture, { retailPrice: 3000 });
+
+	await createInventoryDispenseCart({
+		body: {
+			items: [{ drugId: fixture.drug.id, quantity: 30, reason: "patient" }],
+			notes: "Repeat prescription",
+			paymentMethod: "transfer",
+			saleType: "retail",
+		},
+		idempotencyKey: randomUUID(),
+		timezone: fixture.workspace.timezone,
+		userId: fixture.user.id,
+		workspaceId: fixture.workspace.id,
+	});
+
+	expect(await getSaleRows(fixture)).toEqual([
+		{
+			notes: "Repeat prescription",
+			paymentMethod: "transfer",
+			quantity: 10,
+			saleType: "retail",
+			unitCostPrice: 2600,
+			unitSellingPrice: 3000,
+		},
+		{
+			notes: "Repeat prescription",
+			paymentMethod: "transfer",
+			quantity: 20,
+			saleType: "retail",
+			unitCostPrice: 2000,
+			unitSellingPrice: 3000,
+		},
+	]);
+});
+
+test("Sale prices - later price edits never change a past sale", async () => {
+	await using fixture = await createInventoryFixture();
+
+	await receivePricedStock({ costPrice: 100, expiresInDays: 90, fixture, quantity: 10 });
+	await setDrugPrices(fixture, { retailPrice: 150 });
+	await dispenseTestStock(fixture, 2);
+	await setDrugPrices(fixture, { retailPrice: 400 });
+
+	const [sale] = await getSaleRows(fixture);
+
+	expect(sale?.unitSellingPrice).toBe(150);
+});
+
+test("Sale prices - a wholesale cart uses the wholesale price", async () => {
+	await using fixture = await createInventoryFixture();
+
+	await receivePricedStock({ costPrice: 100, expiresInDays: 90, fixture, quantity: 10 });
+	await setDrugPrices(fixture, { retailPrice: 150, wholesalePrice: 130 });
+
+	await createInventoryDispenseCart({
+		body: {
+			items: [{ drugId: fixture.drug.id, quantity: 5, reason: "patient" }],
+			saleType: "wholesale",
+		},
+		idempotencyKey: randomUUID(),
+		timezone: fixture.workspace.timezone,
+		userId: fixture.user.id,
+		workspaceId: fixture.workspace.id,
+	});
+
+	const [sale] = await getSaleRows(fixture);
+
+	expect(sale).toMatchObject({ paymentMethod: null, saleType: "wholesale", unitSellingPrice: 130 });
+});
+
+test("Sale prices - refuses a wholesale cart when a drug has no wholesale price", async () => {
+	await using fixture = await createInventoryFixture();
+
+	await receivePricedStock({ costPrice: 100, expiresInDays: 90, fixture, quantity: 10 });
+	await setDrugPrices(fixture, { retailPrice: 150 });
+
+	await expect(
+		createInventoryDispenseCart({
+			body: {
+				items: [{ drugId: fixture.drug.id, quantity: 5, reason: "patient" }],
+				saleType: "wholesale",
+			},
+			idempotencyKey: randomUUID(),
+			timezone: fixture.workspace.timezone,
+			userId: fixture.user.id,
+			workspaceId: fixture.workspace.id,
+		})
+	).rejects.toEqual(expect.objectContaining<Partial<AppError>>({ statusCode: 409 }));
+	expect(await getSaleRows(fixture)).toEqual([]);
+});
+
+test("Sale prices - a sale without prices is recorded with empty prices", async () => {
+	await using fixture = await createInventoryFixture();
+
+	await receiveTestStock({ drugId: fixture.drug.id, expiresInDays: 90, fixture, quantity: 10 });
+	await dispenseTestStock(fixture, 3);
+
+	const [sale] = await getSaleRows(fixture);
+
+	expect(sale).toMatchObject({ saleType: "retail", unitCostPrice: null, unitSellingPrice: null });
+});
+
+test("Sale prices - a removal records the lost cost but no selling price", async () => {
+	await using fixture = await createInventoryFixture();
+
+	await receivePricedStock({ costPrice: 100, expiresInDays: 90, fixture, quantity: 10 });
+	await setDrugPrices(fixture, { retailPrice: 150 });
+
+	const [batch] = await db.select().from(stockBatches).where(eq(stockBatches.drugId, fixture.drug.id));
+
+	if (!batch) {
+		throw new Error("Expected the received batch to exist");
+	}
+
+	await createInventoryStockLog({
+		body: {
+			batchId: batch.id,
+			drugId: fixture.drug.id,
+			logType: "stock_out",
+			quantity: 2,
+			reason: "damaged",
+		},
+		idempotencyKey: randomUUID(),
+		timezone: fixture.workspace.timezone,
+		userId: fixture.user.id,
+		workspaceId: fixture.workspace.id,
+	});
+
+	const [removal] = await getSaleRows(fixture);
+
+	expect(removal).toMatchObject({ unitCostPrice: 100, unitSellingPrice: null });
 });

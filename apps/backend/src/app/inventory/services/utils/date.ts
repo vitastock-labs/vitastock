@@ -34,11 +34,13 @@ export const getWorkspaceToday = (timezone: string, date = new Date()) => {
 	return format(date, "yyyy-MM-dd", { in: tz(timezone) });
 };
 
-export const getWorkspaceDateAndHour = (date: Date, timezone: string) => {
+export const getWorkspaceLocalTime = (date: Date, timezone: string) => {
 	const dateContext = { in: tz(timezone) };
 
 	return {
 		date: format(date, "yyyy-MM-dd", dateContext),
-		hour: format(date, "HH", dateContext),
+		// == ISO weekday: 1 is Monday, 7 is Sunday
+		isoWeekday: Number(format(date, "i", dateContext)),
+		time: format(date, "HH:mm", dateContext),
 	};
 };

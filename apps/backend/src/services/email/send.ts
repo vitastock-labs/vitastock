@@ -35,6 +35,7 @@ export const sendEmail = async (options: EmailJobOptions) => {
 	const { data, type } = options;
 
 	const templateOptions = TEMPLATE_LOOKUP[type];
+	const subject = data.subject ?? templateOptions.subject;
 
 	const templateFn = templateOptions.template as CallbackFn<
 		Parameters<typeof templateOptions.template>[0],
@@ -56,7 +57,7 @@ export const sendEmail = async (options: EmailJobOptions) => {
 			const result = await brevo.transactionalEmails.sendTransacEmail({
 				htmlContent,
 				sender: templateOptions.from,
-				subject: templateOptions.subject,
+				subject,
 				to: [data.to],
 			});
 
@@ -70,7 +71,7 @@ export const sendEmail = async (options: EmailJobOptions) => {
 		const result = await devTransporter.sendMail({
 			from: { address: templateOptions.from.email, name: templateOptions.from.name },
 			html: htmlContent,
-			subject: templateOptions.subject,
+			subject,
 			to: { address: data.to.email, name: data.to.name },
 		});
 

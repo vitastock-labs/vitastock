@@ -4,9 +4,19 @@ import { drugs, inventoryAlerts, stockBatches, stockLogs } from "@vitastock/db/s
 import { and, eq } from "drizzle-orm";
 import { expect, test } from "vitest";
 import { AppError } from "@/lib/utils";
-import { createInventoryFixture, getDateFromToday } from "@/test/inventoryFixture";
+import {
+	createInventoryFixture,
+	dispenseTestStock,
+	getDateFromToday,
+	type InventoryFixture,
+} from "@/test/inventoryFixture";
 import { syncInventoryAlerts } from "./alertLifecycle";
-import { createInventoryBulkImport, validateInventoryBulkImportRows } from "./bulk-import";
+import {
+	createInventoryBulkImport,
+	getInventoryBulkImports,
+	removeInventoryBulkImport,
+	validateInventoryBulkImportRows,
+} from "./bulk-import";
 import { createInventoryStockLog } from "./stock-log";
 
 const buildRow = (
@@ -365,7 +375,7 @@ test("Validation - reports ambiguous incomplete drug identities", async () => {
 		workspaceId: fixture.workspace.id,
 	});
 
-	expect(results).toEqual([
+	expect(results.issues).toEqual([
 		expect.objectContaining({
 			message: "Multiple Drug Master records match this row. Supply more drug details.",
 			rowIndex: 0,
@@ -404,10 +414,178 @@ test("Validation - reports ambiguity introduced by rows in the same file", async
 		workspaceId: fixture.workspace.id,
 	});
 
-	expect(results).toEqual([
+	expect(results.issues).toEqual([
 		expect.objectContaining({
 			message: "Multiple Drug Master records match this row. Supply more drug details.",
 			rowIndex: 1,
 		}),
 	]);
+});
+
+const buildFixtureDrugRow = (
+	fixture: InventoryFixture,
+	overrides: Parameters<typeof buildRow>[0] = {}
+) => {
+	return buildRow({
+		form: fixture.drug.form ?? undefined,
+		genericName: fixture.drug.genericName,
+		name: fixture.drug.name,
+		strength: fixture.drug.strength ?? undefined,
+		unit: fixture.drug.unit ?? undefined,
+		...overrides,
+	});
+};
+
+const importRows = (fixture: InventoryFixture, rows: Array<ReturnType<typeof buildRow>>) => {
+	return createInventoryBulkImport({
+		idempotencyKey: randomUUID(),
+		rows,
+		timezone: fixture.workspace.timezone,
+		userId: fixture.user.id,
+		workspaceId: fixture.workspace.id,
+	});
+};
+
+test("Import - saves cost on the batch and selling prices on the drug", async () => {
+	await using fixture = await createInventoryFixture();
+
+	await importRows(fixture, [buildRow({ costPrice: 120, retailPrice: 200, wholesalePrice: 170 })]);
+
+	const drug = await getDrugByName(fixture.workspace.id, "Ibuprofen");
+	const [batch] = await db.select().from(stockBatches).where(eq(stockBatches.drugId, drug.id));
+
+	expect(drug).toMatchObject({
+		priceUpdatedByUserId: fixture.user.id,
+		retailPrice: 200,
+		wholesalePrice: 170,
+	});
+	expect(batch?.costPrice).toBe(120);
+});
+
+test("Import - the file's selling price wins and the change is reported", async () => {
+	await using fixture = await createInventoryFixture();
+
+	await importRows(fixture, [buildRow({ retailPrice: 200 })]);
+
+	const result = await importRows(fixture, [buildRow({ quantity: 20, retailPrice: 260 })]);
+	const drug = await getDrugByName(fixture.workspace.id, "Ibuprofen");
+
+	expect(drug.retailPrice).toBe(260);
+	expect(result.priceChanges).toEqual([
+		{ drugName: "Ibuprofen", field: "retailPrice", newPrice: 260, previousPrice: 200 },
+	]);
+});
+
+test("Import - keeps the same drug and expiry at two costs as two batches", async () => {
+	await using fixture = await createInventoryFixture();
+
+	await importRows(fixture, [buildRow({ costPrice: 100 }), buildRow({ costPrice: 130, quantity: 40 })]);
+
+	const drug = await getDrugByName(fixture.workspace.id, "Ibuprofen");
+	const batches = await db.select().from(stockBatches).where(eq(stockBatches.drugId, drug.id));
+
+	expect(batches.map((batch) => batch.costPrice).toSorted()).toEqual([100, 130]);
+});
+
+test("Import validation - rejects conflicting selling prices and warns on prices below cost", async () => {
+	await using fixture = await createInventoryFixture();
+
+	const results = await validateInventoryBulkImportRows({
+		rows: [
+			buildRow({ costPrice: 300, retailPrice: 250 }),
+			buildRow({ expiryDate: getDateFromToday(240), retailPrice: 280 }),
+		],
+		workspaceId: fixture.workspace.id,
+	});
+
+	expect(results.issues).toEqual([
+		expect.objectContaining({
+			message: "Ibuprofen has conflicting retail price values in this file",
+			rowIndex: 1,
+		}),
+	]);
+	expect(results.warnings).toEqual([
+		expect.objectContaining({
+			message: "Ibuprofen: the retail price is below the cost price",
+			rowIndex: 0,
+		}),
+	]);
+});
+
+test("Import removal - takes the stock and the drugs it created back out", async () => {
+	await using fixture = await createInventoryFixture();
+
+	await importRows(fixture, [buildRow()]);
+
+	const [bulkImport] = await getInventoryBulkImports(fixture.workspace.id);
+
+	if (!bulkImport) {
+		throw new Error("Expected the import to be listed");
+	}
+
+	expect(bulkImport).toMatchObject({
+		drugCount: 1,
+		removal: null,
+		removalBlockedReason: null,
+		unitCount: 100,
+	});
+
+	await removeInventoryBulkImport({
+		stockTransactionId: bulkImport.id,
+		userId: fixture.user.id,
+		workspaceId: fixture.workspace.id,
+	});
+
+	const removedDrug = await findDrugByName(fixture.workspace.id, "Ibuprofen");
+	const [listedImport] = await getInventoryBulkImports(fixture.workspace.id);
+
+	expect(removedDrug).toBeUndefined();
+	expect(listedImport?.removal).toEqual(expect.objectContaining({ removedBy: fixture.user.fullName }));
+});
+
+test("Import removal - leaves a drug's earlier stock untouched", async () => {
+	await using fixture = await createInventoryFixture();
+
+	await importRows(fixture, [buildFixtureDrugRow(fixture)]);
+	await importRows(fixture, [buildFixtureDrugRow(fixture, { quantity: 30 })]);
+
+	const [latestImport] = await getInventoryBulkImports(fixture.workspace.id);
+
+	if (!latestImport) {
+		throw new Error("Expected the latest import to be listed");
+	}
+
+	await removeInventoryBulkImport({
+		stockTransactionId: latestImport.id,
+		userId: fixture.user.id,
+		workspaceId: fixture.workspace.id,
+	});
+
+	const [batch] = await db.select().from(stockBatches).where(eq(stockBatches.drugId, fixture.drug.id));
+
+	expect(batch).toMatchObject({ quantityAvailable: 100, quantityReceived: 100 });
+});
+
+test("Import removal - is blocked once any of its stock has been dispensed", async () => {
+	await using fixture = await createInventoryFixture();
+
+	await importRows(fixture, [buildFixtureDrugRow(fixture)]);
+	await dispenseTestStock(fixture, 1);
+
+	const [bulkImport] = await getInventoryBulkImports(fixture.workspace.id);
+
+	if (!bulkImport) {
+		throw new Error("Expected the import to be listed");
+	}
+
+	expect(bulkImport.removalBlockedReason).toBe(
+		"Some of this import's stock has already been dispensed, removed or adjusted."
+	);
+	await expect(
+		removeInventoryBulkImport({
+			stockTransactionId: bulkImport.id,
+			userId: fixture.user.id,
+			workspaceId: fixture.workspace.id,
+		})
+	).rejects.toEqual(expect.objectContaining<Partial<AppError>>({ statusCode: 409 }));
 });

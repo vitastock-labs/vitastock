@@ -12,18 +12,28 @@ import {
 	hasActiveInventoryAlerts,
 	syncInventoryAlerts,
 } from "./services/alertLifecycle";
-import { createInventoryBulkImport, validateInventoryBulkImportRows } from "./services/bulk-import";
+import {
+	createInventoryBulkImport,
+	getInventoryBulkImports,
+	removeInventoryBulkImport,
+	validateInventoryBulkImportRows,
+} from "./services/bulk-import";
 import { getInventoryActivity } from "./services/data-access/activity";
-import { getWorkspaceDrugBatches, updateWorkspaceBatchExpiryDate } from "./services/data-access/batches";
+import { getWorkspaceDrugBatches, updateWorkspaceBatch } from "./services/data-access/batches";
 import {
 	createDrugForWorkspace,
 	getWorkspaceDrugList,
+	getWorkspacePriceList,
 	handleDrugAction,
 	updateDrug,
 } from "./services/data-access/drugs";
 import { getInventorySummaryRows } from "./services/data-access/summary";
-import { createInventoryDispenseCart, createInventoryStockLog } from "./services/stock-log";
-import { getInventorySummaryStats } from "./services/utils/common";
+import {
+	createInventoryDispenseCart,
+	createInventoryStockLog,
+	undoInventoryDispense,
+} from "./services/stock-log";
+import { assertCanRecordStockLog, getInventorySummaryStats } from "./services/utils/common";
 
 export const inventoryRoutes = new Hono()
 	.basePath("/inventory")
@@ -50,6 +60,28 @@ export const inventoryRoutes = new Hono()
 		}
 	)
 
+	.get(
+		"/price-list",
+		validateWithZodMiddleware("query", backendApiSchemaRoutes["@get/inventory/price-list"].query),
+		async (ctx) => {
+			const currentUser = ctx.get("currentUser");
+			const currentWorkspace = ctx.get("currentWorkspace");
+			const query = ctx.req.valid("query");
+
+			const result = await getWorkspacePriceList({
+				query,
+				timezone: currentWorkspace.timezone,
+				workspaceId: currentUser.workspaceId,
+			});
+
+			return AppJsonResponse(ctx, {
+				data: result,
+				message: "Price list retrieved successfully",
+				schema: backendApiSchemaRoutes["@get/inventory/price-list"].data,
+			});
+		}
+	)
+
 	.patch(
 		"/batches/:batchId",
 		authorizeRoleMiddleware(["owner", "admin"]),
@@ -60,26 +92,28 @@ export const inventoryRoutes = new Hono()
 		validateWithZodMiddleware("json", backendApiSchemaRoutes["@patch/inventory/batches/:batchId"].body),
 		async (ctx) => {
 			const { batchId } = ctx.req.valid("param");
-			const { expiryDate } = ctx.req.valid("json");
+			const body = ctx.req.valid("json");
 			const currentUser = ctx.get("currentUser");
 			const currentWorkspace = ctx.get("currentWorkspace");
 
-			const batch = await updateWorkspaceBatchExpiryDate({
+			const batch = await updateWorkspaceBatch({
+				...body,
 				batchId,
-				expiryDate,
 				workspaceId: currentUser.workspaceId,
 			});
 
-			await syncInventoryAlerts({
-				lowStockThreshold: currentWorkspace.lowStockThreshold,
-				nearExpiryDays: currentWorkspace.nearExpiryDays,
-				timezone: currentWorkspace.timezone,
-				workspaceId: currentUser.workspaceId,
-			});
+			if (body.expiryDate !== undefined) {
+				await syncInventoryAlerts({
+					lowStockThreshold: currentWorkspace.lowStockThreshold,
+					nearExpiryDays: currentWorkspace.nearExpiryDays,
+					timezone: currentWorkspace.timezone,
+					workspaceId: currentUser.workspaceId,
+				});
+			}
 
 			return AppJsonResponse(ctx, {
 				data: { batch },
-				message: "Batch expiry date updated successfully",
+				message: "Batch updated successfully",
 				schema: backendApiSchemaRoutes["@patch/inventory/batches/:batchId"].data,
 			});
 		}
@@ -87,6 +121,7 @@ export const inventoryRoutes = new Hono()
 
 	.post(
 		"/drugs",
+		authorizeRoleMiddleware(["owner", "admin"]),
 		validateWithZodMiddleware("json", backendApiSchemaRoutes["@post/inventory/drugs"].body),
 		async (ctx) => {
 			const body = ctx.req.valid("json");
@@ -127,6 +162,7 @@ export const inventoryRoutes = new Hono()
 			const drug = await updateDrug({
 				...body,
 				drugId: param.drugId,
+				userId: currentUser.id,
 				workspaceId: currentUser.workspaceId,
 			});
 
@@ -341,6 +377,8 @@ export const inventoryRoutes = new Hono()
 			const currentUser = ctx.get("currentUser");
 			const currentWorkspace = ctx.get("currentWorkspace");
 
+			assertCanRecordStockLog({ body, role: currentUser.role });
+
 			await createInventoryStockLog({
 				body,
 				idempotencyKey,
@@ -377,7 +415,7 @@ export const inventoryRoutes = new Hono()
 			const currentUser = ctx.get("currentUser");
 			const currentWorkspace = ctx.get("currentWorkspace");
 
-			await createInventoryDispenseCart({
+			const dispenseResult = await createInventoryDispenseCart({
 				body,
 				idempotencyKey,
 				timezone: currentWorkspace.timezone,
@@ -393,7 +431,7 @@ export const inventoryRoutes = new Hono()
 			});
 
 			return AppJsonResponse(ctx, {
-				data: null,
+				data: dispenseResult,
 				message: "Medications dispensed successfully",
 				schema: backendApiSchemaRoutes["@post/inventory/stock-log/dispense"].data,
 			});
@@ -401,7 +439,41 @@ export const inventoryRoutes = new Hono()
 	)
 
 	.post(
+		"/stock-transactions/:stockTransactionId/undo",
+		validateWithZodMiddleware(
+			"param",
+			backendApiSchemaRoutes["@post/inventory/stock-transactions/:stockTransactionId/undo"].params
+		),
+		async (ctx) => {
+			const { stockTransactionId } = ctx.req.valid("param");
+			const currentUser = ctx.get("currentUser");
+			const currentWorkspace = ctx.get("currentWorkspace");
+
+			await undoInventoryDispense({
+				stockTransactionId,
+				userId: currentUser.id,
+				workspaceId: currentUser.workspaceId,
+			});
+
+			await syncInventoryAlerts({
+				lowStockThreshold: currentWorkspace.lowStockThreshold,
+				nearExpiryDays: currentWorkspace.nearExpiryDays,
+				timezone: currentWorkspace.timezone,
+				workspaceId: currentUser.workspaceId,
+			});
+
+			return AppJsonResponse(ctx, {
+				data: null,
+				message: "Dispense undone. The stock is back on the shelf.",
+				schema:
+					backendApiSchemaRoutes["@post/inventory/stock-transactions/:stockTransactionId/undo"].data,
+			});
+		}
+	)
+
+	.post(
 		"/bulk-import/validate",
+		authorizeRoleMiddleware(["owner", "admin"]),
 		validateWithZodMiddleware(
 			"json",
 			backendApiSchemaRoutes["@post/inventory/bulk-import/validate"].body
@@ -409,13 +481,13 @@ export const inventoryRoutes = new Hono()
 		async (ctx) => {
 			const { rows } = ctx.req.valid("json");
 			const currentUser = ctx.get("currentUser");
-			const issues = await validateInventoryBulkImportRows({
+			const validation = await validateInventoryBulkImportRows({
 				rows,
 				workspaceId: currentUser.workspaceId,
 			});
 
 			return AppJsonResponse(ctx, {
-				data: { issues },
+				data: validation,
 				message: "Bulk import rows validated successfully",
 				schema: backendApiSchemaRoutes["@post/inventory/bulk-import/validate"].data,
 			});
@@ -424,6 +496,7 @@ export const inventoryRoutes = new Hono()
 
 	.post(
 		"/bulk-import",
+		authorizeRoleMiddleware(["owner", "admin"]),
 		validateWithZodMiddleware("header", backendApiSchemaRoutes["@post/inventory/bulk-import"].headers),
 		validateWithZodMiddleware("json", backendApiSchemaRoutes["@post/inventory/bulk-import"].body),
 		async (ctx) => {
@@ -432,7 +505,7 @@ export const inventoryRoutes = new Hono()
 			const currentUser = ctx.get("currentUser");
 			const currentWorkspace = ctx.get("currentWorkspace");
 
-			const { importedCount } = await createInventoryBulkImport({
+			const result = await createInventoryBulkImport({
 				idempotencyKey,
 				rows,
 				timezone: currentWorkspace.timezone,
@@ -448,9 +521,55 @@ export const inventoryRoutes = new Hono()
 			});
 
 			return AppJsonResponse(ctx, {
-				data: { importedCount },
+				data: result,
 				message: "Bulk import completed successfully",
 				schema: backendApiSchemaRoutes["@post/inventory/bulk-import"].data,
+			});
+		}
+	)
+
+	.get("/bulk-imports", authorizeRoleMiddleware(["owner", "admin"]), async (ctx) => {
+		const currentUser = ctx.get("currentUser");
+		const imports = await getInventoryBulkImports(currentUser.workspaceId);
+
+		return AppJsonResponse(ctx, {
+			data: { imports },
+			message: "Bulk imports retrieved successfully",
+			schema: backendApiSchemaRoutes["@get/inventory/bulk-imports"].data,
+		});
+	})
+
+	.post(
+		"/bulk-imports/:stockTransactionId/remove",
+		authorizeRoleMiddleware(["owner"], {
+			errorMessage: "Only the pharmacy owner can remove an import.",
+		}),
+		validateWithZodMiddleware(
+			"param",
+			backendApiSchemaRoutes["@post/inventory/bulk-imports/:stockTransactionId/remove"].params
+		),
+		async (ctx) => {
+			const { stockTransactionId } = ctx.req.valid("param");
+			const currentUser = ctx.get("currentUser");
+			const currentWorkspace = ctx.get("currentWorkspace");
+
+			await removeInventoryBulkImport({
+				stockTransactionId,
+				userId: currentUser.id,
+				workspaceId: currentUser.workspaceId,
+			});
+
+			await syncInventoryAlerts({
+				lowStockThreshold: currentWorkspace.lowStockThreshold,
+				nearExpiryDays: currentWorkspace.nearExpiryDays,
+				timezone: currentWorkspace.timezone,
+				workspaceId: currentUser.workspaceId,
+			});
+
+			return AppJsonResponse(ctx, {
+				data: null,
+				message: "Import removed. Its stock is no longer on the shelf.",
+				schema: backendApiSchemaRoutes["@post/inventory/bulk-imports/:stockTransactionId/remove"].data,
 			});
 		}
 	);

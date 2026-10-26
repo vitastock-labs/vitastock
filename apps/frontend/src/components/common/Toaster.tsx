@@ -33,6 +33,8 @@ const SonnerToaster = (props: ToasterProps) => {
 			visibleToasts={3}
 			toastOptions={{
 				classNames: {
+					actionButton: `ml-auto shrink-0 rounded-md bg-white px-3 py-1.5 text-[13px] font-bold
+					text-vitastock-primary-dark hover:bg-white/90`,
 					closeButton: `absolute -top-2 -right-2 grid size-5 place-items-center rounded-[50%]
 					bg-black/25! text-white! backdrop-blur-lg`,
 					default: "border-vitastock-primary-main bg-vitastock-primary-dark",

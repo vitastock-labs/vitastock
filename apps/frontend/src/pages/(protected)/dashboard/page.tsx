@@ -1,18 +1,24 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { STOCK_DISPENSE_UNDO_WINDOW_MS } from "@vitastock/shared/constants";
 import { createSearchParamsString } from "@zayne-labs/toolkit-core";
+import { addMilliseconds, differenceInMilliseconds, isFuture } from "date-fns";
+import { useEffect, useState } from "react";
 import { For } from "@/components/common/for";
 import { IconBox } from "@/components/common/IconBox";
 import { NavLinkEphemeral } from "@/components/common/NavLink";
+import { Show } from "@/components/common/show";
 import { Switch } from "@/components/common/switch";
 import { Badge, Card } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import { createDataTableColumnHelper, useDataTable } from "@/components/ui/data-table";
 import {
 	StockMovementLogTypeSchema,
+	StockOutReasonSchema,
 	StockReductionLogTypeSchema,
 } from "@/lib/api/callBackendApi/apiSchema";
+import { undoInventoryDispenseMutation } from "@/lib/react-query/mutationOptions";
 import {
 	dashboardOverviewQuery,
 	sessionQuery,
@@ -24,6 +30,7 @@ import { LOADING_DISPLAY_VALUE } from "@/pages/(protected)/dashboard/-components
 import { EmptyState } from "@/pages/(protected)/dashboard/-components/EmptyState";
 import { DashboardDataTable } from "./-components/DashboardDataTableShared";
 import { Main } from "./-components/Main";
+import { invalidateStockMovementQueries } from "./-utils/invalidateStockMovementQueries";
 
 function DashboardPage() {
 	const dashboardOverviewQueryResult = useQuery(dashboardOverviewQuery());
@@ -148,24 +155,30 @@ function DashboardStats() {
 }
 
 function DashboardQuickActions() {
+	const sessionQueryResult = useQuery(sessionQuery());
+	const currentUserRole = sessionQueryResult.data?.user.role;
+	const canManageStock = currentUserRole === "owner" || currentUserRole === "admin";
+
 	return (
 		<section className="flex flex-col gap-4">
 			<h2 className="text-[14px] font-bold tracking-widest text-black uppercase">Quick Actions</h2>
 
 			<div className="flex flex-wrap items-center gap-3 md:gap-4">
-				<NavLinkEphemeral
-					to={{
-						pathname: "/dashboard/inventory",
-						search: createSearchParamsString({
-							movement: StockMovementLogTypeSchema.enum.stock_in,
-						}),
-					}}
-				>
-					<Button>
-						<IconBox icon="lucide:plus" className="size-4.5" />
-						Stock In
-					</Button>
-				</NavLinkEphemeral>
+				<Show.Root when={canManageStock}>
+					<NavLinkEphemeral
+						to={{
+							pathname: "/dashboard/inventory",
+							search: createSearchParamsString({
+								movement: StockMovementLogTypeSchema.enum.stock_in,
+							}),
+						}}
+					>
+						<Button>
+							<IconBox icon="lucide:plus" className="size-4.5" />
+							Stock In
+						</Button>
+					</NavLinkEphemeral>
+				</Show.Root>
 				<NavLinkEphemeral
 					to={{
 						pathname: "/dashboard/inventory",
@@ -226,18 +239,21 @@ const dashboardActivityColumns = dashboardActivityColumnHelper.columns([
 	),
 	dashboardActivityColumnHelper.accessor("logType", {
 		cell: ({ row }) => (
-			<Badge
-				className={cnJoin(
-					"border-none px-3 py-1 text-[12px] font-semibold",
-					stockReductionLogTypes.has(row.original.logType)
-						&& `bg-vitastock-primary-main/10 text-vitastock-primary-main
-						hover:bg-vitastock-primary-main/20`,
-					!stockReductionLogTypes.has(row.original.logType)
-						&& "bg-shadcn-muted text-vitastock-body-color hover:bg-shadcn-muted/80"
-				)}
-			>
-				{formatEnumLabel(row.original.logType)}
-			</Badge>
+			<div className="flex flex-col items-start gap-1.5">
+				<Badge
+					className={cnJoin(
+						"border-none px-3 py-1 text-[12px] font-semibold",
+						stockReductionLogTypes.has(row.original.logType)
+							&& `bg-vitastock-primary-main/10 text-vitastock-primary-main
+							hover:bg-vitastock-primary-main/20`,
+						!stockReductionLogTypes.has(row.original.logType)
+							&& "bg-shadcn-muted text-vitastock-body-color hover:bg-shadcn-muted/80"
+					)}
+				>
+					{formatEnumLabel(row.original.logType)}
+				</Badge>
+				<DashboardActivityUndo activity={row.original} />
+			</div>
 		),
 		header: "Action",
 	}),
@@ -258,6 +274,72 @@ const dashboardActivityColumns = dashboardActivityColumnHelper.columns([
 		header: () => <span className="block text-right">Time</span>,
 	}),
 ]);
+
+function DashboardActivityUndo(props: { activity: DashboardActivityRow }) {
+	const { activity } = props;
+
+	if (activity.undoneAt) {
+		return (
+			<span className="text-[12px] font-medium text-shadcn-destructive">
+				{activity.logType === "opening_stock" ? "Import removed by" : "Undone by"}{" "}
+				{activity.undoneBy ?? "a team member"}
+			</span>
+		);
+	}
+
+	if (activity.reason !== StockOutReasonSchema.enum.patient) {
+		return null;
+	}
+
+	return <DashboardActivityUndoButton activity={activity} />;
+}
+
+function DashboardActivityUndoButton(props: { activity: DashboardActivityRow }) {
+	const { activity } = props;
+
+	const queryClient = useQueryClient();
+	const sessionQueryResult = useQuery(sessionQuery());
+	const undoDispenseMutationResult = useMutation({
+		...undoInventoryDispenseMutation(),
+		onSuccess: () => invalidateStockMovementQueries(queryClient),
+	});
+
+	const undoExpiresAtTime = addMilliseconds(activity.createdAt, STOCK_DISPENSE_UNDO_WINDOW_MS).getTime();
+	const [isWithinUndoWindow, setIsWithinUndoWindow] = useState(() => isFuture(undoExpiresAtTime));
+
+	useEffect(() => {
+		if (!isWithinUndoWindow) return;
+
+		const timeoutId = setTimeout(
+			() => setIsWithinUndoWindow(false),
+			differenceInMilliseconds(undoExpiresAtTime, new Date())
+		);
+
+		return () => clearTimeout(timeoutId);
+	}, [isWithinUndoWindow, undoExpiresAtTime]);
+
+	const isOwnDispense = activity.performedByUserId === sessionQueryResult.data?.user.id;
+
+	if (!isOwnDispense || !isWithinUndoWindow) {
+		return null;
+	}
+
+	return (
+		<Button
+			theme="primary-ghost"
+			size="none"
+			className="h-7 gap-1.5 px-2 text-[12px] font-semibold"
+			isLoading={undoDispenseMutationResult.isPending}
+			isDisabled={undoDispenseMutationResult.isPending}
+			onClick={() =>
+				undoDispenseMutationResult.mutate({ stockTransactionId: activity.stockTransactionId })
+			}
+		>
+			<IconBox icon="lucide:undo-2" className="size-3.5" />
+			Undo
+		</Button>
+	);
+}
 
 function DashboardActivity() {
 	const dashboardOverviewQueryResult = useQuery(dashboardOverviewQuery());

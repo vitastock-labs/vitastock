@@ -37,11 +37,26 @@ test.each(["expired", "damaged"])(
 	}
 );
 
-test.each(["patient", "ward"])("Stock-log request - %s dispensing remains automatic FEFO", (reason) => {
-	const body = { drugId: randomUUID(), logType: "stock_out", quantity: 23, reason };
+test("Stock-log request - patient dispensing remains automatic FEFO", () => {
+	const body = { drugId: randomUUID(), logType: "stock_out", quantity: 23, reason: "patient" };
 
 	expect(schema.safeParse(body).success).toBe(true);
 	expect(schema.safeParse({ ...body, batchId: randomUUID() }).success).toBe(false);
+});
+
+test("Stock-log request - ward is no longer a dispense reason", () => {
+	const stockLogResult = schema.safeParse({
+		drugId: randomUUID(),
+		logType: "stock_out",
+		quantity: 23,
+		reason: "ward",
+	});
+	const dispenseResult = dispenseSchema.safeParse({
+		items: [{ drugId: randomUUID(), quantity: 23, reason: "ward" }],
+	});
+
+	expect(stockLogResult.success).toBe(false);
+	expect(dispenseResult.success).toBe(false);
 });
 
 test("Stock-log request - stock-in uses its own branch", () => {
@@ -123,4 +138,38 @@ test("Patient name - removal reasons drop any patient name", () => {
 	});
 
 	expect(result).not.toHaveProperty("patientName");
+});
+
+const drugUpdateSchema = backendApiSchemaRoutes["@patch/inventory/drugs/:drugId"].body;
+
+test.each([
+	["1500", 1500],
+	["99.99", 99.99],
+	["", null],
+	[null, null],
+])("Drug prices - parses %j as %j", (retailPrice, expected) => {
+	expect(drugUpdateSchema.parse({ retailPrice }).retailPrice).toBe(expected);
+});
+
+test.each(["0", "-5", "12.345", "1,500"])("Drug prices - rejects %s", (retailPrice) => {
+	expect(drugUpdateSchema.safeParse({ retailPrice }).success).toBe(false);
+});
+
+test("Stock-in request - cost price is optional", () => {
+	const body = { drugId: randomUUID(), expiryDate: "2030-12-31", logType: "stock_in", quantity: 5 };
+
+	expect(schema.parse(body)).not.toHaveProperty("costPrice");
+	expect(schema.parse({ ...body, costPrice: "" })).toMatchObject({ costPrice: undefined });
+	expect(schema.parse({ ...body, costPrice: "1250.50" })).toMatchObject({ costPrice: 1250.5 });
+});
+
+test("Dispense request - a cart is a retail sale unless wholesale is chosen", () => {
+	const items = [{ drugId: randomUUID(), quantity: 2, reason: "patient" }];
+
+	expect(dispenseSchema.parse({ items })).toMatchObject({ saleType: "retail" });
+	expect(dispenseSchema.parse({ items, paymentMethod: "pos", saleType: "wholesale" })).toMatchObject({
+		paymentMethod: "pos",
+		saleType: "wholesale",
+	});
+	expect(dispenseSchema.safeParse({ items, paymentMethod: "card" }).success).toBe(false);
 });

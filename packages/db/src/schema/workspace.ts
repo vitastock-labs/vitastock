@@ -29,6 +29,10 @@ export const workspaces = pg.pgTable("workspaces", {
 		.notNull()
 		.defaultNow()
 		.$onUpdate(() => new Date()),
+	weeklyEmailEnabled: pg.boolean().notNull().default(true),
+	// == Monday of the last week whose email went out; claimed atomically so each week sends once
+	weeklyEmailLastSentWeek: pg.date(),
+	weeklyEmailTime: pg.time().notNull().default("21:00"),
 });
 
 export const InsertWorkspaceSchema = createInsertSchema(workspaces, {

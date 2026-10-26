@@ -4,14 +4,19 @@ import { z } from "zod";
 export const INVENTORY_BULK_IMPORT_MAX_ROWS = 2000;
 
 export const INVENTORY_BULK_IMPORT_COLUMNS = defineEnum({
+	"Cost Price ₦ (per unit)": "costPrice",
 	"Dosage Form": "form",
 	"Drug Name": "name",
 	"Expiry Date": "expiryDate",
 	"Generic Name": "genericName",
 	"Low Stock Threshold": "lowStockThreshold",
 	Quantity: "quantity",
+	"Retail Price ₦ (per unit)": "retailPrice",
 	Strength: "strength",
 	Unit: "unit",
+	// == Older templates called the cost column this; keep importing those files
+	"Unit Cost ₦": "costPrice",
+	"Wholesale Price ₦ (per unit)": "wholesalePrice",
 });
 
 export const INVENTORY_BULK_IMPORT_REQUIRED_HEADERS = defineEnum([
@@ -31,6 +36,15 @@ export const InventoryBulkImportHeadersSchema = z.array(z.string()).superRefine(
 		seenHeaders.has(header) && duplicateHeaders.add(header);
 
 		seenHeaders.add(header);
+	}
+
+	const costHeaders = headers.filter(
+		(header) =>
+			INVENTORY_BULK_IMPORT_COLUMNS[header as never] === INVENTORY_BULK_IMPORT_COLUMNS["Unit Cost ₦"]
+	);
+
+	if (costHeaders.length > 1) {
+		duplicateHeaders.add(costHeaders.join(" and "));
 	}
 
 	if (duplicateHeaders.size > 0) {
@@ -63,7 +77,16 @@ export const InventoryBulkImportHeadersSchema = z.array(z.string()).superRefine(
 	}
 });
 
+export const cleanNairaAmount = (value: unknown) => {
+	if (typeof value !== "string") {
+		return value;
+	}
+
+	return value.replaceAll(/ngn|[\s,₦]/giu, "");
+};
+
 export const createInventoryBulkImportRowKey = (row: {
+	costPrice?: number;
 	expiryDate: string;
 	form?: string;
 	genericName: string;
@@ -77,5 +100,5 @@ export const createInventoryBulkImportRowKey = (row: {
 		.map((value) => value?.trim().toLowerCase() ?? "")
 		.join("|");
 
-	return `${drugIdentity}|${row.expiryDate}|${row.quantity}`;
+	return `${drugIdentity}|${row.expiryDate}|${row.quantity}|${row.costPrice ?? ""}`;
 };

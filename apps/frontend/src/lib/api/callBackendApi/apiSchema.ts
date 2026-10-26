@@ -1,8 +1,9 @@
 export {
 	backendApiSchema,
 	backendApiSchemaRoutes,
-	EmailAlertDeliveryPolicySchema,
 	PatientNameSchema,
+	PaymentMethodSchema,
+	SaleTypeSchema,
 	SignUpSchema,
 	StockAdditionLogTypeSchema,
 	StockLogTypeSchema,

@@ -1,19 +1,13 @@
 import { db } from "@vitastock/db";
-import { users } from "@vitastock/db/schema/auth";
 import {
 	drugs,
 	INVENTORY_ALERT_STATUSES,
-	inventoryAlertOutbox,
 	inventoryAlerts,
 	stockBatches,
 	type SelectInventoryAlertType,
 } from "@vitastock/db/schema/inventory";
-import {
-	EMAIL_ALERT_DELIVERY_POLICIES,
-	workspaceMemberships,
-	workspaces,
-} from "@vitastock/db/schema/workspace";
-import { and, asc, desc, eq, gt, gte, inArray, isNull, lt, lte, notInArray, sql } from "drizzle-orm";
+import { workspaces } from "@vitastock/db/schema/workspace";
+import { and, asc, desc, eq, gt, gte, isNull, lt, lte, notInArray, sql } from "drizzle-orm";
 import { getInventoryStatus } from "./utils/common";
 import { getWorkspaceInventoryDates } from "./utils/date";
 
@@ -27,27 +21,6 @@ type AlertCondition = {
 	type: SelectInventoryAlertType["type"];
 };
 type InventoryTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
-
-type AlertEmailConfiguration = {
-	deliveryPolicy: typeof EMAIL_ALERT_DELIVERY_POLICIES.$inferUnion;
-	recipients: Array<{ email: string; name: string }>;
-};
-
-export const canSendImmediateInventoryAlertEmail = (options: {
-	deliveryPolicy: AlertEmailConfiguration["deliveryPolicy"];
-	type: AlertCondition["type"];
-}) => {
-	const { deliveryPolicy, type } = options;
-
-	if (deliveryPolicy === "all_immediate") {
-		return true;
-	}
-
-	return (
-		deliveryPolicy === "critical_immediate"
-		&& (type === "expired" || type === "low_stock" || type === "out_of_stock")
-	);
-};
 
 const getAlertConditions = async (
 	options: {
@@ -153,67 +126,12 @@ const getAlertConditions = async (
 	];
 };
 
-export const getAlertEmailConfiguration = async (
-	workspaceId: string,
-	dbClient: typeof db = db
-): Promise<AlertEmailConfiguration | null> => {
-	const [workspace] = await dbClient
-		.select({
-			alertEmail: workspaces.alertEmail,
-			deliveryPolicy: workspaces.emailAlertDeliveryPolicy,
-			emailAlertsEnabledAt: workspaces.emailAlertsEnabledAt,
-			name: workspaces.name,
-		})
-		.from(workspaces)
-		.where(eq(workspaces.id, workspaceId))
-		.limit(1);
-
-	const memberships = await dbClient
-		.select({ email: users.email, fullName: users.fullName })
-		.from(workspaceMemberships)
-		.innerJoin(users, eq(workspaceMemberships.userId, users.id))
-		.where(
-			and(
-				eq(workspaceMemberships.workspaceId, workspaceId),
-				isNull(workspaceMemberships.suspendedAt),
-				inArray(workspaceMemberships.role, ["owner", "admin"])
-			)
-		);
-
-	if (!workspace?.emailAlertsEnabledAt || !workspace.alertEmail) {
-		return null;
-	}
-
-	const recipients = new Map<string, { email: string; name: string }>([
-		[
-			workspace.alertEmail.toLowerCase(),
-			{
-				email: workspace.alertEmail,
-				name: workspace.name,
-			},
-		],
-	]);
-
-	for (const membership of memberships) {
-		recipients.set(membership.email.toLowerCase(), {
-			email: membership.email,
-			name: membership.fullName,
-		});
-	}
-
-	return {
-		deliveryPolicy: workspace.deliveryPolicy,
-		recipients: recipients.values().toArray(),
-	};
-};
-
 const persistInventoryAlertChanges = async (options: {
 	currentConditions: AlertCondition[];
-	emailConfiguration: AlertEmailConfiguration | null;
 	tx: InventoryTransaction;
 	workspaceId: string;
 }) => {
-	const { currentConditions, emailConfiguration, tx, workspaceId } = options;
+	const { currentConditions, tx, workspaceId } = options;
 	const now = new Date();
 
 	const storedAlerts = await tx
@@ -223,76 +141,29 @@ const persistInventoryAlertChanges = async (options: {
 		.for("update");
 	const storedAlertsByDedupeKey = new Map(storedAlerts.map((alert) => [alert.dedupeKey, alert]));
 
-	const reconciledAlerts: Array<{
-		alert: SelectInventoryAlertType | undefined;
-		isNewOccurrence: boolean;
-	}> = [];
-
 	for (const condition of currentConditions) {
 		const storedAlert = storedAlertsByDedupeKey.get(condition.dedupeKey);
-		const isNewOccurrence = !storedAlert || storedAlert.status === "resolved";
 
 		if (storedAlert) {
+			const isNewOccurrence = storedAlert.status === "resolved";
+
 			// eslint-disable-next-line no-await-in-loop -- queries on one transaction share a single connection and run sequentially
-			const [alert] = await tx
+			await tx
 				.update(inventoryAlerts)
 				.set({
 					...condition,
 					acknowledgedAt: isNewOccurrence ? null : storedAlert.acknowledgedAt,
 					acknowledgedByUserId: isNewOccurrence ? null : storedAlert.acknowledgedByUserId,
-					lastNotifiedAt: isNewOccurrence ? null : storedAlert.lastNotifiedAt,
 					resolvedAt: null,
 					status: "active",
 				})
-				.where(eq(inventoryAlerts.id, storedAlert.id))
-				.returning();
+				.where(eq(inventoryAlerts.id, storedAlert.id));
 
-			reconciledAlerts.push({ alert, isNewOccurrence });
 			continue;
 		}
 
 		// eslint-disable-next-line no-await-in-loop -- queries on one transaction share a single connection and run sequentially
-		const [alert] = await tx
-			.insert(inventoryAlerts)
-			.values({ ...condition, status: "active", workspaceId })
-			.returning();
-
-		reconciledAlerts.push({ alert, isNewOccurrence });
-	}
-
-	const newlyRaisedAlerts = reconciledAlerts.flatMap(({ alert, isNewOccurrence }) => {
-		if (!alert || !isNewOccurrence) {
-			return [];
-		}
-
-		return [alert];
-	});
-	const immediateAlerts = newlyRaisedAlerts.filter((alert) => {
-		if (!emailConfiguration) {
-			return false;
-		}
-
-		return canSendImmediateInventoryAlertEmail({
-			deliveryPolicy: emailConfiguration.deliveryPolicy,
-			type: alert.type,
-		});
-	});
-	const outboxRecords =
-		emailConfiguration ?
-			immediateAlerts.flatMap((alert) =>
-				emailConfiguration.recipients.map((recipient) => ({
-					alertId: alert.id,
-					dedupeKey: `alert_raised:${alert.id}:${now.toISOString()}:${recipient.email.toLowerCase()}`,
-					recipientEmail: recipient.email,
-					recipientName: recipient.name,
-					type: "alert_raised" as const,
-					workspaceId,
-				}))
-			)
-		:	[];
-
-	if (outboxRecords.length > 0) {
-		await tx.insert(inventoryAlertOutbox).values(outboxRecords).onConflictDoNothing();
+		await tx.insert(inventoryAlerts).values({ ...condition, status: "active", workspaceId });
 	}
 
 	const currentDedupeKeys = currentConditions.map((condition) => condition.dedupeKey);
@@ -331,9 +202,7 @@ export const syncInventoryAlerts = async (options: {
 			{ lowStockThreshold, nearExpiryDays, timezone, workspaceId },
 			dbClient
 		);
-		const emailConfiguration = await getAlertEmailConfiguration(workspaceId, dbClient);
-
-		await persistInventoryAlertChanges({ currentConditions, emailConfiguration, tx, workspaceId });
+		await persistInventoryAlertChanges({ currentConditions, tx, workspaceId });
 	});
 };
 
@@ -367,8 +236,10 @@ export const getPersistedInventoryAlerts = async (options: {
 				isActive: drugs.isActive,
 				lowStockThreshold: drugs.lowStockThreshold,
 				name: drugs.name,
+				retailPrice: drugs.retailPrice,
 				strength: drugs.strength,
 				unit: drugs.unit,
+				wholesalePrice: drugs.wholesalePrice,
 			},
 			expiryDate: inventoryAlerts.expiryDate,
 			id: inventoryAlerts.id,

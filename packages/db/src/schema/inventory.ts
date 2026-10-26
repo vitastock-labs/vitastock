@@ -9,6 +9,11 @@ export const INVENTORY_STOCK_STATUS = defineEnum(["low_stock", "normal", "out_of
 	inferredUnionVariant: "values",
 });
 
+export const SALE_TYPES = defineEnum(["retail", "wholesale"]);
+export const PAYMENT_METHODS = defineEnum(["cash", "transfer", "pos"]);
+
+const priceColumn = () => pg.numeric({ mode: "number", precision: 12, scale: 2 });
+
 export const drugs = pg.pgTable(
 	"drugs",
 	{
@@ -19,6 +24,9 @@ export const drugs = pg.pgTable(
 		isActive: pg.boolean().notNull().default(true),
 		lowStockThreshold: pg.integer(),
 		name: pg.text().notNull(),
+		priceUpdatedAt: pg.timestamp({ withTimezone: true }),
+		priceUpdatedByUserId: pg.uuid().references(() => users.id, { onDelete: "set null" }),
+		retailPrice: priceColumn(),
 		strength: pg.text(),
 		unit: pg.text(),
 		updatedAt: pg
@@ -26,6 +34,7 @@ export const drugs = pg.pgTable(
 			.notNull()
 			.defaultNow()
 			.$onUpdate(() => new Date()),
+		wholesalePrice: priceColumn(),
 		workspaceId: pg
 			.uuid()
 			.notNull()
@@ -44,6 +53,8 @@ export const drugs = pg.pgTable(
 				sql`coalesce(lower(btrim(${table.unit})), '')`
 			),
 		pg.check("drug_low_stock_threshold_nonnegative_check", sql`${table.lowStockThreshold} >= 0`),
+		pg.check("drug_retail_price_positive_check", sql`${table.retailPrice} > 0`),
+		pg.check("drug_wholesale_price_positive_check", sql`${table.wholesalePrice} > 0`),
 	]
 );
 
@@ -51,6 +62,7 @@ export const stockBatches = pg.pgTable(
 	"stock_batches",
 	{
 		batchNumber: pg.text(),
+		costPrice: priceColumn(),
 		createdAt: pg.timestamp({ withTimezone: true }).notNull().defaultNow(),
 		drugId: pg
 			.uuid()
@@ -79,13 +91,17 @@ export const stockBatches = pg.pgTable(
 		pg.index("stock_batch_workspace_expiry_index").on(table.workspaceId, table.expiryDate),
 		pg
 			.uniqueIndex("stock_batch_identity_index")
+			// == Cost is part of a batch's identity: the same lot delivered at a new price stays a separate
+			// == batch so each sale keeps its true cost. Prices are positive, so 0 stands in for "no cost".
 			.on(
 				table.workspaceId,
 				table.drugId,
 				sql`coalesce(lower(btrim(${table.batchNumber})), '')`,
-				table.expiryDate
+				table.expiryDate,
+				sql`coalesce(${table.costPrice}, 0)`
 			),
 		pg.check("stock_batch_quantity_available_check", sql`${table.quantityAvailable} >= 0`),
+		pg.check("stock_batch_cost_price_positive_check", sql`${table.costPrice} > 0`),
 		pg.check("stock_batch_quantity_received_check", sql`${table.quantityReceived} > 0`),
 		pg.check(
 			"stock_batch_available_lte_received_check",
@@ -103,7 +119,7 @@ export const STOCK_LOG_TYPES = defineEnum([
 	"stock_out",
 ]);
 
-export const STOCK_OUT_REASONS = defineEnum([STOCK_LOG_TYPES[0], STOCK_LOG_TYPES[1], "patient", "ward"]);
+export const STOCK_OUT_REASONS = defineEnum([STOCK_LOG_TYPES[0], STOCK_LOG_TYPES[1], "patient"]);
 
 export const STOCK_LOG_PATIENT_NAME_MAX_LENGTH = 120;
 
@@ -123,6 +139,8 @@ export const stockTransactions = pg.pgTable(
 			.uuid()
 			.notNull()
 			.references(() => users.id, { onDelete: "restrict" }),
+		removedAt: pg.timestamp({ withTimezone: true }),
+		removedByUserId: pg.uuid().references(() => users.id, { onDelete: "restrict" }),
 		requestHash: pg.text().notNull(),
 		workspaceId: pg
 			.uuid()
@@ -150,16 +168,22 @@ export const stockLogs = pg.pgTable(
 		logType: pg.text({ enum: STOCK_LOG_TYPES }).notNull(),
 		notes: pg.text(),
 		patientName: pg.varchar({ length: STOCK_LOG_PATIENT_NAME_MAX_LENGTH }),
+		paymentMethod: pg.text({ enum: PAYMENT_METHODS }),
 		performedByUserId: pg
 			.uuid()
 			.notNull()
 			.references(() => users.id, { onDelete: "restrict" }),
 		quantity: pg.integer().notNull(),
 		reason: pg.text({ enum: STOCK_OUT_REASONS }),
+		saleType: pg.text({ enum: SALE_TYPES }).notNull().default("retail"),
 		stockTransactionId: pg
 			.uuid()
 			.notNull()
 			.references(() => stockTransactions.id, { onDelete: "restrict" }),
+		undoneAt: pg.timestamp({ withTimezone: true }),
+		undoneByUserId: pg.uuid().references(() => users.id, { onDelete: "restrict" }),
+		unitCostPrice: priceColumn(),
+		unitSellingPrice: priceColumn(),
 		workspaceId: pg
 			.uuid()
 			.notNull()
@@ -171,6 +195,8 @@ export const stockLogs = pg.pgTable(
 		pg.index("stock_log_transaction_index").on(table.stockTransactionId),
 		pg.index("stock_log_workspace_patient_name_index").on(table.workspaceId, table.patientName),
 		pg.check("stock_log_quantity_positive_check", sql`${table.quantity} > 0`),
+		pg.check("stock_log_unit_cost_price_positive_check", sql`${table.unitCostPrice} > 0`),
+		pg.check("stock_log_unit_selling_price_positive_check", sql`${table.unitSellingPrice} > 0`),
 	]
 );
 

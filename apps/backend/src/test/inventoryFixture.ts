@@ -2,29 +2,18 @@ import { randomUUID } from "node:crypto";
 import { db } from "@vitastock/db";
 import { users } from "@vitastock/db/schema/auth";
 import { drugs } from "@vitastock/db/schema/inventory";
-import {
-	workspaceMemberships,
-	workspaces,
-	type SelectWorkspaceType,
-} from "@vitastock/db/schema/workspace";
+import { workspaceMemberships, workspaces } from "@vitastock/db/schema/workspace";
 import { addDays, format } from "date-fns";
 import { eq } from "drizzle-orm";
-import { createInventoryStockLog } from "@/app/inventory/services/stock-log";
+import { createInventoryDispenseCart, createInventoryStockLog } from "@/app/inventory/services/stock-log";
 
 type InventoryFixtureOptions = {
-	emailAlertDeliveryPolicy?: SelectWorkspaceType["emailAlertDeliveryPolicy"];
-	emailAlertsEnabled?: boolean;
 	lowStockThreshold?: number;
 	nearExpiryDays?: number;
 };
 
 export const createInventoryFixture = async (options: InventoryFixtureOptions = {}) => {
-	const {
-		emailAlertDeliveryPolicy = "critical_immediate",
-		emailAlertsEnabled = true,
-		lowStockThreshold = 10,
-		nearExpiryDays = 90,
-	} = options;
+	const { lowStockThreshold = 10, nearExpiryDays = 90 } = options;
 	const fixtureId = randomUUID();
 	const email = `inventory-${fixtureId}@vitastock.test`;
 
@@ -32,9 +21,6 @@ export const createInventoryFixture = async (options: InventoryFixtureOptions = 
 		const [workspace] = await tx
 			.insert(workspaces)
 			.values({
-				alertEmail: emailAlertsEnabled ? email : null,
-				emailAlertDeliveryPolicy,
-				emailAlertsEnabledAt: emailAlertsEnabled ? new Date() : null,
 				lowStockThreshold,
 				name: `Inventory Test ${fixtureId}`,
 				nearExpiryDays,
@@ -130,4 +116,14 @@ export const createSecondTestDrug = async (fixture: InventoryFixture) => {
 	}
 
 	return drug;
+};
+
+export const dispenseTestStock = (fixture: InventoryFixture, quantity: number) => {
+	return createInventoryDispenseCart({
+		body: { items: [{ drugId: fixture.drug.id, quantity, reason: "patient" }], saleType: "retail" },
+		idempotencyKey: randomUUID(),
+		timezone: fixture.workspace.timezone,
+		userId: fixture.user.id,
+		workspaceId: fixture.workspace.id,
+	});
 };

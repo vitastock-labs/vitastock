@@ -1,13 +1,29 @@
 import { db } from "@vitastock/db";
 import { drugs, stockBatches } from "@vitastock/db/schema/inventory";
 import type { backendApiSchemaRoutes } from "@vitastock/shared/validation/backendApiSchema";
-import { and, count, eq, gt, ilike, or, type SQL } from "drizzle-orm";
+import { and, count, eq, gt, gte, ilike, isNull, or, sql, type SQL } from "drizzle-orm";
 import type { z } from "zod";
 import { AppError } from "@/lib/utils";
+import { getWorkspaceToday } from "../utils/date";
 
 type InventoryDrugsQuery = z.infer<
 	NonNullable<(typeof backendApiSchemaRoutes)["@get/inventory/drugs"]["query"]>
 >;
+type InventoryPriceListQuery = z.infer<
+	NonNullable<(typeof backendApiSchemaRoutes)["@get/inventory/price-list"]["query"]>
+>;
+
+const toNullablePrice = (value: string | null) => (value === null ? null : Number(value));
+
+const getDrugSearchCondition = (search: string) => {
+	return or(
+		ilike(drugs.genericName, `%${search}%`),
+		ilike(drugs.name, `%${search}%`),
+		ilike(drugs.strength, `%${search}%`),
+		ilike(drugs.form, `%${search}%`),
+		ilike(drugs.unit, `%${search}%`)
+	);
+};
 
 export const getWorkspaceDrugList = async (options: {
 	query: InventoryDrugsQuery | undefined;
@@ -38,15 +54,7 @@ export const getWorkspaceDrugList = async (options: {
 	}
 
 	if (search) {
-		whereConditions.push(
-			or(
-				ilike(drugs.genericName, `%${search}%`),
-				ilike(drugs.name, `%${search}%`),
-				ilike(drugs.strength, `%${search}%`),
-				ilike(drugs.form, `%${search}%`),
-				ilike(drugs.unit, `%${search}%`)
-			)
-		);
+		whereConditions.push(getDrugSearchCondition(search));
 	}
 
 	const [drugsResult, totalResult] = await Promise.all([
@@ -105,8 +113,23 @@ export const createDrugForWorkspace = async (options: CreateDrugBody & { workspa
 
 	return drug;
 };
-export const updateDrug = async (options: UpdateDrugBody & { drugId: string; workspaceId: string }) => {
-	const { drugId, form, genericName, lowStockThreshold, name, strength, unit, workspaceId } = options;
+export const updateDrug = async (
+	options: UpdateDrugBody & { drugId: string; userId: string; workspaceId: string }
+) => {
+	const {
+		drugId,
+		form,
+		genericName,
+		lowStockThreshold,
+		name,
+		retailPrice,
+		strength,
+		unit,
+		userId,
+		wholesalePrice,
+		workspaceId,
+	} = options;
+	const isPriceChange = retailPrice !== undefined || wholesalePrice !== undefined;
 
 	const [drug] = await db
 		.update(drugs)
@@ -115,8 +138,11 @@ export const updateDrug = async (options: UpdateDrugBody & { drugId: string; wor
 			...(genericName !== undefined && { genericName }),
 			...(lowStockThreshold !== undefined && { lowStockThreshold }),
 			...(name !== undefined && { name }),
+			...(retailPrice !== undefined && { retailPrice }),
 			...(strength !== undefined && { strength }),
 			...(unit !== undefined && { unit }),
+			...(wholesalePrice !== undefined && { wholesalePrice }),
+			...(isPriceChange && { priceUpdatedAt: new Date(), priceUpdatedByUserId: userId }),
 		})
 		.where(and(eq(drugs.id, drugId), eq(drugs.workspaceId, workspaceId)))
 		.returning();
@@ -186,4 +212,86 @@ export const handleDrugAction = async (options: {
 
 		return updatedDrug;
 	});
+};
+
+export const getWorkspacePriceList = async (options: {
+	query: InventoryPriceListQuery | undefined;
+	timezone: string;
+	workspaceId: string;
+}) => {
+	const { query, timezone, workspaceId } = options;
+	const page = query?.page ?? 1;
+	const pageSize = query?.pageSize ?? 20;
+	const today = getWorkspaceToday(timezone);
+
+	const whereConditions: Array<SQL | undefined> = [
+		eq(drugs.workspaceId, workspaceId),
+		eq(drugs.isActive, true),
+	];
+
+	if (query?.search) {
+		whereConditions.push(getDrugSearchCondition(query.search));
+	}
+
+	if (query?.pricesMissing) {
+		whereConditions.push(isNull(drugs.retailPrice));
+	}
+
+	const usableStock = and(gt(stockBatches.quantityAvailable, 0), gte(stockBatches.expiryDate, today));
+
+	const [rows, totalResult] = await Promise.all([
+		db
+			.select({
+				costHighest: sql`max(${stockBatches.costPrice}) filter (where ${usableStock})`.mapWith(
+					toNullablePrice
+				),
+				costLowest: sql`min(${stockBatches.costPrice}) filter (where ${usableStock})`.mapWith(
+					toNullablePrice
+				),
+				drug: {
+					form: drugs.form,
+					genericName: drugs.genericName,
+					id: drugs.id,
+					isActive: drugs.isActive,
+					lowStockThreshold: drugs.lowStockThreshold,
+					name: drugs.name,
+					retailPrice: drugs.retailPrice,
+					strength: drugs.strength,
+					unit: drugs.unit,
+					wholesalePrice: drugs.wholesalePrice,
+				},
+				uncostedBatchCount: sql<number>`
+					count(${stockBatches.id}) filter (where ${usableStock} and ${stockBatches.costPrice} is null)
+				`.mapWith(Number),
+			})
+			.from(drugs)
+			.leftJoin(stockBatches, eq(stockBatches.drugId, drugs.id))
+			.where(and(...whereConditions))
+			.groupBy(drugs.id)
+			.orderBy(drugs.name)
+			.limit(pageSize)
+			.offset((page - 1) * pageSize),
+		db
+			.select({ total: count() })
+			.from(drugs)
+			.where(and(...whereConditions)),
+	]);
+	const total = totalResult[0]?.total ?? 0;
+
+	return {
+		pagination: {
+			page,
+			pageCount: Math.ceil(total / pageSize),
+			pageSize,
+			total,
+		},
+		rows: rows.map(({ costHighest, costLowest, drug, uncostedBatchCount }) => ({
+			costRange:
+				costLowest !== null && costHighest !== null ?
+					{ highest: costHighest, lowest: costLowest }
+				:	null,
+			drug,
+			uncostedBatchCount,
+		})),
+	};
 };

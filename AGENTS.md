@@ -99,7 +99,9 @@ Apply these conventions to all repository changes unless a more specific `AGENTS
 - Use `date-fns` for all date parsing, comparison, manipulation, and formatting on frontend and backend.
 - Do not mutate `Date` objects manually.
 - Do not construct the current date during React render. Create stable date-picker bounds at module scope or in a lazy initializer unless the value must update while the component remains mounted.
-- Inventory tracks quantities, batches, and expiry dates, not prices or costs. Do not add monetary inputs, valuation, or financial loss calculations.
+- Prices are naira per one of the drug's counting unit. Cost price belongs to each batch (delivery), retail and wholesale selling prices belong to the drug, and every sale must snapshot both prices on its stock log rows so later price edits never rewrite past profit.
+- Only Owner and Admin set or change prices; every role can view them. Prices stay optional, so treat a missing price as "no price" and surface it rather than defaulting to zero.
+- Batches with a different cost price are separate batches; never average costs across deliveries. A wrongly entered cost is corrected on that batch only.
 - Reuse shared formatter utilities rather than creating `Intl` formatters in individual files.
 
 ## Tables

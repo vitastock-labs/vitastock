@@ -41,7 +41,7 @@ import {
 	type InventorySummaryQueryResultType,
 } from "@/lib/react-query/queryOptions";
 import { cnJoin } from "@/lib/utils/cn";
-import { formatDate, formatDrugLabel, formatEnumLabel } from "@/lib/utils/formatters";
+import { formatDate, formatDrugLabel, formatEnumLabel, formatNaira } from "@/lib/utils/formatters";
 import {
 	ComboboxField,
 	FormField,
@@ -56,14 +56,18 @@ import { EmptyState } from "@/pages/(protected)/dashboard/-components/EmptyState
 import { DashboardDataTable } from "../-components/DashboardDataTableShared";
 import { CreateDrugDialog, EditDrugDialog } from "../-components/DrugMasterDialog";
 import { Main } from "../-components/Main";
+import { invalidateStockMovementQueries } from "../-utils/invalidateStockMovementQueries";
 import { BulkImportDialog } from "./-components/BulkImportDialog";
+import { BulkImportHistoryDialog } from "./-components/BulkImportHistoryDialog";
 import { DispenseCartDialog } from "./-components/DispenseCartDialog";
-import { invalidateStockMovementQueries } from "./-utils/invalidateStockMovementQueries";
 
 function InventoryPage() {
 	const inventorySummaryQueryResult = useQuery(inventorySummaryQuery());
 	const hasNoInventory =
 		inventorySummaryQueryResult.isSuccess && inventorySummaryQueryResult.data.rows.length === 0;
+	const sessionQueryResult = useQuery(sessionQuery());
+	const currentUserRole = sessionQueryResult.data?.user.role;
+	const canManageStock = currentUserRole === "owner" || currentUserRole === "admin";
 
 	const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
 
@@ -76,24 +80,30 @@ function InventoryPage() {
 					<EmptyState
 						icon="lucide:package-x"
 						title="No inventory yet"
-						description="Add your first stock entry or import your inventory to get started."
+						description={
+							canManageStock ?
+								"Add your first stock entry or import your inventory to get started."
+							:	"Ask your pharmacy's Owner or an Admin to add stock before you can dispense."
+						}
 						action={
-							<DialogAnimated.Root open={isBulkImportOpen} onOpenChange={setIsBulkImportOpen}>
-								<DialogAnimated.Trigger asChild={true}>
-									<Button>
-										<IconBox icon="lucide:plus" className="size-4" />
-										Import Drugs
-									</Button>
-								</DialogAnimated.Trigger>
-								<BulkImportDialog onImported={() => setIsBulkImportOpen(false)} />
-							</DialogAnimated.Root>
+							canManageStock && (
+								<DialogAnimated.Root open={isBulkImportOpen} onOpenChange={setIsBulkImportOpen}>
+									<DialogAnimated.Trigger asChild={true}>
+										<Button>
+											<IconBox icon="lucide:plus" className="size-4" />
+											Import Drugs
+										</Button>
+									</DialogAnimated.Trigger>
+									<BulkImportDialog onImported={() => setIsBulkImportOpen(false)} />
+								</DialogAnimated.Root>
+							)
 						}
 					/>
 				</Switch.Match>
 
 				<Switch.Default>
 					<InventoryStats />
-					<InventoryActions />
+					<InventoryActions canManageStock={canManageStock} />
 
 					<div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
 						<InventoryTable />
@@ -189,7 +199,9 @@ const RemovalReasonSchema = StockOutReasonSchema.extract([
 
 type RemovalReason = z.infer<typeof RemovalReasonSchema>;
 
-function InventoryActions() {
+function InventoryActions(props: { canManageStock: boolean }) {
+	const { canManageStock } = props;
+
 	const [stockMovementSearchParams, setStockMovementSearchParams] = useQueryStates({
 		batchId: parseAsString,
 		drugId: parseAsString,
@@ -199,7 +211,6 @@ function InventoryActions() {
 
 	const removalReason = RemovalReasonSchema.safeParse(stockMovementSearchParams.reason).data;
 
-	// == Dispensing (patient/ward) goes through the cart; only batch removals use the single-item dialog
 	const isDispenseCartOpen =
 		stockMovementSearchParams.movement === StockMovementLogTypeSchema.enum.stock_out && !removalReason;
 
@@ -232,59 +243,78 @@ function InventoryActions() {
 						</Button>
 					</DispenseCartDialog>
 
-					<DialogAnimated.Root>
-						<DialogAnimated.Trigger asChild={true}>
-							<Button className="px-6">
-								<IconBox icon="lucide:trash" className="size-4.5" />
-								Remove Stock
-							</Button>
-						</DialogAnimated.Trigger>
+					<Show.Root when={canManageStock}>
+						<DialogAnimated.Root>
+							<DialogAnimated.Trigger asChild={true}>
+								<Button className="px-6">
+									<IconBox icon="lucide:trash" className="size-4.5" />
+									Remove Stock
+								</Button>
+							</DialogAnimated.Trigger>
 
-						<StockMovementDialog defaultLogType="stock_out" />
-					</DialogAnimated.Root>
+							<StockMovementDialog defaultLogType="stock_out" />
+						</DialogAnimated.Root>
 
-					<DialogAnimated.Root>
-						<DialogAnimated.Trigger asChild={true}>
-							<Button className="px-6">
-								<IconBox icon="lucide:plus" className="size-4.5" />
-								Add Stock
-							</Button>
-						</DialogAnimated.Trigger>
+						<DialogAnimated.Root>
+							<DialogAnimated.Trigger asChild={true}>
+								<Button className="px-6">
+									<IconBox icon="lucide:plus" className="size-4.5" />
+									Add Stock
+								</Button>
+							</DialogAnimated.Trigger>
 
-						<StockMovementDialog defaultLogType="stock_in" />
-					</DialogAnimated.Root>
+							<StockMovementDialog defaultLogType="stock_in" />
+						</DialogAnimated.Root>
 
-					<DialogAnimated.Root>
-						<DialogAnimated.Trigger asChild={true}>
-							<Button className="px-6">
-								<IconBox icon="lucide:plus" className="size-4.5" />
-								Add New Drug
-							</Button>
-						</DialogAnimated.Trigger>
+						<DialogAnimated.Root>
+							<DialogAnimated.Trigger asChild={true}>
+								<Button className="px-6">
+									<IconBox icon="lucide:plus" className="size-4.5" />
+									Add New Drug
+								</Button>
+							</DialogAnimated.Trigger>
 
-						<CreateDrugDialog />
-					</DialogAnimated.Root>
+							<CreateDrugDialog />
+						</DialogAnimated.Root>
+					</Show.Root>
 				</div>
 
-				<DialogAnimated.Root open={isBulkImportOpen} onOpenChange={setIsBulkImportOpen}>
-					<DialogAnimated.Trigger asChild={true}>
-						<Button theme="secondary-outline" className="px-5 text-vitastock-primary-main">
-							<IconBox icon="lucide:file-down" className="size-4.5" />
-							Bulk Import
-						</Button>
-					</DialogAnimated.Trigger>
+				<Show.Root when={canManageStock}>
+					<div className="flex flex-wrap items-center gap-3">
+						<DialogAnimated.Root>
+							<DialogAnimated.Trigger asChild={true}>
+								<Button theme="primary-ghost" className="px-4">
+									<IconBox icon="lucide:clipboard-list" className="size-4.5" />
+									Import History
+								</Button>
+							</DialogAnimated.Trigger>
 
-					<BulkImportDialog onImported={() => setIsBulkImportOpen(false)} />
-				</DialogAnimated.Root>
+							<BulkImportHistoryDialog />
+						</DialogAnimated.Root>
+
+						<DialogAnimated.Root open={isBulkImportOpen} onOpenChange={setIsBulkImportOpen}>
+							<DialogAnimated.Trigger asChild={true}>
+								<Button theme="secondary-outline" className="px-5 text-vitastock-primary-main">
+									<IconBox icon="lucide:file-down" className="size-4.5" />
+									Bulk Import
+								</Button>
+							</DialogAnimated.Trigger>
+
+							<BulkImportDialog onImported={() => setIsBulkImportOpen(false)} />
+						</DialogAnimated.Root>
+					</div>
+				</Show.Root>
 			</nav>
 
-			<StockMovementQueryDialog
-				batchId={stockMovementSearchParams.batchId}
-				drugId={stockMovementSearchParams.drugId}
-				movement={isDispenseCartOpen ? null : stockMovementSearchParams.movement}
-				reason={removalReason}
-				onClose={clearStockMovementSearchParams}
-			/>
+			<Show.Root when={canManageStock}>
+				<StockMovementQueryDialog
+					batchId={stockMovementSearchParams.batchId}
+					drugId={stockMovementSearchParams.drugId}
+					movement={isDispenseCartOpen ? null : stockMovementSearchParams.movement}
+					reason={removalReason}
+					onClose={clearStockMovementSearchParams}
+				/>
+			</Show.Root>
 		</section>
 	);
 }
@@ -697,6 +727,20 @@ function InventoryDetailsDialog(props: { drugId: string }) {
 											{ label: "Dosage form", value: row.drug.form ?? EMPTY_DISPLAY_VALUE },
 											{ label: "Counting unit", value: row.drug.unit ?? EMPTY_DISPLAY_VALUE },
 											{
+												label: `Retail price (per ${row.drug.unit ?? "unit"})`,
+												value:
+													row.drug.retailPrice === null ?
+														"Not set"
+													:	formatNaira(row.drug.retailPrice),
+											},
+											{
+												label: `Wholesale price (per ${row.drug.unit ?? "unit"})`,
+												value:
+													row.drug.wholesalePrice === null ?
+														"Not set"
+													:	formatNaira(row.drug.wholesalePrice),
+											},
+											{
 												label: "Low stock threshold",
 												value: row.effectiveLowStockThreshold,
 											},
@@ -998,6 +1042,7 @@ function StockMovementDialog(props: {
 			if (!isRemoval) {
 				return {
 					batchNumber: "",
+					costPrice: "",
 					drugId: initialDrugId ?? "",
 					expiryDate: "",
 					logType: defaultLogType,
@@ -1169,6 +1214,22 @@ function StockMovementDialog(props: {
 										label="Batch Number"
 										placeholder="Optional batch number"
 									/>
+
+									<Form.Watch control={form.control} name="drugId">
+										{(drugId) => (
+											<InputField
+												control={form.control}
+												name="costPrice"
+												type="number"
+												inputMode="decimal"
+												min={0}
+												step={0.01}
+												label={`Cost Price (₦ per ${drugs.find((drug) => drug.id === drugId)?.unit ?? "unit"})`}
+												description="What the pharmacy paid for this delivery. Used to work out profit."
+												placeholder="Optional, e.g. 1500"
+											/>
+										)}
+									</Form.Watch>
 								</Show.Fallback>
 							</Show.Root>
 						</div>

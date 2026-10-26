@@ -36,8 +36,10 @@ export const getInventorySummaryRows = async (options: {
 					isActive: drugs.isActive,
 					lowStockThreshold: drugs.lowStockThreshold,
 					name: drugs.name,
+					retailPrice: drugs.retailPrice,
 					strength: drugs.strength,
 					unit: drugs.unit,
+					wholesalePrice: drugs.wholesalePrice,
 				},
 				drugId: drugs.id,
 				expiredBatchCount: sql<number>`

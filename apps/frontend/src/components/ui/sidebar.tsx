@@ -668,6 +668,7 @@ function SidebarMenuButton(
 	}
 
 	if (typeof tooltip === "string") {
+		// eslint-disable-next-line react/immutability
 		tooltip = {
 			children: tooltip,
 		};

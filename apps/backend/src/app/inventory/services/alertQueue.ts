@@ -1,20 +1,12 @@
 import { Queue, Worker } from "bullmq";
+import { queueDueWeeklyOwnerReports } from "@/app/dashboard/services/weeklyReport";
 import { appLogger } from "@/lib/logger";
 import { redisQueueClient } from "@/services/queues/utils/queueClient";
-import {
-	createDueInventoryAlertDigests,
-	enqueuePendingInventoryAlertEmails,
-	maintainInventoryAlerts,
-} from "./alertJobs";
+import { maintainInventoryAlerts } from "./alertJobs";
 
 const inventoryAlertQueueName = "inventoryAlertQueue";
 
 const inventoryAlertJobDefinitions = [
-	{
-		every: 5 * 60 * 1000,
-		name: "dispatch-alert-outbox",
-		run: enqueuePendingInventoryAlertEmails,
-	},
 	{
 		every: 24 * 60 * 60 * 1000,
 		name: "evaluate-inventory-alerts",
@@ -22,8 +14,8 @@ const inventoryAlertJobDefinitions = [
 	},
 	{
 		every: 60 * 60 * 1000,
-		name: "queue-alert-digests",
-		run: createDueInventoryAlertDigests,
+		name: "queue-weekly-owner-reports",
+		run: () => queueDueWeeklyOwnerReports(),
 	},
 ] as const;
 

@@ -25,6 +25,7 @@ const CSV_FIELDS = [
 	"Quantity",
 	"Batches Used",
 	"Performed By",
+	"Undone By",
 	"Notes",
 	"Transaction ID",
 ] as const;
@@ -74,6 +75,7 @@ export const createInventoryActivityCsv = async (options: {
 				row.quantity,
 				row.batchCount,
 				row.person,
+				row.undoneBy ?? "",
 				row.notes ?? "",
 				row.stockTransactionId,
 			]),

@@ -1,4 +1,15 @@
-import { INVENTORY_STOCK_STATUS } from "@vitastock/db/schema/inventory";
+import type { SessionUserType } from "@vitastock/db/schema/auth";
+import {
+	INVENTORY_STOCK_STATUS,
+	STOCK_LOG_TYPES,
+	STOCK_OUT_REASONS,
+} from "@vitastock/db/schema/inventory";
+import { AUTH_ERRORS } from "@vitastock/shared/constants";
+import type { backendApiSchemaRoutes } from "@vitastock/shared/validation/backendApiSchema";
+import type { z } from "zod";
+import { AppError } from "@/lib/utils";
+
+type StockLogBody = z.infer<(typeof backendApiSchemaRoutes)["@post/inventory/stock-log"]["body"]>;
 
 type FefoBatch = {
 	id: string;
@@ -73,4 +84,21 @@ export const getInventorySummaryStats = (rows: InventorySummaryStatsRow[]) => {
 	}
 
 	return stats;
+};
+
+export const assertCanRecordStockLog = (options: {
+	body: StockLogBody;
+	role: SessionUserType["role"];
+}) => {
+	const { body, role } = options;
+	const isPatientDispense = body.logType === STOCK_LOG_TYPES[5] && body.reason === STOCK_OUT_REASONS[2];
+
+	if (isPatientDispense || role !== "pharmacist") return;
+
+	throw new AppError({
+		appCode: AUTH_ERRORS.INSUFFICIENT_PERMISSIONS.appCode,
+		cause: `User role '${role}' cannot record '${body.logType}' stock movements`,
+		code: 403,
+		message: "Only an Owner or Admin can add or remove stock.",
+	});
 };

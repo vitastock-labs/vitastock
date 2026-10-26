@@ -1,11 +1,13 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { For } from "@/components/common/for";
 import { IconBox } from "@/components/common/IconBox";
 import { Logo } from "@/components/common/Logo";
 import { NavLink } from "@/components/common/NavLink";
 import { Sidebar } from "@/components/ui";
 import { Button } from "@/components/ui/button";
+import { sessionQuery } from "@/lib/react-query/queryOptions";
 
 const dashboardNavItems = [
 	{
@@ -21,10 +23,23 @@ const dashboardNavItems = [
 		title: "Inventory",
 	},
 	{
+		href: "/dashboard/prices",
+		icon: "material-symbols:sell-outline",
+		iconActive: "material-symbols:sell",
+		title: "Price List",
+	},
+	{
 		href: "/dashboard/reports",
 		icon: "mdi:chart-box-outline",
 		iconActive: "mdi:chart-box",
 		title: "Reports",
+	},
+	{
+		href: "/dashboard/analytics",
+		icon: "material-symbols:troubleshoot",
+		iconActive: "material-symbols:troubleshoot",
+		isManagerOnly: true,
+		title: "Analytics",
 	},
 	{
 		href: "/dashboard/alerts",
@@ -144,10 +159,15 @@ function DashboardSidebarToggle() {
 function DashboardSidebarMenu(props: { items: readonly DashboardNavItem[] }) {
 	const { items } = props;
 
+	const sessionQueryResult = useQuery(sessionQuery());
+	const currentUserRole = sessionQueryResult.data?.user.role;
+	const isManager = currentUserRole === "owner" || currentUserRole === "admin";
+	const visibleItems = items.filter((item) => isManager || !("isManagerOnly" in item));
+
 	return (
 		<Sidebar.Menu className="gap-2">
 			<For
-				each={items}
+				each={visibleItems}
 				renderItem={(item) => (
 					<Sidebar.MenuItem key={item.title}>
 						<DashboardSidebarLink item={item} />

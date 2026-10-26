@@ -17,7 +17,7 @@ import {
 import { Form } from "@/components/ui/form";
 import { Switch as SwitchButton } from "@/components/ui/switch";
 import { callBackendApiForQuery } from "@/lib/api/callBackendApi";
-import { EmailAlertDeliveryPolicySchema, WorkspaceRoleSchema } from "@/lib/api/callBackendApi/apiSchema";
+import { WorkspaceRoleSchema } from "@/lib/api/callBackendApi/apiSchema";
 import { posthog } from "@/lib/posthog";
 import {
 	cancelWorkspaceInvitationMutation,
@@ -39,17 +39,6 @@ import { FormField, InputField, SelectField } from "@/pages/(home)/-components/F
 import { DashboardDataTable } from "../-components/DashboardDataTableShared";
 import { DrugMasterDialog } from "../-components/DrugMasterDialog";
 import { Main } from "../-components/Main";
-
-const EMAIL_ALERT_DELIVERY_POLICY_LABELS = {
-	all_immediate: "All alerts immediately + daily digest",
-	critical_immediate: "Critical alerts + daily digest",
-	digest_only: "Daily digest only",
-} satisfies Record<(typeof EmailAlertDeliveryPolicySchema.options)[number], string>;
-
-const EMAIL_ALERT_DELIVERY_POLICY_OPTIONS = EmailAlertDeliveryPolicySchema.options.map((policy) => ({
-	label: EMAIL_ALERT_DELIVERY_POLICY_LABELS[policy],
-	value: policy,
-}));
 
 function SettingsPage() {
 	return (
@@ -124,12 +113,11 @@ function AlertSettingsSection() {
 	const form = useForm({
 		resolver: zodResolver(AlertSettingsSchema),
 		values: {
-			alertEmail: sessionQueryResult.data?.workspace.alertEmail ?? undefined,
-			emailAlertDeliveryPolicy:
-				sessionQueryResult.data?.workspace.emailAlertDeliveryPolicy ?? "critical_immediate",
-			emailAlertsEnabled: Boolean(sessionQueryResult.data?.workspace.alertEmail),
 			lowStockThreshold: sessionQueryResult.data?.workspace.lowStockThreshold ?? 0,
 			nearExpiryDays: sessionQueryResult.data?.workspace.nearExpiryDays ?? 0,
+			weeklyEmailEnabled: sessionQueryResult.data?.workspace.weeklyEmailEnabled ?? true,
+			// == Postgres returns HH:mm:ss; the time input and API use HH:mm
+			weeklyEmailTime: sessionQueryResult.data?.workspace.weeklyEmailTime.slice(0, 5) ?? "21:00",
 		},
 	});
 
@@ -181,17 +169,18 @@ function AlertSettingsSection() {
 					className="flex items-center justify-between gap-4 border-b border-shadcn-border/50 py-6"
 				>
 					<div className="flex min-w-0 flex-col gap-1">
-						<h3 className="text-[14.5px] font-bold text-black">Email Alerts</h3>
+						<h3 className="text-[14.5px] font-bold text-black">Weekly Email</h3>
 						<p className="text-[13.5px] font-medium text-vitastock-body-color/80">
-							Receive critical stock warnings via email.
+							Owners and Admins get the week's sales, profit, and stock to act on every Sunday.
 						</p>
 					</div>
 
-					<FormField control={form.control} name="emailAlertsEnabled">
+					<FormField control={form.control} name="weeklyEmailEnabled">
 						<Form.FieldBoundController
 							render={({ field }) => (
 								<SwitchButton
 									checked={field.value}
+									disabled={!canUpdateAlertSettings}
 									onCheckedChange={field.onChange}
 									classNames={{
 										base: "data-checked:bg-vitastock-primary-dark",
@@ -203,43 +192,22 @@ function AlertSettingsSection() {
 					</FormField>
 				</article>
 
-				<Form.Watch control={form.control} name="emailAlertsEnabled">
-					{(emailAlertsEnabled) =>
-						emailAlertsEnabled && (
-							<>
-								<InputField
-									control={form.control}
-									name="alertEmail"
-									type="email"
-									autoCapitalize="none"
-									autoCorrect="off"
-									spellCheck={false}
-									autoComplete="email"
-									disabled={!canUpdateAlertSettings}
-									label="Alert Email"
-									description="Alert emails are sent to this address and active workspace managers."
-									placeholder="alerts@pharmacy.com"
-									classNames={{
-										base: "pt-6",
-										input: "mt-2 bg-transparent px-3 text-[14.5px] font-medium",
-										label: "text-[14.5px] font-bold text-black",
-									}}
-								/>
-
-								<SelectField
-									control={form.control}
-									name="emailAlertDeliveryPolicy"
-									disabled={!canUpdateAlertSettings}
-									label="Email Delivery"
-									description="Critical alerts include low stock and expired stock. Near-expiry alerts are always visible in VitaStock and are emailed immediately only with the highest-frequency option."
-									options={EMAIL_ALERT_DELIVERY_POLICY_OPTIONS}
-									classNames={{
-										base: "pt-6",
-										label: "text-[14.5px] font-bold text-black",
-										trigger: "mt-2 bg-transparent font-medium",
-									}}
-								/>
-							</>
+				<Form.Watch control={form.control} name="weeklyEmailEnabled">
+					{(weeklyEmailEnabled) =>
+						weeklyEmailEnabled && (
+							<InputField
+								control={form.control}
+								name="weeklyEmailTime"
+								type="time"
+								disabled={!canUpdateAlertSettings}
+								label="Send Time"
+								description="Sunday, in your pharmacy's timezone. The email covers Monday to Sunday."
+								classNames={{
+									base: "border-b border-shadcn-border/50 py-6",
+									input: "mt-2 w-35 bg-transparent px-3 text-[14.5px] font-medium",
+									label: "text-[14.5px] font-bold text-black",
+								}}
+							/>
 						)
 					}
 				</Form.Watch>

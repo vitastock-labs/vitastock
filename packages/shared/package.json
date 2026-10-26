@@ -22,12 +22,12 @@
 		"@zayne-labs/toolkit-core": "^0.12.59",
 		"@zayne-labs/toolkit-type-helpers": "^0.12.59",
 		"consola": "3.4.2",
-		"zod": "4.6.5"
+		"zod": "4.6.7"
 	},
 	"devDependencies": {
 		"@total-typescript/ts-reset": "0.6.1",
 		"@zayne-labs/tsconfig": "^0.13.19",
-		"tsdown": "0.23.0",
+		"tsdown": "0.23.2",
 		"typescript": "6.0.3"
 	}
 }

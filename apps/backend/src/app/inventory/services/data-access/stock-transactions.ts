@@ -32,14 +32,15 @@ export const claimStockTransaction = async (options: {
 		.onConflictDoNothing({
 			target: [stockTransactions.workspaceId, stockTransactions.idempotencyKey],
 		})
-		.returning({ id: stockTransactions.id });
+		.returning({ createdAt: stockTransactions.createdAt, id: stockTransactions.id });
 
 	if (createdTransaction) {
-		return { id: createdTransaction.id, isReplay: false } as const;
+		return { ...createdTransaction, isReplay: false } as const;
 	}
 
 	const [existingTransaction] = await tx
 		.select({
+			createdAt: stockTransactions.createdAt,
 			id: stockTransactions.id,
 			operation: stockTransactions.operation,
 			requestHash: stockTransactions.requestHash,
@@ -67,5 +68,9 @@ export const claimStockTransaction = async (options: {
 		});
 	}
 
-	return { id: existingTransaction.id, isReplay: true } as const;
+	return {
+		createdAt: existingTransaction.createdAt,
+		id: existingTransaction.id,
+		isReplay: true,
+	} as const;
 };

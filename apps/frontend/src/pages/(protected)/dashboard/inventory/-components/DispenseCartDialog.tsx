@@ -1,8 +1,10 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useConstant } from "@zayne-labs/toolkit-react";
+import { differenceInMilliseconds } from "date-fns";
+import { useEffect, useState } from "react";
 import {
 	useFieldArray,
 	useForm,
@@ -11,33 +13,36 @@ import {
 	type FieldPath,
 	type UseFormReturn,
 } from "react-hook-form";
+import { toast } from "sonner";
 import type { z } from "zod";
 import { useDialogContext } from "@/components/animated/primitives/dialog-radix";
 import { DialogAnimated } from "@/components/animated/ui";
-import { ForWithWrapper } from "@/components/common/for";
+import { For, ForWithWrapper } from "@/components/common/for";
 import { IconBox } from "@/components/common/IconBox";
 import { Show } from "@/components/common/show";
 import { Badge, Empty, ScrollArea } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
 import { callBackendApiForQuery } from "@/lib/api/callBackendApi";
-import { backendApiSchemaRoutes, PatientNameSchema } from "@/lib/api/callBackendApi/apiSchema";
+import {
+	backendApiSchemaRoutes,
+	PatientNameSchema,
+	PaymentMethodSchema,
+	SaleTypeSchema,
+} from "@/lib/api/callBackendApi/apiSchema";
 import { posthog } from "@/lib/posthog";
+import { undoInventoryDispenseMutation } from "@/lib/react-query/mutationOptions";
 import {
 	inventoryDrugsQuery,
 	inventorySummaryQuery,
+	type InventoryDrugsQueryResultType,
 	type InventorySummaryQueryResultType,
 } from "@/lib/react-query/queryOptions";
 import { cnJoin } from "@/lib/utils/cn";
-import { formatDate, formatDrugLabel } from "@/lib/utils/formatters";
-import {
-	ComboboxField,
-	FormField,
-	InputField,
-	SelectField,
-} from "@/pages/(home)/-components/FormPartsShared";
+import { formatDate, formatDrugLabel, formatNaira } from "@/lib/utils/formatters";
+import { ComboboxField, FormField, InputField } from "@/pages/(home)/-components/FormPartsShared";
 import { EMPTY_DISPLAY_VALUE } from "@/pages/(protected)/dashboard/-components/constants";
-import { invalidateStockMovementQueries } from "../-utils/invalidateStockMovementQueries";
+import { invalidateStockMovementQueries } from "../../-utils/invalidateStockMovementQueries";
 
 const DispenseCartSchema = backendApiSchemaRoutes["@post/inventory/stock-log/dispense"].body;
 const DispenseCartItemSchema = DispenseCartSchema.shape.items.element;
@@ -52,24 +57,8 @@ type DispenseCartForm = UseFormReturn<
 	z.output<typeof DispenseCartSchema>
 >;
 
-const dispenseReasonLabels = {
-	[DispenseReasonSchema.enum.patient]: "Patient dispense",
-	[DispenseReasonSchema.enum.ward]: "Ward dispense",
-} satisfies Record<z.infer<typeof DispenseReasonSchema>, string>;
-
-const dispenseReasonOptions = DispenseReasonSchema.options.map((reason) => ({
-	label: dispenseReasonLabels[reason],
-	value: reason,
-}));
-
-const getCartItemPatientName = (
-	item: Pick<DispenseCartFormItem, "patientName" | "reason"> | undefined
-) => {
-	if (item?.reason !== DispenseReasonSchema.enum.patient) {
-		return null;
-	}
-
-	return PatientNameSchema.safeParse(item.patientName).data ?? null;
+const getCartItemPatientName = (item: Pick<DispenseCartFormItem, "patientName"> | undefined) => {
+	return PatientNameSchema.safeParse(item?.patientName).data ?? null;
 };
 
 type CartPatientGroup = { indexes: number[]; patientName: string | null };
@@ -102,7 +91,7 @@ export function DispenseCartDialog(props: {
 
 	// == Owned here rather than in the dialog content so the cart survives closing and reopening
 	const cartForm = useForm({
-		defaultValues: { items: [] },
+		defaultValues: { items: [], saleType: SaleTypeSchema.enum.retail },
 		resolver: zodResolver(DispenseCartSchema),
 	});
 
@@ -131,6 +120,17 @@ function DispenseCartDialogContent(props: {
 	const dialogContext = useDialogContext();
 	const queryClient = useQueryClient();
 	const cartItems = useFieldArray({ control: cartForm.control, name: "items" });
+	// == Options-level onSuccess still runs after this content unmounts, unlike mutate() callbacks
+	const undoDispenseMutationResult = useMutation({
+		...undoInventoryDispenseMutation(),
+		onSuccess: () => invalidateStockMovementQueries(queryClient),
+	});
+
+	const openedAt = useConstant(() => new Date());
+
+	useEffect(() => {
+		posthog?.capture("dispense_opened");
+	}, []);
 	const watchedCartItems = useWatch({ control: cartForm.control, name: "items" });
 	const cartPatientGroups = getCartPatientGroups(watchedCartItems);
 	const cartPatientCount = cartPatientGroups.filter((group) => group.patientName !== null).length;
@@ -149,19 +149,27 @@ function DispenseCartDialogContent(props: {
 				control={cartForm.control}
 				drugId={cartItem.drugId}
 				index={index}
+				isGroupedByPatient={isGroupedByPatient}
 				onPatientNameChange={(patientName) => changeCartItemPatientName(index, patientName)}
 				onRemove={() => cartItems.remove(index)}
 			/>
 		);
 	};
 
-	const addToCart = (item: DispenseCartItem) => {
+	const addToCart = (item: DispenseCartItem, drug: CartDrug | undefined) => {
+		// == A drug without a wholesale price makes the whole cart retail-only
+		if (
+			drug?.wholesalePrice === null
+			&& cartForm.getValues("saleType") === SaleTypeSchema.enum.wholesale
+		) {
+			cartForm.setValue("saleType", SaleTypeSchema.enum.retail);
+		}
+
 		const matchingItemIndex = cartForm
 			.getValues("items")
 			.findIndex(
 				(cartItem) =>
 					cartItem.drugId === item.drugId
-					&& cartItem.reason === item.reason
 					&& getCartItemPatientName(cartItem) === getCartItemPatientName(item)
 			);
 
@@ -186,7 +194,6 @@ function DispenseCartDialogContent(props: {
 			(cartItem, cartItemIndex) =>
 				cartItemIndex !== index
 				&& cartItem.drugId === item.drugId
-				&& cartItem.reason === item.reason
 				&& getCartItemPatientName(cartItem) === nextPatientName
 		);
 		const matchingItem = items[matchingItemIndex];
@@ -203,13 +210,12 @@ function DispenseCartDialogContent(props: {
 		cartItems.remove(index);
 	};
 
-	const onDispenseAll = cartForm.handleSubmit(async (data) => {
+	const onSubmit = cartForm.handleSubmit(async (data) => {
 		await callBackendApiForQuery("@post/inventory/stock-log/dispense", {
 			body: data,
 			headers: {
 				"x-idempotency-key": idempotencyKey,
 			},
-			meta: { toast: { success: true } },
 			onResponseError: (ctx) => {
 				const itemErrors = Object.entries(ctx.error.errorData.errors ?? {});
 
@@ -217,12 +223,38 @@ function DispenseCartDialogContent(props: {
 					cartForm.setError(path as FieldPath<DispenseCartFormValues>, { message: messages[0] });
 				}
 			},
-			onSuccess: () => {
+			onSuccess: (ctx) => {
+				const { stockTransactionId, undoExpiresAt } = ctx.data.data;
+				const savedAt = new Date();
+
 				posthog?.capture("inventory_dispense_cart_submitted", { item_count: data.items.length });
+				posthog?.capture("dispense_saved", {
+					duration_ms: differenceInMilliseconds(savedAt, openedAt),
+					item_count: data.items.length,
+				});
+
+				const undoWindowMs = differenceInMilliseconds(undoExpiresAt, savedAt);
+
+				if (undoWindowMs <= 0) {
+					toast.success(ctx.data.message);
+				} else {
+					toast.success(ctx.data.message, {
+						action: {
+							label: "Undo",
+							onClick: () => {
+								undoDispenseMutationResult.mutate({ stockTransactionId });
+							},
+						},
+						duration: undoWindowMs,
+					});
+				}
 
 				void invalidateStockMovementQueries(queryClient);
 				// == Clear through the field array: reset() lets the still-mounted lines re-register blank items
 				cartItems.remove();
+				cartForm.resetField("saleType");
+				cartForm.resetField("paymentMethod");
+				cartForm.resetField("notes");
 				onDispensed();
 				dialogContext.setIsOpen(false);
 			},
@@ -277,9 +309,17 @@ function DispenseCartDialogContent(props: {
 						<header className="flex items-center justify-between gap-4">
 							<h3 className="flex items-center gap-2 text-[13px] font-bold text-shadcn-foreground">
 								Selected medications
-								<Badge className="border-none bg-shadcn-muted px-2 text-vitastock-body-color">
-									{cartItems.fields.length}
-								</Badge>
+								<Show.Root when={cartItems.fields.length > 0}>
+									<Badge className="border-none bg-shadcn-muted px-2 text-vitastock-body-color">
+										{cartItems.fields.length}
+									</Badge>
+
+									<Show.Fallback>
+										<span className="text-[12px] font-medium text-vitastock-body-color/70">
+											· 0 items
+										</span>
+									</Show.Fallback>
+								</Show.Root>
 							</h3>
 							<Show.Root when={cartItems.fields.length > 0}>
 								<p className="text-right text-[12px] text-vitastock-body-color">
@@ -293,7 +333,8 @@ function DispenseCartDialogContent(props: {
 							<Form.Root
 								form={cartForm}
 								id="dispense-cart"
-								onSubmit={(event) => void onDispenseAll(event)}
+								className="flex flex-col gap-4"
+								onSubmit={(event) => void onSubmit(event)}
 							>
 								<Show.Root when={isGroupedByPatient}>
 									<ForWithWrapper
@@ -324,6 +365,7 @@ function DispenseCartDialogContent(props: {
 										/>
 									</Show.Fallback>
 								</Show.Root>
+								<DispenseCartCheckout control={cartForm.control} />
 							</Form.Root>
 
 							<Show.Fallback>
@@ -379,9 +421,11 @@ function DispenseCartDialogContent(props: {
 
 function DispenseCartEntryForm(props: {
 	cartControl: Control<DispenseCartFormValues>;
-	onAddToCart: (item: DispenseCartItem) => void;
+	onAddToCart: (item: DispenseCartItem, drug: CartDrug | undefined) => void;
 }) {
 	const { cartControl, onAddToCart } = props;
+
+	const hasCartItems = useWatch({ control: cartControl, name: "items" }).length > 0;
 
 	const inventoryDrugsQueryResult = useQuery(inventoryDrugsQuery());
 	const drugOptions = (inventoryDrugsQueryResult.data?.drugs ?? [])
@@ -404,7 +448,10 @@ function DispenseCartEntryForm(props: {
 	const onSubmit = entryForm.handleSubmit((item) => {
 		const patientNameInput = entryForm.getValues("patientName");
 
-		onAddToCart({ ...item, patientName: getCartItemPatientName(item) });
+		onAddToCart(
+			{ ...item, patientName: getCartItemPatientName(item) },
+			findCartDrug(inventoryDrugsQueryResult.data?.drugs, item.drugId)
+		);
 
 		// == Focus before resetting, since reset() re-registers fields and drops the refs setFocus relies on
 		entryForm.setFocus("drugId");
@@ -422,45 +469,42 @@ function DispenseCartEntryForm(props: {
 			className="flex flex-col gap-4 rounded-lg border border-shadcn-border/70 bg-shadcn-muted/30 p-4"
 			onSubmit={(event) => void onSubmit(event)}
 		>
-			<Form.Watch control={entryForm.control} name="reason">
-				{(reason) => (
-					<Show.Root when={reason === DispenseReasonSchema.enum.patient}>
-						<PatientNameField
-							control={entryForm.control}
-							onEnter={() => entryForm.setFocus("drugId")}
-						/>
-					</Show.Root>
-				)}
-			</Form.Watch>
+			<PatientNameField control={entryForm.control} onEnter={() => entryForm.setFocus("drugId")} />
 
 			<ComboboxField
 				control={entryForm.control}
 				name="drugId"
-				label="Drug / Medication"
-				required={true}
+				label={
+					<>
+						Drug / Medication
+						<span className="text-shadcn-destructive" aria-hidden={true}>
+							*
+						</span>
+						<Show.Root when={hasCartItems}>
+							<span
+								className="ml-auto flex items-center gap-1.5 text-[11px] font-medium
+									text-vitastock-primary-main"
+							>
+								<span className="size-1.5 rounded-full bg-emerald-500" />
+								Ready for next item
+							</span>
+						</Show.Root>
+					</>
+				}
 				data={drugOptions}
 				type="drug"
 				disabled={inventoryDrugsQueryResult.isLoading}
-				classNames={{ list: "max-h-52" }}
+				classNames={{ label: "w-full", list: "max-h-52" }}
 			/>
 
-			<div className="grid gap-4 sm:grid-cols-2">
-				<InputField
-					control={entryForm.control}
-					name="quantity"
-					type="number"
-					label="Quantity"
-					required={true}
-					placeholder="e.g. 10"
-				/>
-
-				<SelectField
-					control={entryForm.control}
-					name="reason"
-					label="Reason"
-					options={dispenseReasonOptions}
-				/>
-			</div>
+			<InputField
+				control={entryForm.control}
+				name="quantity"
+				type="number"
+				label="Quantity"
+				required={true}
+				placeholder="e.g. 10"
+			/>
 
 			<Form.Watch control={entryForm.control} name={["drugId", "quantity"]}>
 				{([drugId, quantity]) => (
@@ -468,9 +512,17 @@ function DispenseCartEntryForm(props: {
 				)}
 			</Form.Watch>
 
-			<Button type="submit" theme="primary-outline" className="h-10 w-full">
+			<Button
+				type="submit"
+				theme="primary-outline"
+				className={cnJoin(
+					"h-10 w-full",
+					hasCartItems
+						&& "border-transparent bg-vitastock-primary-main/10 hover:bg-vitastock-primary-main/15"
+				)}
+			>
 				<IconBox icon="lucide:plus" className="size-4" />
-				Add Medication
+				{hasCartItems ? "Add Medication" : "Add to Dispense List"}
 			</Button>
 		</Form.Root>
 	);
@@ -534,9 +586,15 @@ function PatientNameField(props: {
 					</div>
 				)}
 			/>
-			<p className="text-[11px] font-medium text-vitastock-body-color/70">
-				Stays filled for the next medication. Change it to start a new patient.
-			</p>
+			<Form.Watch control={control} name="patientName">
+				{(patientName) => (
+					<p className="text-[11px] font-medium text-vitastock-body-color/70">
+						{patientName ?
+							"Stays filled for the next medication. Change it to start a new patient."
+						:	"Leave blank if not needed. It stays filled as you add medications."}
+					</p>
+				)}
+			</Form.Watch>
 		</FormField>
 	);
 }
@@ -650,59 +708,90 @@ function DispenseCartLine(props: {
 	control: Control<DispenseCartFormValues>;
 	drugId: string;
 	index: number;
+	isGroupedByPatient: boolean;
 	onPatientNameChange: (patientName: string) => void;
 	onRemove: () => void;
 }) {
-	const { control, drugId, index, onPatientNameChange, onRemove } = props;
+	const { control, drugId, index, isGroupedByPatient, onPatientNameChange, onRemove } = props;
 
 	const inventoryDrugsQueryResult = useQuery(inventoryDrugsQuery());
 	const drug = inventoryDrugsQueryResult.data?.drugs.find((item) => item.id === drugId);
 
 	return (
-		<li className="flex items-start gap-3 rounded-lg border border-shadcn-border p-3">
-			<div className="flex min-w-0 flex-1 flex-col gap-2">
-				<div className="min-w-0">
-					<p className="truncate text-[14px] font-bold text-shadcn-foreground">
-						{drug ? formatDrugLabel(drug) : EMPTY_DISPLAY_VALUE}
+		<li className="flex flex-col gap-2 rounded-lg border border-shadcn-border p-3">
+			<div className="flex items-start gap-3">
+				<div className="flex min-w-0 flex-1 flex-col gap-1">
+					<p className="flex min-w-0 items-baseline gap-1.5">
+						<span className="truncate text-[14px] font-bold text-shadcn-foreground">
+							{drug?.name ?? EMPTY_DISPLAY_VALUE}
+						</span>
+						<Show.Root when={drug?.strength}>
+							<span className="shrink-0 text-[11px] text-vitastock-body-color">
+								{drug?.strength}
+							</span>
+						</Show.Root>
 					</p>
-					<div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-						<p className="truncate text-[12px] text-vitastock-body-color">
-							{drug?.genericName ?? EMPTY_DISPLAY_VALUE}
-						</p>
-						<CartLinePatientName
-							control={control}
-							index={index}
-							onPatientNameChange={onPatientNameChange}
-						/>
+					<div className="flex min-w-0 flex-wrap items-center gap-1.5">
+						<span
+							className="rounded-sm bg-shadcn-muted px-1.5 py-px text-[11px] font-medium
+								text-vitastock-body-color"
+						>
+							Patient
+						</span>
+						<Show.Root when={!isGroupedByPatient}>
+							<CartLinePatientName
+								control={control}
+								index={index}
+								onPatientNameChange={onPatientNameChange}
+							/>
+						</Show.Root>
 					</div>
 				</div>
 
-				<div className="grid grid-cols-[96px_minmax(0,1fr)] items-start gap-2">
-					<InputField
-						control={control}
-						name={`items.${index}.quantity`}
-						type="number"
-						placeholder="Qty"
-						classNames={{ input: "h-9 px-3" }}
-					/>
-					<SelectField
-						control={control}
-						name={`items.${index}.reason`}
-						options={dispenseReasonOptions}
-						classNames={{ trigger: "h-9 px-3 text-[13px]" }}
-					/>
-				</div>
+				<FormField
+					control={control}
+					name={`items.${index}.quantity`}
+					classNames={{ base: "w-[84px] shrink-0" }}
+				>
+					<div
+						className="flex h-8 items-center gap-1.5 rounded-md border border-shadcn-border/70
+							bg-shadcn-muted/40 px-2 focus-within:border-vitastock-primary-main"
+					>
+						<span className="text-[11px] text-vitastock-body-color" aria-hidden={true}>
+							Qty
+						</span>
+						<Form.Input
+							type="number"
+							min={1}
+							aria-label={`Quantity of ${drug?.name ?? "this medication"}`}
+							classNames={{
+								input: `min-w-0 flex-1 bg-transparent text-[16px] font-bold text-shadcn-foreground
+								outline-none md:text-[14px]`,
+							}}
+						/>
+					</div>
+				</FormField>
+
+				<Button
+					unstyled={true}
+					className="grid size-8 shrink-0 place-items-center rounded-md text-vitastock-body-color/70
+						hover:bg-shadcn-muted hover:text-shadcn-destructive"
+					aria-label={`Remove ${drug?.name ?? "medication"} from the cart`}
+					onClick={onRemove}
+				>
+					<IconBox icon="lucide:x" className="size-4" />
+				</Button>
 			</div>
 
-			<Button
-				unstyled={true}
-				className="grid size-8 shrink-0 place-items-center rounded-md text-vitastock-body-color
-					hover:bg-shadcn-muted hover:text-shadcn-destructive"
-				aria-label={`Remove ${drug?.name ?? "medication"} from the cart`}
-				onClick={onRemove}
-			>
-				<IconBox icon="lucide:x" className="size-4" />
-			</Button>
+			<Form.Watch control={control} name={[`items.${index}.quantity`, "saleType"]}>
+				{([quantity, saleType]) => (
+					<CartLinePrice
+						quantity={Number(quantity)}
+						unitPrice={drug ? getSellingPrice(drug, saleType) : null}
+						unit={drug?.unit ?? null}
+					/>
+				)}
+			</Form.Watch>
 		</li>
 	);
 }
@@ -788,5 +877,163 @@ function CartLinePatientName(props: {
 			<IconBox icon="lucide:user" className="size-2.5 shrink-0" />
 			<span className="truncate">{patientName}</span>
 		</Button>
+	);
+}
+
+type CartDrug = NonNullable<ReturnType<typeof findCartDrug>>;
+
+const findCartDrug = (drugs: InventoryDrugsQueryResultType["drugs"] | undefined, drugId: string) =>
+	drugs?.find((drug) => drug.id === drugId);
+
+const getSellingPrice = (
+	drug: Pick<CartDrug, "retailPrice" | "wholesalePrice">,
+	saleType: DispenseCartFormValues["saleType"]
+) => (saleType === SaleTypeSchema.enum.wholesale ? drug.wholesalePrice : drug.retailPrice);
+
+function CartLinePrice(props: { quantity: number; unit: string | null; unitPrice: number | null }) {
+	const { quantity, unit, unitPrice } = props;
+
+	if (unitPrice === null) {
+		return <p className="text-[12px] font-medium text-amber-700">No price set</p>;
+	}
+
+	return (
+		<p className="text-[12px] text-vitastock-body-color">
+			{formatNaira(unitPrice)} per {unit ?? "unit"}
+			{quantity > 0 && (
+				<>
+					{" · "}
+					<span className="font-bold text-shadcn-foreground">
+						{formatNaira(unitPrice * quantity)}
+					</span>
+				</>
+			)}
+		</p>
+	);
+}
+
+const saleTypeLabels = {
+	[SaleTypeSchema.enum.retail]: "Retail",
+	[SaleTypeSchema.enum.wholesale]: "Wholesale",
+} satisfies Record<z.infer<typeof SaleTypeSchema>, string>;
+
+const paymentMethodLabels = {
+	[PaymentMethodSchema.enum.cash]: "Cash",
+	[PaymentMethodSchema.enum.pos]: "POS",
+	[PaymentMethodSchema.enum.transfer]: "Transfer",
+} satisfies Record<z.infer<typeof PaymentMethodSchema>, string>;
+
+function DispenseCartCheckout(props: { control: Control<DispenseCartFormValues> }) {
+	const { control } = props;
+
+	const inventoryDrugsQueryResult = useQuery(inventoryDrugsQuery());
+	const [items, saleType] = useWatch({ control, name: ["items", "saleType"] });
+
+	const cartDrugs = items.map((item) => findCartDrug(inventoryDrugsQueryResult.data?.drugs, item.drugId));
+	const drugsWithoutWholesalePrice = cartDrugs.filter((drug) => drug?.wholesalePrice === null);
+	const canSellWholesale = drugsWithoutWholesalePrice.length === 0;
+
+	const pricedTotal = items.reduce((total, item, index) => {
+		const drug = cartDrugs[index];
+		const unitPrice = drug ? getSellingPrice(drug, saleType) : null;
+
+		return unitPrice === null ? total : total + unitPrice * Number(item.quantity || 0);
+	}, 0);
+	const unpricedLineCount = cartDrugs.filter(
+		(drug) => !drug || getSellingPrice(drug, saleType) === null
+	).length;
+
+	return (
+		<div className="flex flex-col gap-4 rounded-lg border border-shadcn-border/70 bg-shadcn-muted/30 p-4">
+			<FormField control={control} name="saleType" label="Sale type">
+				<Form.FieldBoundController<Pick<DispenseCartFormValues, "saleType">>
+					render={({ field }) => (
+						<div
+							role="radiogroup"
+							aria-label="Sale type"
+							className="grid grid-cols-2 gap-1 rounded-lg bg-shadcn-muted p-1"
+						>
+							<For
+								each={SaleTypeSchema.options}
+								renderItem={(option) => (
+									<Button
+										key={option}
+										unstyled={true}
+										role="radio"
+										aria-checked={field.value === option}
+										isDisabled={option === SaleTypeSchema.enum.wholesale && !canSellWholesale}
+										className={cnJoin(
+											"h-9 rounded-md text-[13px] font-semibold",
+											field.value === option ?
+												"bg-white text-vitastock-primary-main shadow-sm"
+											:	"text-vitastock-body-color",
+											option === SaleTypeSchema.enum.wholesale
+												&& !canSellWholesale
+												&& "cursor-not-allowed opacity-50"
+										)}
+										onClick={() => field.onChange(option)}
+									>
+										{saleTypeLabels[option]}
+									</Button>
+								)}
+							/>
+						</div>
+					)}
+				/>
+			</FormField>
+
+			<Show.Root when={!canSellWholesale}>
+				<p className="-mt-2 text-[12px] text-vitastock-body-color">
+					Wholesale needs a wholesale price on every medication in the cart.
+				</p>
+			</Show.Root>
+
+			<div className="flex items-baseline justify-between gap-4">
+				<p className="text-[13px] font-semibold text-shadcn-foreground">Total</p>
+				<div className="flex flex-col items-end gap-0.5">
+					<p className="text-[20px] font-extrabold text-shadcn-foreground">
+						{formatNaira(pricedTotal)}
+					</p>
+					<Show.Root when={unpricedLineCount > 0}>
+						<p className="text-[12px] font-medium text-amber-700">
+							{unpricedLineCount} {unpricedLineCount === 1 ? "medication has" : "medications have"}{" "}
+							no price and {unpricedLineCount === 1 ? "is" : "are"} not in this total
+						</p>
+					</Show.Root>
+				</div>
+			</div>
+
+			<FormField control={control} name="paymentMethod" label="Payment (optional)">
+				<Form.FieldBoundController<Pick<DispenseCartFormValues, "paymentMethod">>
+					render={({ field }) => (
+						<div className="grid grid-cols-3 gap-2">
+							<For
+								each={PaymentMethodSchema.options}
+								renderItem={(option) => (
+									<Button
+										key={option}
+										type="button"
+										theme={field.value === option ? "primary" : "secondary-outline"}
+										aria-pressed={field.value === option}
+										className="h-10 text-[13px]"
+										onClick={() => field.onChange(field.value === option ? undefined : option)}
+									>
+										{paymentMethodLabels[option]}
+									</Button>
+								)}
+							/>
+						</div>
+					)}
+				/>
+			</FormField>
+
+			<InputField
+				control={control}
+				name="notes"
+				label="Note (optional)"
+				placeholder="e.g. Paid half, balance tomorrow"
+				autoComplete="off"
+			/>
+		</div>
 	);
 }

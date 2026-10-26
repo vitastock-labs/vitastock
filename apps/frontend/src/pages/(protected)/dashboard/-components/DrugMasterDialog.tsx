@@ -33,13 +33,14 @@ import {
 	inventoryAlertsStatusQuery,
 	inventoryDrugBatchesQuery,
 	inventoryDrugsQuery,
+	inventoryPriceListQuery,
 	inventorySummaryQuery,
 	sessionQuery,
 	type InventoryDrugBatchesQueryResultType,
 	type InventoryDrugsQueryResultType,
 } from "@/lib/react-query/queryOptions";
 import { cnJoin } from "@/lib/utils/cn";
-import { formatDate, formatDrugLabel } from "@/lib/utils/formatters";
+import { formatDate, formatDrugLabel, formatNaira } from "@/lib/utils/formatters";
 import { InputField } from "@/pages/(home)/-components/FormPartsShared";
 import { EMPTY_DISPLAY_VALUE } from "./constants";
 import { DashboardDataTable } from "./DashboardDataTableShared";
@@ -334,7 +335,7 @@ export function EditDrugDialog(props: { drug: Drug; onComplete: () => void }) {
 
 	return (
 		<DrugFormDialog
-			batchExpiryEditor={<BatchExpiryEditor drug={drug} />}
+			batchEditor={<BatchEditor drug={drug} />}
 			description="Update the Drug Master record used by inventory movements."
 			form={form}
 			submitLabel="Save Changes"
@@ -345,14 +346,14 @@ export function EditDrugDialog(props: { drug: Drug; onComplete: () => void }) {
 }
 
 function DrugFormDialog<TFieldValues extends FieldValues, TTransformedValues extends FieldValues>(props: {
-	batchExpiryEditor?: ReactNode;
+	batchEditor?: ReactNode;
 	description: string;
 	form: UseFormReturn<TFieldValues, unknown, TTransformedValues>;
 	onSubmit: (event?: React.BaseSyntheticEvent) => Promise<void>;
 	submitLabel: string;
 	title: string;
 }) {
-	const { batchExpiryEditor, description, form, onSubmit, submitLabel, title } = props;
+	const { batchEditor, description, form, onSubmit, submitLabel, title } = props;
 
 	return (
 		<DialogAnimated.Content
@@ -360,7 +361,7 @@ function DrugFormDialog<TFieldValues extends FieldValues, TTransformedValues ext
 			className={cnJoin(
 				`flex max-h-[calc(100svh-32px)] max-w-[560px] flex-col gap-0 overflow-hidden rounded-xl
 				border-shadcn-border bg-white p-0 shadow-2xl`,
-				batchExpiryEditor && "h-[min(760px,calc(100svh-32px))]"
+				batchEditor && "h-[min(760px,calc(100svh-32px))]"
 			)}
 		>
 			<header
@@ -389,7 +390,7 @@ function DrugFormDialog<TFieldValues extends FieldValues, TTransformedValues ext
 			>
 				<ScrollArea.Root classNames={{ base: "grid min-h-0 flex-1", viewport: "h-auto min-h-0" }}>
 					<DrugFormFields />
-					{batchExpiryEditor}
+					{batchEditor}
 				</ScrollArea.Root>
 
 				<DialogAnimated.Footer
@@ -418,7 +419,7 @@ function DrugFormDialog<TFieldValues extends FieldValues, TTransformedValues ext
 	);
 }
 
-function BatchExpiryEditor(props: { drug: Drug }) {
+function BatchEditor(props: { drug: Drug }) {
 	const { drug } = props;
 	const batchesQuery = inventoryDrugBatchesQuery({ drugId: drug.id }, { availability: "all" });
 	const batchesQueryResult = useQuery(batchesQuery);
@@ -427,10 +428,10 @@ function BatchExpiryEditor(props: { drug: Drug }) {
 	return (
 		<div className="border-t border-shadcn-border/70 px-5 py-4">
 			<div className="flex flex-col gap-1">
-				<h3 className="text-[14px] font-bold text-black">Batch Expiry Dates</h3>
+				<h3 className="text-[14px] font-bold text-black">Batch Expiry Dates & Costs</h3>
 				<p className="text-[12px]/5 text-vitastock-body-color">
-					Update an expiry date by matching the batch number and remaining quantity with the physical
-					stock.
+					Correct an expiry date or cost price by matching the batch number and remaining quantity
+					with the physical stock.
 				</p>
 			</div>
 
@@ -454,7 +455,7 @@ function BatchExpiryEditor(props: { drug: Drug }) {
 				<For
 					each={batches}
 					renderItem={(batch) => (
-						<BatchExpiryRow key={batch.id} batch={batch} drugId={drug.id} drugUnit={drug.unit} />
+						<BatchRow key={batch.id} batch={batch} drugId={drug.id} drugUnit={drug.unit} />
 					)}
 				/>
 			</div>
@@ -462,23 +463,39 @@ function BatchExpiryEditor(props: { drug: Drug }) {
 	);
 }
 
-function BatchExpiryRow(props: { batch: DrugBatch; drugId: string; drugUnit: string | null }) {
+function BatchRow(props: { batch: DrugBatch; drugId: string; drugUnit: string | null }) {
 	const { batch, drugId, drugUnit } = props;
 	const queryClient = useQueryClient();
 	const [expiryDate, setExpiryDate] = useState(batch.expiryDate);
+	const [costPrice, setCostPrice] = useState(batch.costPrice === null ? "" : String(batch.costPrice));
+
+	const nextCostPrice = costPrice.trim() === "" ? null : Number(costPrice);
+	const hasExpiryChange = Boolean(expiryDate) && expiryDate !== batch.expiryDate;
+	const hasCostChange = nextCostPrice !== batch.costPrice;
+
 	const mutation = useMutation({
 		mutationFn: () =>
 			callBackendApiForQuery("@patch/inventory/batches/:batchId", {
-				body: { expiryDate },
+				body: {
+					...(hasCostChange && { costPrice: nextCostPrice }),
+					...(hasExpiryChange && { expiryDate }),
+				},
 				meta: { toast: { success: true } },
 				params: { batchId: batch.id },
 			}),
 		onSuccess: (result) => {
-			setExpiryDate(result.data.batch.expiryDate);
-			posthog?.capture("inventory_batch_expiry_corrected");
+			const { batch: updatedBatch } = result.data;
+
+			setExpiryDate(updatedBatch.expiryDate);
+			setCostPrice(updatedBatch.costPrice === null ? "" : String(updatedBatch.costPrice));
+			posthog?.capture("inventory_batch_corrected", {
+				cost_changed: hasCostChange,
+				expiry_changed: hasExpiryChange,
+			});
 
 			void Promise.all([
 				queryClient.invalidateQueries(inventoryDrugBatchesQuery({ drugId }, { availability: "all" })),
+				queryClient.invalidateQueries({ queryKey: inventoryPriceListQuery().queryKey.slice(0, -1) }),
 				queryClient.invalidateQueries(inventorySummaryQuery()),
 				queryClient.invalidateQueries(dashboardOverviewQuery()),
 				queryClient.invalidateQueries({ queryKey: inventoryAlertsQuery().queryKey.slice(0, -1) }),
@@ -496,7 +513,10 @@ function BatchExpiryRow(props: { batch: DrugBatch; drugId: string; drugUnit: str
 					</p>
 					<p className="mt-0.5 text-[12px] text-vitastock-body-color">
 						{batch.quantityAvailable.toLocaleString()} {drugUnit ?? "units"} remaining · Recorded
-						expiry: {formatDate(batch.expiryDate)}
+						expiry: {formatDate(batch.expiryDate)} · Cost:{" "}
+						{batch.costPrice === null ?
+							"not set"
+						:	`${formatNaira(batch.costPrice)} per ${drugUnit ?? "unit"}`}
 					</p>
 				</div>
 			</div>
@@ -511,14 +531,33 @@ function BatchExpiryRow(props: { batch: DrugBatch; drugId: string; drugUnit: str
 					className="h-10 min-w-0 rounded-lg border border-shadcn-border bg-white px-3 sm:flex-1"
 					onDateStringChange={(value) => setExpiryDate(value ?? "")}
 				/>
+				<Form.InputGroup
+					className="h-10 gap-1.5 rounded-lg border border-shadcn-border bg-white px-3
+						focus-within:border-vitastock-primary-main sm:w-36"
+				>
+					<Form.InputGroupAddon className="text-[13px] text-vitastock-body-color">
+						₦
+					</Form.InputGroupAddon>
+					<Form.InputPrimitive
+						type="number"
+						inputMode="decimal"
+						min={0}
+						step={0.01}
+						value={costPrice}
+						aria-label={`Cost price per ${drugUnit ?? "unit"}`}
+						placeholder="Cost"
+						className="h-full text-[16px] md:text-[14px]"
+						onChange={(event) => setCostPrice(event.target.value)}
+					/>
+				</Form.InputGroup>
 				<Button
 					type="button"
-					isDisabled={!expiryDate || expiryDate === batch.expiryDate || mutation.isPending}
+					isDisabled={(!hasExpiryChange && !hasCostChange) || mutation.isPending}
 					isLoading={mutation.isPending}
 					className="h-10 shrink-0 px-4"
 					onClick={() => mutation.mutate()}
 				>
-					Update expiry
+					Save
 				</Button>
 			</div>
 		</article>

@@ -4,6 +4,8 @@ import {
 	INVENTORY_ALERT_STATUSES,
 	INVENTORY_ALERT_TYPES,
 	INVENTORY_STOCK_STATUS,
+	PAYMENT_METHODS,
+	SALE_TYPES,
 	STOCK_LOG_PATIENT_NAME_MAX_LENGTH,
 	STOCK_LOG_TYPES,
 	STOCK_OUT_REASONS,
@@ -11,18 +13,18 @@ import {
 	type SelectStockBatchType,
 	type SelectStockLogType,
 } from "@vitastock/db/schema/inventory";
-import {
-	EMAIL_ALERT_DELIVERY_POLICIES,
-	type InsertWorkspaceType,
-	type SelectWorkspaceInvitationType,
-	type SelectWorkspaceMembershipType,
-	type SelectWorkspaceType,
+import type {
+	InsertWorkspaceType,
+	SelectWorkspaceInvitationType,
+	SelectWorkspaceMembershipType,
+	SelectWorkspaceType,
 } from "@vitastock/db/schema/workspace";
 import type { InferAllMainRouteKeys, InferAllMainRoutes } from "@zayne-labs/callapi";
 import { defineFallbackRouteSchema, defineSchema, defineSchemaRoutes } from "@zayne-labs/callapi/utils";
 import { isString, type Prettify } from "@zayne-labs/toolkit-type-helpers";
 import { z } from "zod";
 import {
+	cleanNairaAmount,
 	createInventoryBulkImportRowKey,
 	INVENTORY_BULK_IMPORT_MAX_ROWS,
 } from "../inventoryBulkImportSchema";
@@ -55,7 +57,6 @@ export const RequestEmailSchema = z
 	.pipe(z.email("Please enter a valid email"));
 
 export const WorkspaceRoleSchema = z.enum(ROLES);
-export const EmailAlertDeliveryPolicySchema = z.enum(EMAIL_ALERT_DELIVERY_POLICIES);
 
 export const StockLogTypeSchema = z.enum(STOCK_LOG_TYPES);
 export const StockOutReasonSchema = z.enum(STOCK_OUT_REASONS);
@@ -63,6 +64,8 @@ export const StockAdditionLogTypeSchema = z.enum(STOCK_ADDITION_LOG_TYPES);
 export const StockOutLogTypeSchema = z.enum(STOCK_OUT_LOG_TYPES);
 export const StockMovementLogTypeSchema = z.enum(STOCK_MOVEMENT_LOG_TYPES);
 export const StockReductionLogTypeSchema = z.enum(STOCK_REDUCTION_LOG_TYPES);
+export const SaleTypeSchema = z.enum(SALE_TYPES);
+export const PaymentMethodSchema = z.enum(PAYMENT_METHODS);
 
 export const PatientNameSchema = z
 	.preprocess(
@@ -114,24 +117,24 @@ const UserDetailsSchema = z.toZod<UserDetailsType>()(
 
 type WorkspaceDetailsType = Pick<
 	SelectWorkspaceType,
-	| "alertEmail"
-	| "emailAlertDeliveryPolicy"
 	| "id"
 	| "lowStockThreshold"
 	| "name"
 	| "nearExpiryDays"
 	| "timezone"
+	| "weeklyEmailEnabled"
+	| "weeklyEmailTime"
 >;
 
 const WorkspaceDetailsSchema = z.toZod<WorkspaceDetailsType>()(
 	z.object({
-		alertEmail: z.email().nullable(),
-		emailAlertDeliveryPolicy: EmailAlertDeliveryPolicySchema,
 		id: z.uuid(),
 		lowStockThreshold: z.number(),
 		name: z.string().min(1, "Pharmacy name is required"),
 		nearExpiryDays: stringWithNumberValidation(z.number()),
 		timezone: z.string(),
+		weeklyEmailEnabled: z.boolean(),
+		weeklyEmailTime: z.string(),
 	})
 );
 
@@ -293,23 +296,12 @@ export const workspaceRoutes = () => {
 		role: ManageableWorkspaceRoleSchema,
 	});
 
-	const WorkspaceAlertSettingsSchema = z
-		.object({
-			alertEmail: RequestEmailSchema.optional(),
-			emailAlertDeliveryPolicy: EmailAlertDeliveryPolicySchema,
-			emailAlertsEnabled: z.boolean(),
-			lowStockThreshold: stringWithNumberValidation(z.number().int().min(0)),
-			nearExpiryDays: stringWithNumberValidation(z.number().int().positive()),
-		})
-		.superRefine((data, ctx) => {
-			if (data.emailAlertsEnabled && !data.alertEmail) {
-				ctx.addIssue({
-					code: "custom",
-					message: "An alert email is required when email alerts are enabled",
-					path: ["alertEmail"],
-				});
-			}
-		});
+	const WorkspaceAlertSettingsSchema = z.object({
+		lowStockThreshold: stringWithNumberValidation(z.number().int().min(0)),
+		nearExpiryDays: stringWithNumberValidation(z.number().int().positive()),
+		weeklyEmailEnabled: z.boolean(),
+		weeklyEmailTime: z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/u, "Choose a valid time"),
+	});
 
 	return defineSchemaRoutes({
 		"@delete/workspace/invitation/:invitationId": {
@@ -382,7 +374,16 @@ export const workspaceRoutes = () => {
 
 type DrugDetailsType = Pick<
 	SelectDrugType,
-	"form" | "genericName" | "id" | "isActive" | "lowStockThreshold" | "name" | "strength" | "unit"
+	| "form"
+	| "genericName"
+	| "id"
+	| "isActive"
+	| "lowStockThreshold"
+	| "name"
+	| "retailPrice"
+	| "strength"
+	| "unit"
+	| "wholesalePrice"
 >;
 
 const DrugDetailsSchema = z.toZod<DrugDetailsType>()(
@@ -393,9 +394,39 @@ const DrugDetailsSchema = z.toZod<DrugDetailsType>()(
 		isActive: z.boolean(),
 		lowStockThreshold: z.number().int().min(0).nullable(),
 		name: z.string().min(1, "Drug name is required"),
+		retailPrice: z.number().nullable(),
 		strength: z.string().nullable(),
 		unit: z.string().nullable(),
+		wholesalePrice: z.number().nullable(),
 	})
+);
+
+const IsoDateSchema = z.iso.date();
+
+const PriceSchema = z
+	.number({ error: "Enter a price." })
+	.positive("Enter a price above zero.")
+	.max(9_999_999_999.99, "Enter a smaller price.")
+	.refine((price) => Math.abs(price * 100 - Math.round(price * 100)) < 1e-6, {
+		message: "Use at most 2 decimal places.",
+	});
+
+const optionalPriceSchema = z.preprocess(
+	(value) => (value === "" || value === null || value === undefined ? undefined : Number(value)),
+	PriceSchema.optional()
+);
+
+const importPriceSchema = z.preprocess((value) => {
+	const cleanedValue = cleanNairaAmount(value);
+
+	return cleanedValue === "" || cleanedValue === null || cleanedValue === undefined ?
+			undefined
+		:	Number(cleanedValue);
+}, PriceSchema.optional());
+
+const nullablePriceSchema = z.preprocess(
+	(value) => (value === "" || value === null ? null : Number(value)),
+	PriceSchema.nullable()
 );
 
 const inventoryRoutes = () => {
@@ -412,8 +443,6 @@ const inventoryRoutes = () => {
 		usableBatchCount: number;
 		usableExpiryDateCount: number;
 	};
-
-	const IsoDateSchema = z.iso.date();
 
 	const optionalTrimmedStringSchema = z.preprocess(
 		(value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
@@ -453,6 +482,7 @@ const inventoryRoutes = () => {
 	);
 	const StockAdditionBodySchema = z.object({
 		batchNumber: z.string().optional(),
+		costPrice: optionalPriceSchema,
 		drugId: z.uuid({ error: "Select a drug." }),
 		expiryDate: IsoDateSchema,
 		logType: StockAdditionLogTypeSchema,
@@ -469,7 +499,7 @@ const inventoryRoutes = () => {
 	const FEFOStockOutBodySchema = StockOutBodySchema.extend({
 		batchId: z.never({ error: "Batch selection is automatic for dispensing." }).optional(),
 		patientName: PatientNameSchema,
-		reason: z.enum([STOCK_OUT_REASONS[2], STOCK_OUT_REASONS[3]]),
+		reason: z.enum([STOCK_OUT_REASONS[2]]),
 	});
 	const DisposalStockOutBodySchema = StockOutBodySchema.extend({
 		batchId: z.uuid({ error: "Select a batch to remove stock from." }),
@@ -489,8 +519,7 @@ const inventoryRoutes = () => {
 			const firstItemIndexByKey = new Map<string, number>();
 
 			for (const [itemIndex, item] of items.entries()) {
-				const patientName = item.reason === STOCK_OUT_REASONS[2] ? (item.patientName ?? "") : "";
-				const itemKey = `${item.drugId}:${item.reason}:${patientName}`;
+				const itemKey = `${item.drugId}:${item.patientName ?? ""}`;
 				const firstItemIndex = firstItemIndexByKey.get(itemKey);
 
 				if (firstItemIndex !== undefined) {
@@ -508,8 +537,16 @@ const inventoryRoutes = () => {
 		});
 
 	const InventoryBulkImportRowSchema = DrugCreateSchema.extend({
+		costPrice: importPriceSchema,
 		expiryDate: IsoDateSchema,
 		quantity: stringWithNumberValidation(z.number().positive().int()),
+		retailPrice: importPriceSchema,
+		wholesalePrice: importPriceSchema,
+	});
+
+	const BulkImportRowMessageSchema = z.object({
+		message: z.string(),
+		rowIndex: z.number().int().nonnegative(),
 	});
 
 	const InventoryBulkImportRowsSchema = InventoryBulkImportRowSchema.array()
@@ -612,15 +649,19 @@ const inventoryRoutes = () => {
 		logType: StockLogTypeSchema,
 		notes: z.string().nullable(),
 		patientName: z.string().nullable(),
+		performedByUserId: z.uuid(),
 		person: z.string(),
 		quantity: z.number(),
 		reason: StockOutReasonSchema.nullable(),
 		stockTransactionId: z.uuid(),
+		undoneAt: stringWithDateValidation().nullable(),
+		undoneBy: z.string().nullable(),
 	});
 
 	const InventoryBatchAvailabilitySchema = z.enum(["all", "expired", "usable"]);
 	const InventoryBatchSchema = z.object({
 		batchNumber: z.string().nullable(),
+		costPrice: z.number().nullable(),
 		expiryDate: IsoDateSchema,
 		id: z.uuid(),
 		quantityAvailable: z.number(),
@@ -676,6 +717,26 @@ const inventoryRoutes = () => {
 			data: withBaseSuccessResponse(z.object({ hasActiveAlerts: z.boolean() })),
 		},
 
+		"@get/inventory/bulk-imports": {
+			data: withBaseSuccessResponse(
+				z.object({
+					imports: z.array(
+						z.object({
+							createdAt: stringWithDateValidation(),
+							drugCount: z.number(),
+							id: z.uuid(),
+							importedBy: z.string(),
+							removal: z
+								.object({ removedAt: stringWithDateValidation(), removedBy: z.string() })
+								.nullable(),
+							removalBlockedReason: z.string().nullable(),
+							unitCount: z.number(),
+						})
+					),
+				})
+			),
+		},
+
 		"@get/inventory/drugs": {
 			data: withBaseSuccessResponse(
 				z.object({
@@ -707,6 +768,35 @@ const inventoryRoutes = () => {
 			query: z.object({ availability: InventoryBatchAvailabilitySchema }),
 		},
 
+		"@get/inventory/price-list": {
+			data: withBaseSuccessResponse(
+				z.object({
+					pagination: z.object({
+						page: z.number(),
+						pageCount: z.number(),
+						pageSize: z.number(),
+						total: z.number(),
+					}),
+					rows: z.array(
+						z.object({
+							costRange: z.object({ highest: z.number(), lowest: z.number() }).nullable(),
+							drug: DrugDetailsSchema,
+							uncostedBatchCount: z.number(),
+						})
+					),
+				})
+			),
+			query: z
+				.object({
+					page: stringWithNumberValidation(z.number().int().min(1)),
+					pageSize: stringWithNumberValidation(z.number().int().min(1).max(100)),
+					pricesMissing: z.stringbool(),
+					search: z.string().trim().min(1),
+				})
+				.partial()
+				.optional(),
+		},
+
 		"@get/inventory/summary": {
 			data: withBaseSuccessResponse(
 				z.object({
@@ -721,7 +811,12 @@ const inventoryRoutes = () => {
 		},
 
 		"@patch/inventory/batches/:batchId": {
-			body: z.object({ expiryDate: IsoDateSchema }),
+			body: z
+				.object({ costPrice: nullablePriceSchema, expiryDate: IsoDateSchema })
+				.partial()
+				.refine((body) => body.costPrice !== undefined || body.expiryDate !== undefined, {
+					message: "Provide a cost price or an expiry date to update.",
+				}),
 			data: withBaseSuccessResponse(z.object({ batch: InventoryBatchSchema })),
 			params: z.object({ batchId: z.uuid("Invalid batch ID") }),
 		},
@@ -730,8 +825,10 @@ const inventoryRoutes = () => {
 			body: DrugCreateSchema.partial().extend({
 				form: nullableTrimmedStringSchema.optional(),
 				lowStockThreshold: nullableLowStockThresholdSchema.optional(),
+				retailPrice: nullablePriceSchema.optional(),
 				strength: nullableTrimmedStringSchema.optional(),
 				unit: nullableTrimmedStringSchema.optional(),
+				wholesalePrice: nullablePriceSchema.optional(),
 			}),
 			data: withBaseSuccessResponse(
 				z.object({
@@ -750,7 +847,19 @@ const inventoryRoutes = () => {
 			body: z.object({
 				rows: InventoryBulkImportRowsSchema,
 			}),
-			data: withBaseSuccessResponse(z.object({ importedCount: z.number() })),
+			data: withBaseSuccessResponse(
+				z.object({
+					importedCount: z.number(),
+					priceChanges: z.array(
+						z.object({
+							drugName: z.string(),
+							field: z.enum(["retailPrice", "wholesalePrice"]),
+							newPrice: z.number(),
+							previousPrice: z.number().nullable(),
+						})
+					),
+				})
+			),
 			headers: z.object({
 				"x-idempotency-key": z.uuid(),
 			}),
@@ -760,14 +869,15 @@ const inventoryRoutes = () => {
 			body: z.object({ rows: InventoryBulkImportRowsSchema }),
 			data: withBaseSuccessResponse(
 				z.object({
-					issues: z.array(
-						z.object({
-							message: z.string(),
-							rowIndex: z.number().int().nonnegative(),
-						})
-					),
+					issues: z.array(BulkImportRowMessageSchema),
+					warnings: z.array(BulkImportRowMessageSchema),
 				})
 			),
+		},
+
+		"@post/inventory/bulk-imports/:stockTransactionId/remove": {
+			data: NullSuccessResponseSchema,
+			params: z.object({ stockTransactionId: z.uuid("Invalid import ID") }),
 		},
 
 		"@post/inventory/drugs": {
@@ -805,11 +915,26 @@ const inventoryRoutes = () => {
 		},
 
 		"@post/inventory/stock-log/dispense": {
-			body: z.object({ items: DispenseCartItemsSchema }),
-			data: NullSuccessResponseSchema,
+			body: z.object({
+				items: DispenseCartItemsSchema,
+				notes: z.string().trim().max(500, "Keep the note under 500 characters.").optional(),
+				paymentMethod: PaymentMethodSchema.optional(),
+				saleType: SaleTypeSchema.default(SALE_TYPES[0]),
+			}),
+			data: withBaseSuccessResponse(
+				z.object({
+					stockTransactionId: z.uuid(),
+					undoExpiresAt: stringWithDateValidation(),
+				})
+			),
 			headers: z.object({
 				"x-idempotency-key": z.uuid(),
 			}),
+		},
+
+		"@post/inventory/stock-transactions/:stockTransactionId/undo": {
+			data: NullSuccessResponseSchema,
+			params: z.object({ stockTransactionId: z.uuid("Invalid stock transaction ID") }),
 		},
 	});
 };
@@ -818,11 +943,20 @@ const dashboardRoutes = () => {
 	type RecentStockActivityType = Prettify<
 		Pick<
 			SelectStockLogType,
-			"createdAt" | "id" | "logType" | "patientName" | "quantity" | "stockTransactionId"
+			| "createdAt"
+			| "id"
+			| "logType"
+			| "patientName"
+			| "performedByUserId"
+			| "quantity"
+			| "reason"
+			| "stockTransactionId"
+			| "undoneAt"
 		> & {
 			batchCount: number;
 			drug: Pick<SelectDrugType, "genericName" | "id" | "name" | "strength">;
 			person: string;
+			undoneBy: string | null;
 		}
 	>;
 
@@ -839,9 +973,13 @@ const dashboardRoutes = () => {
 			id: z.string(),
 			logType: StockLogTypeSchema,
 			patientName: z.string().nullable(),
+			performedByUserId: z.uuid(),
 			person: z.string(),
 			quantity: z.number(),
+			reason: StockOutReasonSchema.nullable(),
 			stockTransactionId: z.uuid(),
+			undoneAt: stringWithDateValidation().nullable(),
+			undoneBy: z.string().nullable(),
 		})
 	);
 
@@ -862,6 +1000,114 @@ const dashboardRoutes = () => {
 	});
 };
 
+const dashboardAnalyticsRoutes = () => {
+	const AnalyticsDrugSchema = DrugDetailsSchema.pick({
+		genericName: true,
+		id: true,
+		name: true,
+		strength: true,
+		unit: true,
+	});
+
+	const AnalyticsTotalsSchema = z.object({
+		costOfSales: z.number(),
+		profit: z.number(),
+		profitPercent: z.number().nullable(),
+		saleCount: z.number(),
+		sales: z.number(),
+		uncostedSaleLineCount: z.number(),
+		unpricedSaleLineCount: z.number(),
+	});
+
+	const AnalyticsSellerSchema = z.object({
+		drug: AnalyticsDrugSchema,
+		quantity: z.number(),
+		sales: z.number().nullable(),
+	});
+
+	return defineSchemaRoutes({
+		"@get/dashboard/analytics": {
+			data: withBaseSuccessResponse(
+				z.object({
+					daily: z.array(z.object({ date: IsoDateSchema, profit: z.number(), sales: z.number() })),
+					expiryRisk: z.object({
+						expiredDrugCount: z.number(),
+						expiredValue: z.number().nullable(),
+						expiringDrugCount: z.number(),
+						expiringValue: z.number().nullable(),
+						items: z.array(
+							z.object({
+								drug: AnalyticsDrugSchema,
+								expiryDate: IsoDateSchema,
+								isExpired: z.boolean(),
+								quantity: z.number(),
+								value: z.number().nullable(),
+							})
+						),
+					}),
+					losses: z.array(
+						z.object({
+							createdAt: stringWithDateValidation(),
+							drug: AnalyticsDrugSchema,
+							id: z.uuid(),
+							person: z.string(),
+							// == Null when the person has since left the workspace
+							personRole: WorkspaceRoleSchema.nullable(),
+							quantity: z.number(),
+							reason: StockOutReasonSchema,
+							value: z.number().nullable(),
+						})
+					),
+					moneyInStock: z.object({
+						topDrugs: z.array(
+							z.object({ drug: AnalyticsDrugSchema, quantity: z.number(), value: z.number() })
+						),
+						total: z.number(),
+						uncostedBatchCount: z.number(),
+					}),
+					period: z.object({ from: IsoDateSchema, to: IsoDateSchema }),
+					previousPeriod: z.object({ from: IsoDateSchema, to: IsoDateSchema }),
+					pricesMissingDrugCount: z.number(),
+					salesByPaymentMethod: z.array(
+						z.object({ paymentMethod: PaymentMethodSchema.nullable(), sales: z.number() })
+					),
+					salesBySaleType: z.array(z.object({ sales: z.number(), saleType: SaleTypeSchema })),
+					slowSellers: z.array(
+						z.object({
+							drug: AnalyticsDrugSchema,
+							onHandQuantity: z.number(),
+							soldLast30Days: z.number(),
+							stockValue: z.number().nullable(),
+						})
+					),
+					staffActivity: z.array(
+						z.object({
+							dispenseCount: z.number(),
+							person: z.string(),
+							personRole: WorkspaceRoleSchema,
+							removalCount: z.number(),
+							sales: z.number().nullable(),
+							undoCount: z.number(),
+							userId: z.uuid(),
+						})
+					),
+					topSellers: z.object({
+						byQuantity: z.array(AnalyticsSellerSchema),
+						bySales: z.array(AnalyticsSellerSchema),
+					}),
+					totals: z.object({ current: AnalyticsTotalsSchema, previous: AnalyticsTotalsSchema }),
+				})
+			),
+			query: z
+				.object({ from: IsoDateSchema, to: IsoDateSchema })
+				.refine((query) => query.from <= query.to, {
+					message: "The end date must be on or after the start date",
+					path: ["to"],
+				}),
+		},
+	});
+};
+
 export const backendApiSchema = defineSchema(
 	{
 		...fallbackRouteSchema(),
@@ -869,6 +1115,7 @@ export const backendApiSchema = defineSchema(
 		...workspaceRoutes(),
 		...inventoryRoutes(),
 		...dashboardRoutes(),
+		...dashboardAnalyticsRoutes(),
 	},
 	{ strict: true }
 );

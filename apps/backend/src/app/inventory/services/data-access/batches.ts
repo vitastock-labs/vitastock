@@ -9,6 +9,20 @@ import { getWorkspaceToday } from "../utils/date";
 type BatchAvailability = z.infer<
 	(typeof backendApiSchemaRoutes)["@get/inventory/drugs/:drugId/batches"]["query"]
 >["availability"];
+type BatchUpdateBody = z.infer<
+	(typeof backendApiSchemaRoutes)["@patch/inventory/batches/:batchId"]["body"]
+>;
+
+const batchColumns = {
+	batchNumber: stockBatches.batchNumber,
+	costPrice: stockBatches.costPrice,
+	expiryDate: stockBatches.expiryDate,
+	id: stockBatches.id,
+	quantityAvailable: stockBatches.quantityAvailable,
+};
+
+const BATCH_IDENTITY_CONFLICT_MESSAGE =
+	"Another batch with this batch number, expiry date and cost price already exists";
 
 const getDatabaseErrorCode = (error: unknown): string | undefined => {
 	if (!(error instanceof Error)) {
@@ -41,12 +55,7 @@ export const getWorkspaceDrugBatches = async (options: {
 	}
 
 	return db
-		.select({
-			batchNumber: stockBatches.batchNumber,
-			expiryDate: stockBatches.expiryDate,
-			id: stockBatches.id,
-			quantityAvailable: stockBatches.quantityAvailable,
-		})
+		.select(batchColumns)
 		.from(stockBatches)
 		.where(
 			and(
@@ -59,12 +68,10 @@ export const getWorkspaceDrugBatches = async (options: {
 		.orderBy(asc(stockBatches.expiryDate), asc(stockBatches.createdAt), asc(stockBatches.id));
 };
 
-export const updateWorkspaceBatchExpiryDate = async (options: {
-	batchId: string;
-	expiryDate: string;
-	workspaceId: string;
-}) => {
-	const { batchId, expiryDate, workspaceId } = options;
+export const updateWorkspaceBatch = async (
+	options: BatchUpdateBody & { batchId: string; workspaceId: string }
+) => {
+	const { batchId, costPrice, expiryDate, workspaceId } = options;
 
 	try {
 		return await db.transaction(async (tx) => {
@@ -79,6 +86,9 @@ export const updateWorkspaceBatchExpiryDate = async (options: {
 				throw new AppError({ code: 404, message: "Stock batch not found" });
 			}
 
+			const nextExpiryDate = expiryDate ?? batch.expiryDate;
+			const nextCostPrice = costPrice === undefined ? batch.costPrice : costPrice;
+
 			const [conflictingBatch] = await tx
 				.select({ id: stockBatches.id })
 				.from(stockBatches)
@@ -86,44 +96,33 @@ export const updateWorkspaceBatchExpiryDate = async (options: {
 					and(
 						eq(stockBatches.workspaceId, workspaceId),
 						eq(stockBatches.drugId, batch.drugId),
-						eq(stockBatches.expiryDate, expiryDate),
+						eq(stockBatches.expiryDate, nextExpiryDate),
 						ne(stockBatches.id, batch.id),
-						sql`coalesce(lower(btrim(${stockBatches.batchNumber})), '') = ${batch.batchNumber?.trim().toLowerCase() ?? ""}`
+						sql`coalesce(lower(btrim(${stockBatches.batchNumber})), '') = ${batch.batchNumber?.trim().toLowerCase() ?? ""}`,
+						sql`coalesce(${stockBatches.costPrice}, 0) = ${nextCostPrice ?? 0}`
 					)
 				)
 				.limit(1);
 
 			if (conflictingBatch) {
-				throw new AppError({
-					code: 409,
-					message: "Another batch with this batch number and expiry date already exists",
-				});
+				throw new AppError({ code: 409, message: BATCH_IDENTITY_CONFLICT_MESSAGE });
 			}
 
 			const [updatedBatch] = await tx
 				.update(stockBatches)
-				.set({ expiryDate })
+				.set({ costPrice: nextCostPrice, expiryDate: nextExpiryDate })
 				.where(eq(stockBatches.id, batch.id))
-				.returning({
-					batchNumber: stockBatches.batchNumber,
-					expiryDate: stockBatches.expiryDate,
-					id: stockBatches.id,
-					quantityAvailable: stockBatches.quantityAvailable,
-				});
+				.returning(batchColumns);
 
 			if (!updatedBatch) {
-				throw new AppError({ code: 500, message: "Failed to update batch expiry date" });
+				throw new AppError({ code: 500, message: "Failed to update stock batch" });
 			}
 
 			return updatedBatch;
 		});
 	} catch (error) {
 		if (getDatabaseErrorCode(error) === "23505") {
-			throw new AppError({
-				cause: error,
-				code: 409,
-				message: "Another batch with this batch number and expiry date already exists",
-			});
+			throw new AppError({ cause: error, code: 409, message: BATCH_IDENTITY_CONFLICT_MESSAGE });
 		}
 
 		throw error;

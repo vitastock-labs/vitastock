@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { db } from "@vitastock/db";
-import { inventoryAlertOutbox, inventoryAlerts } from "@vitastock/db/schema/inventory";
+import { inventoryAlerts } from "@vitastock/db/schema/inventory";
 import { and, asc, eq } from "drizzle-orm";
 import { expect, test } from "vitest";
 import { createInventoryFixture, getDateFromToday, receiveTestStock } from "@/test/inventoryFixture";
@@ -8,10 +8,7 @@ import { acknowledgeInventoryAlert, syncInventoryAlerts } from "./alertLifecycle
 import { createInventoryStockLog } from "./stock-log";
 
 test("Alert lifecycle - replaces low stock with out of stock at zero units", async () => {
-	await using fixture = await createInventoryFixture({
-		emailAlertsEnabled: false,
-		lowStockThreshold: 10,
-	});
+	await using fixture = await createInventoryFixture({ lowStockThreshold: 10 });
 	const syncAlerts = () =>
 		syncInventoryAlerts({
 			lowStockThreshold: fixture.workspace.lowStockThreshold,
@@ -70,14 +67,9 @@ test("Alert lifecycle - deduplicates, resolves, and reactivates low-stock alerts
 		.select()
 		.from(inventoryAlerts)
 		.where(eq(inventoryAlerts.workspaceId, fixture.workspace.id));
-	let outboxRecords = await db
-		.select()
-		.from(inventoryAlertOutbox)
-		.where(eq(inventoryAlertOutbox.workspaceId, fixture.workspace.id));
 
 	expect(alerts).toHaveLength(1);
 	expect(alerts[0]?.status).toBe("active");
-	expect(outboxRecords).toHaveLength(1);
 
 	await createInventoryStockLog({
 		body: {
@@ -121,10 +113,6 @@ test("Alert lifecycle - deduplicates, resolves, and reactivates low-stock alerts
 		.select()
 		.from(inventoryAlerts)
 		.where(eq(inventoryAlerts.workspaceId, fixture.workspace.id));
-	outboxRecords = await db
-		.select()
-		.from(inventoryAlertOutbox)
-		.where(eq(inventoryAlertOutbox.workspaceId, fixture.workspace.id));
 
 	expect(alerts).toHaveLength(1);
 	expect(alerts[0]).toMatchObject({
@@ -133,84 +121,39 @@ test("Alert lifecycle - deduplicates, resolves, and reactivates low-stock alerts
 		resolvedAt: null,
 		status: "active",
 	});
-	expect(outboxRecords).toHaveLength(2);
 });
 
-test.each([
-	{ emailAlertsEnabled: false, expectedOutboxCount: 0, policy: "critical_immediate" as const },
-	{ emailAlertsEnabled: true, expectedOutboxCount: 0, policy: "digest_only" as const },
-	{ emailAlertsEnabled: true, expectedOutboxCount: 1, policy: "critical_immediate" as const },
-	{ emailAlertsEnabled: true, expectedOutboxCount: 1, policy: "all_immediate" as const },
-])(
-	"Alert outbox - persists out-of-stock alerts with $policy policy",
-	async ({ emailAlertsEnabled, expectedOutboxCount, policy }) => {
-		await using fixture = await createInventoryFixture({
-			emailAlertDeliveryPolicy: policy,
-			emailAlertsEnabled,
-		});
+test("Alert lifecycle - raises a near-expiry alert for a batch inside the window", async () => {
+	await using fixture = await createInventoryFixture();
 
-		await syncInventoryAlerts({
-			lowStockThreshold: fixture.workspace.lowStockThreshold,
-			nearExpiryDays: fixture.workspace.nearExpiryDays,
-			timezone: fixture.workspace.timezone,
-			workspaceId: fixture.workspace.id,
-		});
+	await createInventoryStockLog({
+		body: {
+			batchNumber: "BATCH-NEAR-EXPIRY",
+			drugId: fixture.drug.id,
+			expiryDate: getDateFromToday(30),
+			logType: "stock_in",
+			quantity: 20,
+		},
+		idempotencyKey: randomUUID(),
+		timezone: fixture.workspace.timezone,
+		userId: fixture.user.id,
+		workspaceId: fixture.workspace.id,
+	});
+	await syncInventoryAlerts({
+		lowStockThreshold: fixture.workspace.lowStockThreshold,
+		nearExpiryDays: fixture.workspace.nearExpiryDays,
+		timezone: fixture.workspace.timezone,
+		workspaceId: fixture.workspace.id,
+	});
 
-		const [alerts, outboxRecords] = await Promise.all([
-			db.select().from(inventoryAlerts).where(eq(inventoryAlerts.workspaceId, fixture.workspace.id)),
-			db
-				.select()
-				.from(inventoryAlertOutbox)
-				.where(eq(inventoryAlertOutbox.workspaceId, fixture.workspace.id)),
-		]);
+	const alerts = await db
+		.select()
+		.from(inventoryAlerts)
+		.where(eq(inventoryAlerts.workspaceId, fixture.workspace.id));
 
-		expect(alerts).toHaveLength(1);
-		expect(alerts[0]?.type).toBe("out_of_stock");
-		expect(outboxRecords).toHaveLength(expectedOutboxCount);
-	}
-);
-
-test.each([
-	{ expectedOutboxCount: 0, policy: "critical_immediate" as const },
-	{ expectedOutboxCount: 1, policy: "all_immediate" as const },
-])(
-	"Alert outbox - handles near-expiry alerts with $policy policy",
-	async ({ expectedOutboxCount, policy }) => {
-		await using fixture = await createInventoryFixture({ emailAlertDeliveryPolicy: policy });
-
-		await createInventoryStockLog({
-			body: {
-				batchNumber: "BATCH-NEAR-EXPIRY",
-				drugId: fixture.drug.id,
-				expiryDate: getDateFromToday(30),
-				logType: "stock_in",
-				quantity: 20,
-			},
-			idempotencyKey: randomUUID(),
-			timezone: fixture.workspace.timezone,
-			userId: fixture.user.id,
-			workspaceId: fixture.workspace.id,
-		});
-		await syncInventoryAlerts({
-			lowStockThreshold: fixture.workspace.lowStockThreshold,
-			nearExpiryDays: fixture.workspace.nearExpiryDays,
-			timezone: fixture.workspace.timezone,
-			workspaceId: fixture.workspace.id,
-		});
-
-		const [alerts, outboxRecords] = await Promise.all([
-			db.select().from(inventoryAlerts).where(eq(inventoryAlerts.workspaceId, fixture.workspace.id)),
-			db
-				.select()
-				.from(inventoryAlertOutbox)
-				.where(eq(inventoryAlertOutbox.workspaceId, fixture.workspace.id)),
-		]);
-
-		expect(alerts).toHaveLength(1);
-		expect(alerts[0]?.type).toBe("expiring_soon");
-		expect(outboxRecords).toHaveLength(expectedOutboxCount);
-	}
-);
+	expect(alerts).toHaveLength(1);
+	expect(alerts[0]?.type).toBe("expiring_soon");
+});
 
 test("Alert acknowledgement - cannot acknowledge another workspace's alert", async () => {
 	await using firstFixture = await createInventoryFixture();

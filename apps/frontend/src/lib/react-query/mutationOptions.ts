@@ -156,6 +156,44 @@ export const handleInventoryDrugActionMutation = (
 	});
 };
 
+export const undoInventoryDispenseMutation = () => {
+	return mutationOptions({
+		mutationFn: (
+			params: z.infer<
+				BackendApiRoutes["@post/inventory/stock-transactions/:stockTransactionId/undo"]["params"]
+			>
+		) => {
+			return callBackendApiForQuery("@post/inventory/stock-transactions/:stockTransactionId/undo", {
+				meta: { toast: { success: true } },
+				onSuccess: () => {
+					posthog?.capture("inventory_dispense_undone");
+				},
+				params,
+			});
+		},
+		mutationKey: ["inventory", "stock-transactions", "undo"],
+	});
+};
+
+export const removeInventoryBulkImportMutation = () => {
+	return mutationOptions({
+		mutationFn: (
+			params: z.infer<
+				BackendApiRoutes["@post/inventory/bulk-imports/:stockTransactionId/remove"]["params"]
+			>
+		) => {
+			return callBackendApiForQuery("@post/inventory/bulk-imports/:stockTransactionId/remove", {
+				meta: { toast: { success: true } },
+				onSuccess: () => {
+					posthog?.capture("inventory_bulk_import_removed");
+				},
+				params,
+			});
+		},
+		mutationKey: ["inventory", "bulk-imports", "remove"],
+	});
+};
+
 const forceDownload = (data: Blob, filename: string) => {
 	const fileUrl = URL.createObjectURL(data);
 	const link = document.createElement("a");
