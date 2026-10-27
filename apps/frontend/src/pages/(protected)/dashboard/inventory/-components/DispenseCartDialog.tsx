@@ -157,7 +157,6 @@ function DispenseCartDialogContent(props: {
 	};
 
 	const addToCart = (item: DispenseCartItem, drug: CartDrug | undefined) => {
-		// == A drug without a wholesale price makes the whole cart retail-only
 		if (
 			drug?.wholesalePrice === null
 			&& cartForm.getValues("saleType") === SaleTypeSchema.enum.wholesale

@@ -512,7 +512,7 @@ const removedByUsers = alias(users, "removed_by_users");
 
 const STOCK_RECEIPT_LOG_TYPES = ["opening_stock", "stock_in"] as const;
 
-// == Read in SQL: a JS Date drops Postgres's microseconds, so it never equals the stored timestamp
+// == Compared in SQL: a JS Date drops the microseconds Postgres stores
 const getImportCreatedAt = (stockTransactionId: string) =>
 	sql`(select ${stockTransactions.createdAt} from ${stockTransactions} where ${stockTransactions.id} = ${stockTransactionId})`;
 

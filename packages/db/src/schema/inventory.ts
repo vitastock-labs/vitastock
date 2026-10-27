@@ -125,7 +125,6 @@ export const STOCK_LOG_PATIENT_NAME_MAX_LENGTH = 120;
 
 export const INVENTORY_ALERT_TYPES = defineEnum(["expired", "expiring_soon", "low_stock", "out_of_stock"]);
 export const INVENTORY_ALERT_STATUSES = defineEnum(["active", "resolved"]);
-export const INVENTORY_ALERT_OUTBOX_TYPES = defineEnum(["alert_raised", "daily_digest"]);
 export const STOCK_TRANSACTION_OPERATIONS = defineEnum(["bulk_import", "dispense_cart", "stock_log"]);
 
 export const stockTransactions = pg.pgTable(
@@ -214,7 +213,6 @@ export const inventoryAlerts = pg.pgTable(
 			.references(() => drugs.id, { onDelete: "cascade" }),
 		expiryDate: pg.date(),
 		id: pg.uuid().defaultRandom().primaryKey(),
-		lastNotifiedAt: pg.timestamp({ withTimezone: true }),
 		quantityAffected: pg.integer(),
 		resolvedAt: pg.timestamp({ withTimezone: true }),
 		status: pg.text({ enum: INVENTORY_ALERT_STATUSES }).notNull().default("active"),
@@ -239,28 +237,6 @@ export const inventoryAlerts = pg.pgTable(
 	]
 );
 
-export const inventoryAlertOutbox = pg.pgTable(
-	"inventory_alert_outbox",
-	{
-		alertId: pg.uuid().references(() => inventoryAlerts.id, { onDelete: "cascade" }),
-		createdAt: pg.timestamp({ withTimezone: true }).notNull().defaultNow(),
-		dedupeKey: pg.text().notNull(),
-		dispatchedAt: pg.timestamp({ withTimezone: true }),
-		id: pg.uuid().defaultRandom().primaryKey(),
-		recipientEmail: pg.text().notNull(),
-		recipientName: pg.text().notNull(),
-		type: pg.text({ enum: INVENTORY_ALERT_OUTBOX_TYPES }).notNull(),
-		workspaceId: pg
-			.uuid()
-			.notNull()
-			.references(() => workspaces.id, { onDelete: "cascade" }),
-	},
-	(table) => [
-		pg.uniqueIndex("inventory_alert_outbox_dedupe_key_index").on(table.dedupeKey),
-		pg.index("inventory_alert_outbox_dispatched_at_index").on(table.dispatchedAt),
-	]
-);
-
 export const InsertDrugSchema = createInsertSchema(drugs);
 export const SelectDrugSchema = createSelectSchema(drugs);
 export const InsertStockBatchSchema = createInsertSchema(stockBatches);
@@ -271,8 +247,6 @@ export const InsertStockLogSchema = createInsertSchema(stockLogs);
 export const SelectStockLogSchema = createSelectSchema(stockLogs);
 export const InsertInventoryAlertSchema = createInsertSchema(inventoryAlerts);
 export const SelectInventoryAlertSchema = createSelectSchema(inventoryAlerts);
-export const InsertInventoryAlertOutboxSchema = createInsertSchema(inventoryAlertOutbox);
-export const SelectInventoryAlertOutboxSchema = createSelectSchema(inventoryAlertOutbox);
 
 export type InsertDrugType = typeof drugs.$inferInsert;
 export type SelectDrugType = typeof drugs.$inferSelect;
@@ -284,5 +258,3 @@ export type InsertStockLogType = typeof stockLogs.$inferInsert;
 export type SelectStockLogType = typeof stockLogs.$inferSelect;
 export type InsertInventoryAlertType = typeof inventoryAlerts.$inferInsert;
 export type SelectInventoryAlertType = typeof inventoryAlerts.$inferSelect;
-export type InsertInventoryAlertOutboxType = typeof inventoryAlertOutbox.$inferInsert;
-export type SelectInventoryAlertOutboxType = typeof inventoryAlertOutbox.$inferSelect;

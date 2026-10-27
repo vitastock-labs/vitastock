@@ -4,7 +4,6 @@ import { and, eq, inArray, notExists, sql } from "drizzle-orm";
 import { db } from "../db";
 import {
 	drugs,
-	inventoryAlertOutbox,
 	stockBatches,
 	stockLogs,
 	stockTransactions,
@@ -210,10 +209,6 @@ export const seedInventory = async (
 	const allDrugSeeds = seededWorkspaces.flatMap((workspace) => getDrugSeedData(workspace.id));
 	const drugSeedByIdentityKey = new Map(allDrugSeeds.map((drug) => [getDrugIdentityKey(drug), drug]));
 	const seededWorkspaceIds = seededWorkspaces.map((workspace) => workspace.id);
-
-	await db
-		.delete(inventoryAlertOutbox)
-		.where(inArray(inventoryAlertOutbox.workspaceId, seededWorkspaceIds));
 
 	await db.insert(drugs).values(allDrugSeeds).onConflictDoNothing();
 

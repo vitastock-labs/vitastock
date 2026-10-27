@@ -24,7 +24,6 @@ const toNumber = (value: number | string | null) => (value === null ? 0 : Number
 
 const toNullableNumber = (value: number | string | null) => (value === null ? null : Number(value));
 
-// == Null when every value is unknown, so a missing cost never reads as ₦0
 const sumKnownValues = (values: Array<number | null>) => {
 	const knownValues = values.filter((value) => value !== null);
 
@@ -163,7 +162,7 @@ export const getDashboardAnalytics = async (options: {
 			})
 			.from(stockLogs)
 			.where(and(...periodConditions, isPatientSale))
-			// == By position: each repeat of saleDay binds the timezone as a new parameter, which Postgres treats as a different expression
+			// == Repeating saleDay rebinds the timezone, which Postgres reads as a different expression
 			.groupBy(sql`1`)
 			.orderBy(sql`1`),
 

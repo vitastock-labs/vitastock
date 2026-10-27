@@ -6,19 +6,8 @@ import { z } from "zod";
 import { ROLES } from "../constants";
 import { users } from "./auth";
 
-export const EMAIL_ALERT_DELIVERY_POLICIES = defineEnum(
-	["all_immediate", "critical_immediate", "digest_only"],
-	{ inferredUnionVariant: "values" }
-);
-
 export const workspaces = pg.pgTable("workspaces", {
-	alertEmail: pg.text(),
 	createdAt: pg.timestamp({ withTimezone: true }).notNull().defaultNow(),
-	emailAlertDeliveryPolicy: pg
-		.text({ enum: EMAIL_ALERT_DELIVERY_POLICIES })
-		.notNull()
-		.default("critical_immediate"),
-	emailAlertsEnabledAt: pg.timestamp({ withTimezone: true }),
 	id: pg.uuid().defaultRandom().primaryKey(),
 	lowStockThreshold: pg.integer().notNull().default(10),
 	name: pg.text().notNull().unique(),
