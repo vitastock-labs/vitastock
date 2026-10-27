@@ -2,7 +2,7 @@ import { defineConfig } from "tsdown";
 
 export default defineConfig({
 	clean: true,
-	dts: { newContext: true },
+	dts: true,
 	entry: ["src/*.ts"],
 	fixedExtension: false,
 	format: ["esm"],

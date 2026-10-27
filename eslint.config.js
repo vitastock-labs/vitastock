@@ -2,7 +2,12 @@ import { zayne } from "@zayne-labs/eslint-config";
 
 export default zayne(
 	{
-		ignores: ["eslint.config.js", "apps/frontend/.monicon/**", "packages/db/src/migrations/**/*"],
+		ignores: [
+			"eslint.config.js",
+			"apps/frontend/.monicon/**",
+			"packages/db/src/migrations/**",
+			"apps/backend/(bruno)-(vitastock)/**",
+		],
 		type: "app-strict",
 		comments: {
 			overrides: {
@@ -53,6 +58,7 @@ export default zayne(
 						"Use spread operator instead of toArray() because some pharmacies still use older browser versions (<= Chrome v109)",
 				},
 			],
+			"node/no-process-env": "off",
 			"unicorn/no-array-sort": "off",
 			"unicorn/prefer-iterator-to-array": "off",
 		},
@@ -75,19 +81,18 @@ export default zayne(
 			],
 		},
 	},
+
 	{
-		files: ["apps/frontend/**/*.ts"],
+		files: ["apps/backend/testing.ts"],
 		rules: {
-			"node/no-process-env": "off",
+			"unicorn/no-empty-file": "off",
 		},
 	},
 	{
-		files: ["apps/backend/testing.ts"],
-		rules: { "unicorn/no-empty-file": "off" },
-	},
-	{
 		files: ["apps/backend/src/**/*"],
-		rules: { "security/detect-object-injection": "off" },
+		rules: {
+			"security/detect-object-injection": "off",
+		},
 	}
 ).overrides({
 	"zayne/node/security/recommended": (config) => ({
