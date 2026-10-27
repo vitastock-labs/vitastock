@@ -1,0 +1,87 @@
+info:
+  name: change-drug-activity
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: "{{baseURL}}/inventory/drugs/{{drugId}}/action"
+  body:
+    type: json
+    data: |-
+      {
+        "action": "deactivate"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+docs: |-
+  # Deactivate or Reactivate Drug
+
+  Changes whether a drug can be used for new stock movements without deleting the drug or its history.
+
+  ## Authorization
+
+  Requires an authenticated `owner` or `admin`. Pharmacists receive `403 Forbidden`.
+
+  ## Path Parameters
+
+  | Parameter | Type | Required | Description |
+  |-----------|------|----------|-------------|
+  | `drugId` | UUID | Yes | Drug to activate or deactivate. |
+
+  ## Request Body
+
+  | Field | Type | Required | Allowed Values |
+  |-------|------|----------|----------------|
+  | `action` | string | Yes | `deactivate`, `reactivate` |
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Drug deactivated successfully",
+    "data": {
+      "drug": {
+        "id": "drug-uuid",
+        "name": "Amoxil",
+        "genericName": "Amoxicillin",
+        "strength": "500 mg",
+        "form": "Capsule",
+        "unit": "Pack",
+        "isActive": false,
+        "lowStockThreshold": null,
+        "retailPrice": 500,
+        "wholesalePrice": null
+      }
+    }
+  }
+  ```
+
+  A `reactivate` action returns the same shape with `isActive: true` and message `Drug reactivated successfully`.
+
+  ## Lifecycle Behavior
+
+  - Deactivation is a reversible soft lifecycle change.
+  - Existing batches, logs, dashboard history, and alerts are retained.
+  - Stock movement validation rejects inactive drugs.
+  - A drug that still has stock cannot be deactivated.
+
+  ## Errors
+
+  | Status | Description |
+  |--------|-------------|
+  | `401 Unauthorized` | Authentication is invalid or workspace access is suspended. |
+  | `403 Forbidden` | The member is not an owner or admin. |
+  | `404 Not Found` | No matching drug exists in the authenticated workspace. |
+  | `409 Conflict` | Deactivation was requested for a drug with remaining stock. |
+  | `422 Unprocessable Entity` | The UUID or action is invalid. |

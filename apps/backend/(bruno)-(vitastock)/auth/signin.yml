@@ -1,0 +1,155 @@
+info:
+  name: signin
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{baseURL}}/auth/signin"
+  body:
+    type: json
+    data: |-
+      {
+        "email": "owner.seeded-alpha-pharmacy@seeded.com",
+        "password": "Password@123"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+docs: |-
+  # Sign In
+
+  Authenticates a verified workspace member and returns access/refresh tokens via cookies.
+
+  ## Request Body
+
+  - `email` (string, required): User's email address
+  - `password` (string, required): User's password (minimum 8 characters)
+
+  ## Success Response (200 OK)
+
+  ```json
+  {
+    "status": "success",
+    "message": "Signed in successfully",
+    "data": {
+      "user": {
+        "id": "user-uuid",
+        "fullName": "John Doe",
+        "email": "pharmacist@example.com",
+        "role": "owner",
+        "emailVerifiedAt": "2024-05-20T10:30:00Z",
+        "mustChangePassword": false,
+        "workspaceId": "workspace-uuid"
+      },
+      "workspace": {
+        "id": "workspace-uuid",
+        "name": "My Pharmacy",
+        "lowStockThreshold": 10,
+        "nearExpiryDays": 30,
+        "timezone": "UTC",
+        "weeklyEmailEnabled": true,
+        "weeklyEmailTime": "21:00:00"
+      },
+      "tokens": {
+        "access": {
+          "token": "eyJhbGciOiJIUzI1NiIs...",
+          "expiresAt": "2024-05-20T11:30:00Z"
+        },
+        "refresh": {
+          "token": "eyJhbGciOiJIUzI1NiIs...",
+          "expiresAt": "2024-05-27T10:30:00Z"
+        }
+      }
+    }
+  }
+  ```
+
+  ## Cookies Set
+
+  - `vitastockAccessToken`: Short-lived JWT
+  - `vitastockRefreshToken`: Long-lived JWT
+
+  **Note**:
+  - Sets `vitastockAccessToken` and `vitastockRefreshToken` cookies
+  - Resets login retry count to 0
+  - Adds new refresh token to user's token array
+  - If `mustChangePassword` is true, the frontend should show the forced password-change modal before routing to workspace screens
+
+  ## Error Response (401 Unauthorized)
+
+  If email or password is incorrect:
+
+  ```json
+  {
+    "status": "error",
+    "message": "Email or password is incorrect"
+  }
+  ```
+
+  **Note**: Each failed login attempt increments the retry count.
+
+  ## Error Response (401 Unauthorized - Account Suspended)
+
+  If account is suspended:
+
+  ```json
+  {
+    "status": "error",
+    "message": "Your account is currently suspended"
+  }
+  ```
+
+  ## Error Response (401 Unauthorized - Email Not Verified)
+
+  If email is not verified:
+
+  ```json
+  {
+    "status": "error",
+    "message": "Please verify your email address before signing in"
+  }
+  ```
+
+  A verification email will be automatically resent.
+
+  ## Error Response (401 Unauthorized - Login Retries Exceeded)
+
+  If user has failed login 3+ times within 12 hours:
+
+  ```json
+  {
+    "status": "error",
+    "message": "Login retries exceeded"
+  }
+  ```
+
+  **Note**:
+  - Login retry count resets after 12 hours from last login attempt
+  - Rate limited to prevent brute-force attacks
+  If email or password is missing:
+
+  ```json
+  {
+    "status": "error",
+    "message": "Validation Error: ✖ Required → at email | ✖ Required → at password",
+    "errors": {
+      "email": ["Required"],
+      "password": ["Required"]
+    }
+  }
+  ```
+
+  ## Security Features
+
+  - **Login retry limit**: Max 3 failed attempts within 12 hours
+  - **Account suspension**: Suspended accounts cannot sign in
+  - **Email verification**: Unverified owners cannot sign in
+  - **Token rotation**: New refresh token generated on each login
+  - **Secure cookies**: HttpOnly cookies for token storage

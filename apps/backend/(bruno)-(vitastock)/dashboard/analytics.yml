@@ -1,0 +1,133 @@
+info:
+  name: analytics
+  type: http
+  seq: 2
+
+http:
+  method: GET
+  url: "{{baseURL}}/dashboard/analytics?from=2026-10-01&to=2026-10-25"
+  params:
+    - name: from
+      value: "2026-10-01"
+      type: query
+    - name: to
+      value: "2026-10-25"
+      type: query
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+docs: |-
+  # Owner Analytics
+
+  Returns everything on the Analytics screen for one period: sales, cost, and profit with a comparison period, daily figures, sale-type and payment splits, top and slow sellers, money in stock, expiry risk, losses, and staff activity.
+
+  ## Authorization
+
+  Requires an authenticated `owner` or `admin`. Pharmacists receive `403 Forbidden`.
+
+  ## Query Parameters
+
+  | Parameter | Type | Required | Description |
+  |-----------|------|----------|-------------|
+  | `from` | calendar-date string | Yes | First day, `YYYY-MM-DD`, in the workspace timezone. |
+  | `to` | calendar-date string | Yes | Last day, inclusive. Must be on or after `from`. |
+
+  `previousPeriod` is the same number of days immediately before `from`.
+
+  ## Counting Rules
+
+  - **Sales** are patient dispenses that were not undone. Damaged and expired removals are losses, never sales.
+  - **Sales amount** sums quantity × the selling price saved at the moment of sale. Lines without a selling price are left out and counted in `unpricedSaleLineCount`.
+  - **Cost of drugs sold** and **profit** use only lines with both a selling and a cost price; lines without a cost are counted in `uncostedSaleLineCount`. `profitPercent` is profit over the sales that have both prices, or `null` when there are none.
+  - **Number of sales** (`saleCount`) counts distinct dispense transactions, not lines.
+  - Days follow the workspace timezone.
+  - Unknown money values are `null`, never `0`.
+
+  ## Success Response (abridged)
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Dashboard analytics fetched successfully",
+    "data": {
+      "period": { "from": "2026-10-01", "to": "2026-10-25" },
+      "previousPeriod": { "from": "2026-09-06", "to": "2026-09-30" },
+      "totals": {
+        "current": {
+          "sales": 1500,
+          "costOfSales": 900,
+          "profit": 600,
+          "profitPercent": 40,
+          "saleCount": 6,
+          "unpricedSaleLineCount": 5,
+          "uncostedSaleLineCount": 0
+        },
+        "previous": {
+          "sales": 0,
+          "costOfSales": 0,
+          "profit": 0,
+          "profitPercent": null,
+          "saleCount": 0,
+          "unpricedSaleLineCount": 0,
+          "uncostedSaleLineCount": 0
+        }
+      },
+      "daily": [{ "date": "2026-10-25", "sales": 1500, "profit": 600 }],
+      "salesBySaleType": [{ "saleType": "retail", "sales": 1500 }],
+      "salesByPaymentMethod": [
+        { "paymentMethod": "cash", "sales": 1500 },
+        { "paymentMethod": null, "sales": 0 }
+      ],
+      "topSellers": {
+        "bySales": [{ "drug": { "id": "drug-uuid", "name": "Amoxil", "genericName": "Amoxicillin", "strength": "500mg", "unit": "Pack" }, "quantity": 3, "sales": 1500 }],
+        "byQuantity": [{ "drug": { "id": "drug-uuid", "name": "Amoxil", "genericName": "Amoxicillin", "strength": "500mg", "unit": "Pack" }, "quantity": 3, "sales": 1500 }]
+      },
+      "slowSellers": [{ "drug": { "id": "drug-uuid", "name": "Amoxil", "genericName": "Amoxicillin", "strength": "500mg", "unit": "Pack" }, "onHandQuantity": 1140, "soldLast30Days": 110, "stockValue": 15000 }],
+      "moneyInStock": {
+        "total": 15000,
+        "uncostedBatchCount": 4,
+        "topDrugs": [{ "drug": { "id": "drug-uuid", "name": "Amoxil", "genericName": "Amoxicillin", "strength": "500mg", "unit": "Pack" }, "quantity": 50, "value": 15000 }]
+      },
+      "expiryRisk": {
+        "expiringDrugCount": 2,
+        "expiringValue": null,
+        "expiredDrugCount": 1,
+        "expiredValue": null,
+        "items": [{ "drug": { "id": "drug-uuid", "name": "Lipitor", "genericName": "Atorvastatin", "strength": "20mg", "unit": "Box" }, "expiryDate": "2026-09-25", "isExpired": true, "quantity": 35, "value": null }]
+      },
+      "losses": [{ "id": "stock-log-uuid", "createdAt": "2026-10-20T09:00:00.000Z", "drug": { "id": "drug-uuid", "name": "Insulin Mixtard", "genericName": "Insulin", "strength": "30/70", "unit": "Vial" }, "reason": "damaged", "quantity": 2, "value": 19000, "person": "Tunde Bello", "personRole": "admin" }],
+      "staffActivity": [{ "userId": "user-uuid", "person": "Ada Owner", "personRole": "owner", "dispenseCount": 6, "sales": 1500, "undoCount": 1, "removalCount": 0 }],
+      "pricesMissingDrugCount": 4
+    }
+  }
+  ```
+
+  ## Sections
+
+  | Field | Description |
+  |-------|-------------|
+  | `daily` | One entry per day that had priced sales. |
+  | `salesBySaleType`, `salesByPaymentMethod` | Priced sales split by retail/wholesale and by cash/transfer/POS; `paymentMethod: null` is "not noted". |
+  | `topSellers` | Up to 10 drugs, ranked by money (`bySales`) and by units (`byQuantity`). `sales` is `null` when none of the drug's sales had a price. |
+  | `slowSellers` | Up to 10 drugs that sold less than 10% of what is on hand over the last 30 days, most money tied up first. `stockValue` counts batches with a cost and is `null` when none has one. |
+  | `moneyInStock` | Value of unexpired stock at cost. `total` covers costed batches only; `uncostedBatchCount` says how many were left out. |
+  | `expiryRisk` | Stock expiring within 90 days and stock already expired, at cost. The totals are `null` when no affected batch has a cost. |
+  | `losses` | Damaged and expired removals in the period with their cost value (`null` without a cost) and who removed them. `personRole` is `null` if they have since left. |
+  | `staffActivity` | Every active member: dispenses, sales (`null` when they dispensed only unpriced drugs), undos, and removals. |
+  | `pricesMissingDrugCount` | Active drugs with no retail price. |
+
+  ## Errors
+
+  | Status | Description |
+  |--------|-------------|
+  | `401 Unauthorized` | Authentication is invalid or workspace access is suspended. |
+  | `403 Forbidden` | The member is not an owner or admin. |
+  | `422 Unprocessable Entity` | `from` or `to` is missing or invalid, or `to` is before `from`. |

@@ -1,0 +1,95 @@
+info:
+  name: stock-in
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: "{{baseURL}}/inventory/stock-log"
+  headers:
+    - name: x-idempotency-key
+      value: "{{stockInIdempotencyKey}}"
+  body:
+    type: json
+    data: |-
+      {
+        "drugId": "{{drugId}}",
+        "logType": "stock_in",
+        "quantity": "100",
+        "expiryDate": "2027-12-31",
+        "batchNumber": "BATCH-001",
+        "costPrice": 300,
+        "notes": "Supplier delivery"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+docs: |-
+  # Record Stock In
+
+  Records incoming stock or an opening balance for an existing drug. The stock transaction, batch, and audit log are committed atomically.
+
+  ## Authorization
+
+  Requires an authenticated `owner` or `admin`. Pharmacists receive `403 Forbidden` with `Only an Owner or Admin can add or remove stock.`
+
+  ## Required Header
+
+  | Header | Type | Required | Description |
+  |--------|------|----------|-------------|
+  | `x-idempotency-key` | UUID | Yes | Stable identifier for this stock movement. |
+
+  ## Request Body
+
+  | Field | Type | Required | Rules / Description |
+  |-------|------|----------|---------------------|
+  | `drugId` | UUID | Yes | Active drug in the authenticated workspace. |
+  | `logType` | string | Yes | `stock_in` or `opening_stock`. |
+  | `quantity` | numeric string | Yes | Greater than `0`. |
+  | `expiryDate` | calendar-date string | Yes | `YYYY-MM-DD`; today or later in the workspace timezone. |
+  | `batchNumber` | string | No | Supplier or manufacturer batch number. |
+  | `costPrice` | number | No | What the pharmacy paid, in naira per counting unit. Above zero, at most 2 decimals. Used to work out profit. |
+  | `notes` | string | No | Context for the movement. |
+
+  ## Batch Matching
+
+  - A batch's identity is its drug, batch number (or none), expiry date, and cost price.
+  - A receipt matching all four adds to that batch. Anything different, including the same lot at a new cost, creates a separate batch, so every sale keeps the true cost of the delivery it came from.
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Stock movement recorded successfully",
+    "data": null
+  }
+  ```
+
+  ## Side Effects
+
+  - Creates or increments a stock batch and writes an immutable stock log with the authenticated user as actor.
+  - Re-evaluates inventory alerts after commit.
+
+  ## Errors
+
+  | Status | Description |
+  |--------|-------------|
+  | `400 Bad Request` | The drug is inactive, or the expiry date is before today. |
+  | `401 Unauthorized` | Authentication is invalid or workspace access is suspended. |
+  | `403 Forbidden` | The member is a pharmacist. |
+  | `404 Not Found` | The drug does not exist in the authenticated workspace. |
+  | `409 Conflict` | The idempotency key was used for a different request. |
+  | `422 Unprocessable Entity` | Header or body validation failed. |
+
+  ## Idempotency
+
+  Retrying the exact request with the same key does not add stock twice.

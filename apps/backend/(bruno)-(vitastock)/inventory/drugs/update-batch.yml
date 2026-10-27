@@ -1,0 +1,84 @@
+info:
+  name: update-batch
+  type: http
+  seq: 7
+
+http:
+  method: PATCH
+  url: "{{baseURL}}/inventory/batches/{{batchId}}"
+  body:
+    type: json
+    data: |-
+      {
+        "costPrice": 320,
+        "expiryDate": "2027-12-31"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+docs: |-
+  # Correct a Batch
+
+  Corrects a wrongly entered expiry date or cost price on one batch (delivery). Get batch IDs from `GET /inventory/drugs/:drugId/batches?availability=all`.
+
+  ## Authorization
+
+  Requires an authenticated `owner` or `admin`. Pharmacists receive `403 Forbidden`.
+
+  ## Path Parameters
+
+  | Parameter | Type | Required | Description |
+  |-----------|------|----------|-------------|
+  | `batchId` | UUID | Yes | Batch in the authenticated workspace. |
+
+  ## Request Body
+
+  Send at least one field.
+
+  | Field | Type | Description |
+  |-------|------|-------------|
+  | `costPrice` | number or null | Naira per counting unit, above zero, at most 2 decimals. `null` clears it. |
+  | `expiryDate` | calendar-date string | `YYYY-MM-DD`. |
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Batch updated successfully",
+    "data": {
+      "batch": {
+        "id": "batch-uuid",
+        "batchNumber": "BATCH-001",
+        "costPrice": 320,
+        "expiryDate": "2027-12-31",
+        "quantityAvailable": 40
+      }
+    }
+  }
+  ```
+
+  ## Rules
+
+  - Only this batch changes. Costs are never averaged or copied to other batches.
+  - Sales already recorded keep the cost they were sold at; the correction affects stock still on hand and future sales.
+  - A batch's identity is its drug, batch number, expiry date, and cost. A correction that would make it identical to another batch is rejected.
+  - Changing the expiry date re-evaluates inventory alerts.
+
+  ## Errors
+
+  | Status | Description |
+  |--------|-------------|
+  | `401 Unauthorized` | Authentication is invalid or workspace access is suspended. |
+  | `403 Forbidden` | The member is not an owner or admin. |
+  | `404 Not Found` | The batch does not exist in the authenticated workspace. |
+  | `409 Conflict` | Another batch with this batch number, expiry date, and cost already exists. |
+  | `422 Unprocessable Entity` | No field was sent, or a value is invalid. |

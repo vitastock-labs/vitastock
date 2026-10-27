@@ -1,0 +1,80 @@
+info:
+  name: bulk-import-validate
+  type: http
+  seq: 8
+
+http:
+  method: POST
+  url: "{{baseURL}}/inventory/bulk-import/validate"
+  body:
+    type: json
+    data: |-
+      {
+        "rows": [
+          {
+            "name": "Panadol",
+            "genericName": "Paracetamol",
+            "quantity": "100",
+            "expiryDate": "2027-12-31",
+            "costPrice": "200",
+            "retailPrice": "150"
+          }
+        ]
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+docs: |-
+  # Validate Bulk Import
+
+  Checks import rows against the workspace's Drug Master before the import is submitted. Performs no writes; the import repeats these checks inside its own transaction.
+
+  ## Authorization
+
+  Requires an authenticated `owner` or `admin`. Pharmacists receive `403 Forbidden`.
+
+  ## Request Body
+
+  Same `rows` contract as `POST /inventory/bulk-import`, including the optional price columns.
+
+  ## Response
+
+  - `issues` block the import. An empty array means every row can be imported.
+  - `warnings` never block it. Today they flag a selling price below the row's cost price.
+  - `rowIndex` is zero-based and matches the submitted `rows` array.
+
+  Issues include rows that match several Drug Master records, rows matching an inactive drug, and rows of one drug that disagree on its retail price, wholesale price, or low-stock threshold. Rows are checked against each other, so a row can be flagged because another row in the same file makes it ambiguous.
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Bulk import rows validated successfully",
+    "data": {
+      "issues": [],
+      "warnings": [
+        {
+          "rowIndex": 0,
+          "message": "Panadol: the retail price is below the cost price"
+        }
+      ]
+    }
+  }
+  ```
+
+  ## Errors
+
+  | Status | Description |
+  |--------|-------------|
+  | `401 Unauthorized` | Authentication is invalid or workspace access is suspended. |
+  | `403 Forbidden` | The member is not an owner or admin. |
+  | `422 Unprocessable Entity` | Row validation failed, including duplicate rows or an invalid price. |

@@ -1,0 +1,63 @@
+info:
+  name: undo-dispense
+  type: http
+  seq: 6
+
+http:
+  method: POST
+  url: "{{baseURL}}/inventory/stock-transactions/{{stockTransactionId}}/undo"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+docs: |-
+  # Undo a Dispense
+
+  Reverses a dispense made in the last 2 minutes and puts its stock back on the shelf. A cart is undone as a whole.
+
+  ## Authorization
+
+  Requires an authenticated user with an active workspace membership. Only the person who recorded the dispense can undo it, whatever their role.
+
+  ## Path Parameters
+
+  | Parameter | Type | Required | Description |
+  |-----------|------|----------|-------------|
+  | `stockTransactionId` | UUID | Yes | From the dispense response, or `stockTransactionId` on a Recent Activity or activity row. |
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Dispense undone. The stock is back on the shelf.",
+    "data": null
+  }
+  ```
+
+  ## Behavior
+
+  - Works for cart dispenses and single patient stock-outs. Stock-ins and damaged/expired removals cannot be undone.
+  - The 2-minute window is measured on the server from when the dispense was recorded.
+  - Every line is stamped with when and by whom it was undone, and its quantity returns to the batch it came from.
+  - Undone lines stay in the activity history ("Undone by …") and drop out of every total, report, and analytics figure.
+  - Concurrent or repeated undo requests restore stock only once.
+  - Inventory alerts are re-evaluated afterwards.
+
+  ## Errors
+
+  | Status | Description |
+  |--------|-------------|
+  | `400 Bad Request` | The transaction is not a dispense. |
+  | `401 Unauthorized` | Authentication is invalid or workspace access is suspended. |
+  | `403 Forbidden` | Someone else recorded this dispense. |
+  | `404 Not Found` | The dispense does not exist in the authenticated workspace. |
+  | `409 Conflict` | More than 2 minutes have passed, the dispense was already undone, or a batch it came from was removed. |
+  | `422 Unprocessable Entity` | The path UUID is invalid. |

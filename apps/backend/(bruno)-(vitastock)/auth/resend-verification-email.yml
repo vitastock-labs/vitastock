@@ -1,0 +1,69 @@
+info:
+  name: resend-verification-email
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: "{{baseURL}}/auth/resend-verification-email"
+  body:
+    type: json
+    data: |-
+      {
+        "email": "pharmacist@example.com"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+docs: |-
+  # Resend Verification Email
+
+  Sends a fresh verification email when an unverified account exists for the submitted address.
+
+  ## Request Body
+
+  | Field | Type | Required | Description |
+  |-------|------|----------|-------------|
+  | `email` | email string | Yes | Address to verify. |
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Verification email sent successfully",
+    "data": null
+  }
+  ```
+
+  ## Enumeration Protection
+
+  The endpoint returns the same success response when:
+
+  - no account exists for the email
+  - the account is already verified
+  - a new verification message was sent
+
+  This prevents callers from discovering registered accounts through response differences.
+
+  ## Side Effects for an Unverified Account
+
+  - Replaces the previous verification-code record.
+  - Sends a new verification email.
+  - The old code can no longer be used.
+
+  ## Errors
+
+  | Status | Description |
+  |--------|-------------|
+  | `422 Unprocessable Entity` | The email is missing or invalid. |
+  | `429 Too Many Requests` | Authentication rate limit was exceeded. |
+  | `500 Internal Server Error` | Verification-code persistence or email delivery failed. |

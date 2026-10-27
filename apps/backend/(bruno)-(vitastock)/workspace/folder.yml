@@ -1,0 +1,16 @@
+info:
+  name: workspace
+  type: folder
+  seq: 2
+
+request:
+  auth: inherit
+
+docs:
+  content: |-
+    # Workspace
+
+    Membership, invitations, access control, inventory alert thresholds, and the weekly owner email for the authenticated workspace.
+
+    Workspace IDs are never accepted from the client. Every operation is scoped through the authenticated membership.
+  type: text/markdown
