@@ -17,7 +17,6 @@ const [DialogStateContextProvider, useDialogStateContext] = createCustomContext<
 function DialogRoot(props: React.ComponentProps<typeof DialogPrimitive.Root>) {
 	const {
 		defaultOpen: defaultOpenProp = false,
-		// eslint-disable-next-line ts-eslint/unbound-method
 		onOpenChange: onOpenChangeProp,
 		open: openProp,
 		...restOfProps
@@ -149,13 +148,10 @@ function DialogDescription(props: React.ComponentProps<typeof DialogPrimitive.De
 	);
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
 export const Close = DialogPrimitive.Close;
 
-// eslint-disable-next-line react-refresh/only-export-components
 export const Portal = DialogPrimitive.Portal;
 
-// eslint-disable-next-line react-refresh/only-export-components
 export const Trigger = DialogPrimitive.Trigger;
 
 export {

@@ -1,17 +1,24 @@
 import { logAppEvent, subscribeToAppEvent } from "@/lib/events";
 
-let hasRegisteredQueueEventSubscribers = false;
+let hasRegisteredEmailEnqueueEventSubscribers = false;
+let hasRegisteredEmailDeliveryEventSubscribers = false;
 
-export const registerQueueEventSubscribers = () => {
-	if (hasRegisteredQueueEventSubscribers) return;
+export const registerEmailEnqueueEventSubscribers = () => {
+	if (hasRegisteredEmailEnqueueEventSubscribers) return;
 
-	hasRegisteredQueueEventSubscribers = true;
+	hasRegisteredEmailEnqueueEventSubscribers = true;
 
 	subscribeToAppEvent("email.enqueueRequested");
 
 	subscribeToAppEvent("email.enqueueFailed", (payload) => {
 		logAppEvent("email.enqueueFailed", { isCritical: true, payload });
 	});
+};
+
+export const registerEmailDeliveryEventSubscribers = () => {
+	if (hasRegisteredEmailDeliveryEventSubscribers) return;
+
+	hasRegisteredEmailDeliveryEventSubscribers = true;
 
 	subscribeToAppEvent("email.sent");
 };

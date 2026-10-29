@@ -1,7 +1,7 @@
 "use client";
 
-import { cnMerge } from "@/lib/utils/cn";
 import { Accordion as AccordionPrimitive } from "radix-ui";
+import { cnMerge } from "@/lib/utils/cn";
 import { IconBox } from "../common/IconBox";
 
 function AccordionRoot(props: React.ComponentProps<typeof AccordionPrimitive.Root>) {
@@ -72,6 +72,5 @@ export {
 	AccordionContent as Content,
 	AccordionItem as Item,
 	AccordionRoot as Root,
-	AccordionTrigger as Trigger
+	AccordionTrigger as Trigger,
 };
-

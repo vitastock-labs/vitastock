@@ -1,0 +1,96 @@
+info:
+  name: update-drug
+  type: http
+  seq: 3
+
+http:
+  method: PATCH
+  url: "{{baseURL}}/inventory/drugs/{{drugId}}"
+  body:
+    type: json
+    data: |-
+      {
+        "retailPrice": 500,
+        "wholesalePrice": 400,
+        "lowStockThreshold": 20
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+docs: |-
+  # Update Drug
+
+  Partially updates a drug's details, low-stock threshold, or selling prices. The Price List screen uses this endpoint to set prices.
+
+  ## Authorization
+
+  Requires an authenticated `owner` or `admin`. Pharmacists receive `403 Forbidden`.
+
+  ## Path Parameters
+
+  | Parameter | Type | Required | Description |
+  |-----------|------|----------|-------------|
+  | `drugId` | UUID | Yes | Drug to update. |
+
+  ## Request Body
+
+  Every field is optional; send only what changes.
+
+  | Field | Type | Description |
+  |-------|------|-------------|
+  | `name` | string | Brand name. |
+  | `genericName` | string | Active ingredient. |
+  | `strength` | string or null | `null` or blank clears it. |
+  | `form` | string or null | `null` or blank clears it. |
+  | `unit` | string or null | `null` or blank clears it. |
+  | `lowStockThreshold` | integer or null | `null` falls back to the workspace threshold. |
+  | `retailPrice` | number or null | Naira per counting unit, above zero, at most 2 decimals. `null` clears it. |
+  | `wholesalePrice` | number or null | Same rules as `retailPrice`. |
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Drug updated successfully",
+    "data": {
+      "drug": {
+        "id": "drug-uuid",
+        "name": "Amoxil",
+        "genericName": "Amoxicillin",
+        "strength": "500mg",
+        "form": "Capsule",
+        "unit": "Pack",
+        "isActive": true,
+        "lowStockThreshold": 20,
+        "retailPrice": 500,
+        "wholesalePrice": 400
+      }
+    }
+  }
+  ```
+
+  ## Notes
+
+  - Sending either price records who changed prices and when.
+  - Price changes apply to future sales only. Past sales keep the prices snapshotted when they were dispensed.
+  - Changing `lowStockThreshold` re-evaluates inventory alerts.
+  - Cost price belongs to batches; correct it with `PATCH /inventory/batches/:batchId`.
+  - Activation is changed through the separate drug-action endpoint.
+
+  ## Errors
+
+  | Status | Description |
+  |--------|-------------|
+  | `401 Unauthorized` | Authentication is invalid or workspace access is suspended. |
+  | `403 Forbidden` | The member is not an owner or admin. |
+  | `404 Not Found` | The drug does not exist in the authenticated workspace. |
+  | `422 Unprocessable Entity` | A field is invalid, for example a price of `0` or with more than 2 decimals. |

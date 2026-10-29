@@ -1,0 +1,97 @@
+info:
+  name: list-drugs
+  type: http
+  seq: 1
+
+http:
+  method: GET
+  url: "{{baseURL}}/inventory/drugs?page=1&pageSize=10"
+  params:
+    - name: page
+      value: "1"
+      type: query
+    - name: pageSize
+      value: "10"
+      type: query
+    - name: search
+      value: amoxicillin
+      type: query
+      disabled: true
+    - name: drugId
+      value: "{{drugId}}"
+      type: query
+      disabled: true
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+docs: |-
+  # List Drugs
+
+  Returns one page of the workspace's Drug Master, including inactive drugs, ordered by brand name.
+
+  ## Authorization
+
+  Requires an authenticated user with an active workspace membership.
+
+  ## Query Parameters
+
+  Send at least one parameter to get this paginated form. With none, the endpoint returns all active drugs unpaginated (see `all-drugs`).
+
+  | Parameter | Type | Required | Description |
+  |-----------|------|----------|-------------|
+  | `search` | string | No | Case-insensitive partial match on brand name, generic name, strength, dosage form, or unit. |
+  | `drugId` | UUID | No | Restricts the result to one drug. |
+  | `page` | integer | No | One-based page number. Defaults to `1`. |
+  | `pageSize` | integer | No | Rows per page from `1` to `100`. Defaults to `10`. |
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Drugs fetched successfully",
+    "data": {
+      "drugs": [
+        {
+          "id": "drug-uuid",
+          "name": "Amoxil",
+          "genericName": "Amoxicillin",
+          "strength": "500mg",
+          "form": "Capsule",
+          "unit": "Pack",
+          "isActive": true,
+          "lowStockThreshold": 20,
+          "retailPrice": 500,
+          "wholesalePrice": null
+        }
+      ],
+      "pagination": {
+        "page": 1,
+        "pageCount": 1,
+        "pageSize": 10,
+        "total": 1
+      }
+    }
+  }
+  ```
+
+  ## Notes
+
+  - Active and inactive drugs are returned; use `isActive` to tell them apart.
+  - An empty catalogue returns `drugs: []` with zero totals.
+
+  ## Errors
+
+  | Status | Description |
+  |--------|-------------|
+  | `401 Unauthorized` | Authentication is invalid or workspace access is suspended. |
+  | `422 Unprocessable Entity` | A query parameter is invalid. |
+  | `500 Internal Server Error` | Drug retrieval failed unexpectedly. |

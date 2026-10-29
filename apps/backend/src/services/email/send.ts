@@ -2,11 +2,11 @@ import type { BrevoClient } from "@getbrevo/brevo";
 import { TEMPLATE_LOOKUP, type EmailJobOptions } from "@vitastock/transactional/emails";
 import type { CallbackFn } from "@zayne-labs/toolkit-type-helpers";
 import type * as nodemailer from "nodemailer";
-import type { Options as SmtpTransportOptions } from "nodemailer/lib/smtp-transport";
+import type { SMTPTransportOptions } from "nodemailer/lib/smtp-transport";
 import { ENVIRONMENT } from "@/config/env";
 import { appLogger } from "@/lib/logger";
 
-// const getProductionTransporterOptions = (): SmtpTransportOptions => ({
+// const getProductionTransporterOptions = (): SMTPTransportOptions => ({
 // 	auth: {
 // 		pass: ENVIRONMENT.EMAIL_APP_PASSWORD,
 // 		// clientId: ENVIRONMENT.GOOGLE_CLIENT_ID,
@@ -18,7 +18,7 @@ import { appLogger } from "@/lib/logger";
 // 	service: "gmail",
 // });
 
-const getDevTransporterOptions = (): SmtpTransportOptions => ({
+const getDevTransporterOptions = (): SMTPTransportOptions => ({
 	auth: {
 		pass: ENVIRONMENT.EMAIL_APP_PASSWORD_DEV,
 		user: ENVIRONMENT.EMAIL_USER_DEV,
@@ -29,12 +29,13 @@ const getDevTransporterOptions = (): SmtpTransportOptions => ({
 
 let brevo: BrevoClient | null = null;
 
-let devTransporter: ReturnType<typeof nodemailer.createTransport> | null = null;
+let devTransporter: nodemailer.Mail | null = null;
 
 export const sendEmail = async (options: EmailJobOptions) => {
 	const { data, type } = options;
 
 	const templateOptions = TEMPLATE_LOOKUP[type];
+	const subject = data.subject ?? templateOptions.subject;
 
 	const templateFn = templateOptions.template as CallbackFn<
 		Parameters<typeof templateOptions.template>[0],
@@ -44,7 +45,7 @@ export const sendEmail = async (options: EmailJobOptions) => {
 	try {
 		const htmlContent = await templateFn(data);
 
-		if (ENVIRONMENT.NODE_ENV === "production") {
+		if (ENVIRONMENT.NODE_ENV !== "development") {
 			const { BrevoClient } = await import("@getbrevo/brevo");
 
 			brevo ??= new BrevoClient({
@@ -56,7 +57,7 @@ export const sendEmail = async (options: EmailJobOptions) => {
 			const result = await brevo.transactionalEmails.sendTransacEmail({
 				htmlContent,
 				sender: templateOptions.from,
-				subject: templateOptions.subject,
+				subject,
 				to: [data.to],
 			});
 
@@ -70,7 +71,7 @@ export const sendEmail = async (options: EmailJobOptions) => {
 		const result = await devTransporter.sendMail({
 			from: { address: templateOptions.from.email, name: templateOptions.from.name },
 			html: htmlContent,
-			subject: templateOptions.subject,
+			subject,
 			to: { address: data.to.email, name: data.to.name },
 		});
 

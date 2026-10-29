@@ -1,0 +1,121 @@
+info:
+  name: bulk-import
+  type: http
+  seq: 9
+
+http:
+  method: POST
+  url: "{{baseURL}}/inventory/bulk-import"
+  headers:
+    - name: x-idempotency-key
+      value: "{{bulkImportIdempotencyKey}}"
+  body:
+    type: json
+    data: |-
+      {
+        "rows": [
+          {
+            "name": "Panadol",
+            "genericName": "Paracetamol",
+            "strength": "500mg",
+            "form": "Tablet",
+            "unit": "Strip",
+            "quantity": "100",
+            "expiryDate": "2027-12-31",
+            "costPrice": "₦150",
+            "retailPrice": "200",
+            "wholesalePrice": "180"
+          }
+        ]
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+docs: |-
+  # Bulk Import Inventory
+
+  Imports Drug Master records, opening stock, and prices in one atomic write. The frontend parses the CSV/XLSX template and submits canonical JSON rows; run `bulk-import-validate` first.
+
+  ## Authorization
+
+  Requires an authenticated `owner` or `admin`. Pharmacists receive `403 Forbidden`.
+
+  ## Required Header
+
+  | Header | Type | Required | Description |
+  |--------|------|----------|-------------|
+  | `x-idempotency-key` | UUID | Yes | Identifier for this exact import. Generate a new one per file. |
+
+  ## Request Body
+
+  `rows` holds 1 to 2,000 entries.
+
+  | Field | Type | Required | Rules / Description |
+  |-------|------|----------|---------------------|
+  | `name` | string | Yes | Brand or trade name. |
+  | `genericName` | string | Yes | Active ingredient. |
+  | `strength` | string | No | For example `500mg`. |
+  | `form` | string | No | Dosage form, for example `Tablet`. |
+  | `unit` | string | No | Counting unit that quantity and prices use, for example `Strip`. |
+  | `lowStockThreshold` | integer | No | Drug's own low-stock threshold. |
+  | `quantity` | numeric string | Yes | Positive whole number. |
+  | `expiryDate` | calendar-date string | Yes | `YYYY-MM-DD`; today or later in the workspace timezone. |
+  | `costPrice` | number or string | No | Naira per unit for this delivery. Saved on the batch. |
+  | `retailPrice` | number or string | No | Naira per unit. Saved on the drug. |
+  | `wholesalePrice` | number or string | No | Naira per unit. Saved on the drug. |
+
+  Price strings may include `₦`, `NGN`, commas, and spaces (`"₦1,500"` is `1500`). Prices must be above zero with at most 2 decimals. The template's legacy `Unit Cost ₦` column maps to `costPrice`.
+
+  ## Drug, Batch, and Price Behavior
+
+  - Each row resolves to one Drug Master record by brand and generic name, narrowed by any strength, form, and unit given. No match creates the drug; several matches return `409 Conflict`.
+  - Rows for the same drug, expiry date, and cost combine into one batch, which adds to an existing matching batch. A different cost is a separate batch.
+  - Selling prices and the low-stock threshold belong to the drug, so every row of one drug must agree on them.
+  - A selling price in the file replaces the drug's current one. Each replaced price is listed in `priceChanges`; filling an empty price is not listed.
+  - Everything commits in one transaction, then inventory alerts are re-evaluated.
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Bulk import completed successfully",
+    "data": {
+      "importedCount": 1,
+      "priceChanges": [
+        {
+          "drugName": "Panadol",
+          "field": "retailPrice",
+          "previousPrice": 180,
+          "newPrice": 200
+        }
+      ]
+    }
+  }
+  ```
+
+  ## Errors
+
+  | Status | Description |
+  |--------|-------------|
+  | `400 Bad Request` | A row's expiry date is before today, or rows of one drug disagree on its retail price, wholesale price, or low-stock threshold. |
+  | `401 Unauthorized` | Authentication is invalid or workspace access is suspended. |
+  | `403 Forbidden` | The member is not an owner or admin. |
+  | `409 Conflict` | A row matches several drugs or an inactive drug, or the idempotency key was reused for a different request. |
+  | `422 Unprocessable Entity` | Header or row validation failed, including duplicate rows. |
+
+  ## Idempotency
+
+  An exact retry returns the original result without creating duplicate drugs, batches, or logs.
+
+  ## Removal
+
+  An import can be removed later by the owner while none of its stock has been used. See `remove-bulk-import`.

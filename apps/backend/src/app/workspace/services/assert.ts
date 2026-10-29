@@ -9,12 +9,11 @@ export type WorkspaceMemberForAction = {
 	id: string;
 	membershipId: string;
 	role: WorkspaceMemberRole;
-	status: SelectWorkspaceMembershipType["status"];
 	suspendedAt: SelectWorkspaceMembershipType["suspendedAt"];
 	workspaceId: string;
 };
 
-export const assertCanManageMember = (options: {
+export const assertWhoCanManageWhichMember = (options: {
 	actorRole: WorkspaceMemberRole;
 	targetMember: WorkspaceMemberForAction;
 }) => {

@@ -8,31 +8,31 @@ import { differenceInHours, isPast } from "date-fns";
 import { eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { rateLimiter } from "hono-rate-limiter";
-import { authRateLimiterOptions } from "@/config/rateLimiterOptions";
+import { authRateLimiterOptions, userRateLimiterOptions } from "@/config/rateLimiterOptions";
 import { emitAppEvent } from "@/lib/events";
 import { appLogger } from "@/lib/logger";
 import { AppError, AppJsonResponse } from "@/lib/utils";
 import { deleteCookie, getCookie, setCookie } from "@/lib/utils/cookie";
 import { authMiddleware, validateWithZodMiddleware } from "@/middleware";
 import { removeFromCache, setCache } from "@/services/cache";
-import { getAuthResponseData, getCurrentSessionState } from "./services/common";
+import { getAuthResponseData, getCurrentSessionState } from "./services/data-access/common";
 import { sendPasswordResetEmail, sendVerificationEmail, TokenSchema } from "./services/emails";
 import { getAuthEventPayload } from "./services/events";
-import { hashToken, hashValue, verifyHashedValue } from "./services/hash";
+import { hashToken, hashValue, verifyHashedValue } from "./services/utils/hash";
 import {
 	decodeJwtToken,
 	generateAccessToken,
 	generateRefreshToken,
 	getRefreshTokenResultWithHash,
 	getUpdatedTokenResultArray,
-} from "./services/token";
+} from "./services/utils/token";
 
 const authRoutes = new Hono()
 	.basePath("/auth")
 
 	.post(
 		"/signup",
-		rateLimiter(authRateLimiterOptions),
+		rateLimiter(authRateLimiterOptions.signup),
 		validateWithZodMiddleware("json", backendApiSchemaRoutes["@post/auth/signup"].body),
 		async (ctx) => {
 			const { email, fullName, password, pharmacyName } = ctx.req.valid("json");
@@ -134,8 +134,9 @@ const authRoutes = new Hono()
 
 	.post(
 		"/signin",
-		rateLimiter(authRateLimiterOptions),
+		rateLimiter(authRateLimiterOptions["signin-ip"]),
 		validateWithZodMiddleware("json", backendApiSchemaRoutes["@post/auth/signin"].body),
+		rateLimiter(authRateLimiterOptions.signin),
 		async (ctx) => {
 			const { email, password } = ctx.req.valid("json");
 
@@ -170,7 +171,7 @@ const authRoutes = new Hono()
 				currentWorkspace,
 			} = await getCurrentSessionState({ user: currentUser });
 
-			if (currentMembership.status === "suspended" || currentMembership.suspendedAt) {
+			if (currentMembership.suspendedAt) {
 				throw new AppError({
 					appCode: AUTH_ERRORS.ACCOUNT_SUSPENDED.appCode,
 					code: 401,
@@ -188,22 +189,12 @@ const authRoutes = new Hono()
 				});
 			}
 
-			const hoursSinceLastLogin = differenceInHours(new Date(), sessionUser.lastLoginAt);
-			const loginRetryWindowActive = hoursSinceLastLogin < 12;
-
-			if (sessionUser.loginRetryCount >= 3 && loginRetryWindowActive) {
-				throw new AppError({
-					code: 401,
-					message: "Login retries exceeded",
-				});
-			}
-
 			const newRefreshTokenResult = generateRefreshToken(sessionUser);
 			const newRefreshTokenResultWithHash = getRefreshTokenResultWithHash(newRefreshTokenResult);
 
 			const updatedTokenArray = getUpdatedTokenResultArray({
 				currentUser: sessionUser,
-				refreshToken: getCookie(ctx, "vitaStockRefreshToken"),
+				refreshToken: getCookie(ctx, "vitastockRefreshToken"),
 			});
 
 			const [updatedUser] = await db
@@ -235,12 +226,12 @@ const authRoutes = new Hono()
 
 			setCookie(ctx, {
 				expires: newAccessTokenResult.expiresAt,
-				name: "vitaStockAccessToken",
+				name: "vitastockAccessToken",
 				value: newAccessTokenResult.token,
 			});
 			setCookie(ctx, {
 				expires: newRefreshTokenResult.expiresAt,
-				name: "vitaStockRefreshToken",
+				name: "vitastockRefreshToken",
 				value: newRefreshTokenResult.token,
 			});
 
@@ -265,7 +256,7 @@ const authRoutes = new Hono()
 
 	.post(
 		"/verify-email",
-		rateLimiter(authRateLimiterOptions),
+		rateLimiter(authRateLimiterOptions["verify-email"]),
 		validateWithZodMiddleware("json", backendApiSchemaRoutes["@post/auth/verify-email"].body),
 		async (ctx) => {
 			const { code, email } = ctx.req.valid("json");
@@ -336,7 +327,7 @@ const authRoutes = new Hono()
 
 	.post(
 		"/resend-verification-email",
-		rateLimiter(authRateLimiterOptions),
+		rateLimiter(authRateLimiterOptions["resend-verification-email"]),
 		validateWithZodMiddleware(
 			"json",
 			backendApiSchemaRoutes["@post/auth/resend-verification-email"].body
@@ -379,7 +370,7 @@ const authRoutes = new Hono()
 
 	.post(
 		"/forgot-password",
-		rateLimiter(authRateLimiterOptions),
+		rateLimiter(authRateLimiterOptions["forgot-password"]),
 		validateWithZodMiddleware("json", backendApiSchemaRoutes["@post/auth/forgot-password"].body),
 		async (ctx) => {
 			const { email } = ctx.req.valid("json");
@@ -418,7 +409,6 @@ const authRoutes = new Hono()
 					db
 						.update(workspaceMemberships)
 						.set({
-							status: "suspended",
 							suspendedAt,
 						})
 						.where(eq(workspaceMemberships.userId, result.user.id)),
@@ -443,7 +433,7 @@ const authRoutes = new Hono()
 
 	.post(
 		"/reset-password",
-		rateLimiter(authRateLimiterOptions),
+		rateLimiter(authRateLimiterOptions["reset-password"]),
 		validateWithZodMiddleware("json", backendApiSchemaRoutes["@post/auth/reset-password"].body),
 		async (ctx) => {
 			const { newPassword, token } = ctx.req.valid("json");
@@ -460,49 +450,41 @@ const authRoutes = new Hono()
 			});
 
 			const hashedIncomingToken = hashToken(decodedPayload.token);
-
-			const [result] = await db
-				.select({
-					membership: {
-						id: workspaceMemberships.id,
-						role: workspaceMemberships.role,
-						status: workspaceMemberships.status,
-						suspendedAt: workspaceMemberships.suspendedAt,
-						workspaceId: workspaceMemberships.workspaceId,
-					},
-					token: pickKeys(passwordResetTokens, ["expiresAt", "id"]),
-					user: pickKeys(users, ["email", "fullName", "id"]),
-				})
-				.from(passwordResetTokens)
-				.innerJoin(users, eq(passwordResetTokens.userId, users.id))
-				.innerJoin(workspaceMemberships, eq(workspaceMemberships.userId, users.id))
-				.where(eq(passwordResetTokens.tokenHash, hashedIncomingToken))
-				.limit(1);
-
-			if (!result?.token || result.membership.status === "suspended") {
-				throw new AppError({
-					code: 400,
-					message: "Invalid or expired reset token",
-					realReason: "No user or reset token found",
-				});
-			}
-
-			if (isPast(result.token.expiresAt)) {
-				await db.delete(passwordResetTokens).where(eq(passwordResetTokens.id, result.token.id));
-
-				throw new AppError({
-					code: 400,
-					message: "Invalid or expired reset token",
-					realReason: "Reset token has expired",
-				});
-			}
-
 			const newPasswordHash = await hashValue(newPassword);
 
-			const { updatedMembership, updatedUser } = await db.transaction(async (tx) => {
+			const resetResult = await db.transaction(async (tx) => {
+				const [result] = await tx
+					.select({
+						membership: {
+							id: workspaceMemberships.id,
+							role: workspaceMemberships.role,
+							suspendedAt: workspaceMemberships.suspendedAt,
+							workspaceId: workspaceMemberships.workspaceId,
+						},
+						token: pickKeys(passwordResetTokens, ["expiresAt", "id"]),
+						user: pickKeys(users, ["email", "fullName", "id"]),
+					})
+					.from(passwordResetTokens)
+					.innerJoin(users, eq(passwordResetTokens.userId, users.id))
+					.innerJoin(workspaceMemberships, eq(workspaceMemberships.userId, users.id))
+					.where(eq(passwordResetTokens.tokenHash, hashedIncomingToken))
+					.limit(1)
+					.for("update");
+
+				if (!result?.token || result.membership.suspendedAt) {
+					return { status: "invalid" as const };
+				}
+
+				if (isPast(result.token.expiresAt)) {
+					await tx.delete(passwordResetTokens).where(eq(passwordResetTokens.id, result.token.id));
+
+					return { status: "invalid" as const };
+				}
+
 				const [userUpdate] = await tx
 					.update(users)
 					.set({
+						loginRetryCount: 0,
 						passwordChangedAt: new Date(),
 						passwordHash: newPasswordHash,
 						// Sign out from all devices
@@ -514,7 +496,6 @@ const authRoutes = new Hono()
 				const [membershipUpdate] = await tx
 					.update(workspaceMemberships)
 					.set({
-						status: "active",
 						suspendedAt: null,
 					})
 					.where(eq(workspaceMemberships.id, result.membership.id))
@@ -523,10 +504,21 @@ const authRoutes = new Hono()
 				await tx.delete(passwordResetTokens).where(eq(passwordResetTokens.id, result.token.id));
 
 				return {
+					status: "updated" as const,
 					updatedMembership: membershipUpdate,
 					updatedUser: userUpdate,
 				};
 			});
+
+			if (resetResult.status === "invalid") {
+				throw new AppError({
+					code: 400,
+					message: "Invalid or expired reset token",
+					realReason: "No active reset token found",
+				});
+			}
+
+			const { updatedMembership, updatedUser } = resetResult;
 
 			if (!updatedUser) {
 				throw new AppError({
@@ -564,13 +556,14 @@ const authRoutes = new Hono()
 	)
 
 	.use(authMiddleware)
+	.use(rateLimiter(userRateLimiterOptions))
 
 	.post("/signout", async (ctx) => {
 		const currentUser = ctx.get("currentUser");
 
 		const updatedTokenArray = getUpdatedTokenResultArray({
 			currentUser,
-			refreshToken: getCookie(ctx, "vitaStockRefreshToken"),
+			refreshToken: getCookie(ctx, "vitastockRefreshToken"),
 		});
 
 		await Promise.all([
@@ -581,8 +574,8 @@ const authRoutes = new Hono()
 			removeFromCache(`user:${currentUser.id}`),
 		]);
 
-		deleteCookie(ctx, "vitaStockAccessToken");
-		deleteCookie(ctx, "vitaStockRefreshToken");
+		deleteCookie(ctx, "vitastockAccessToken");
+		deleteCookie(ctx, "vitastockRefreshToken");
 
 		emitAppEvent(
 			"auth.userSignedOut",
@@ -604,8 +597,8 @@ const authRoutes = new Hono()
 			removeFromCache(`user:${currentUser.id}`),
 		]);
 
-		deleteCookie(ctx, "vitaStockAccessToken");
-		deleteCookie(ctx, "vitaStockRefreshToken");
+		deleteCookie(ctx, "vitastockAccessToken");
+		deleteCookie(ctx, "vitastockRefreshToken");
 
 		emitAppEvent(
 			"auth.userSignedOut",
@@ -632,7 +625,7 @@ const authRoutes = new Hono()
 
 	.patch(
 		"/change-password",
-		rateLimiter(authRateLimiterOptions),
+		rateLimiter(authRateLimiterOptions["change-password"]),
 		validateWithZodMiddleware("json", backendApiSchemaRoutes["@patch/auth/change-password"].body),
 		async (ctx) => {
 			const { currentPassword, newPassword } = ctx.req.valid("json");
@@ -660,7 +653,7 @@ const authRoutes = new Hono()
 
 			const updatedTokenArray = getUpdatedTokenResultArray({
 				currentUser,
-				refreshToken: getCookie(ctx, "vitaStockRefreshToken"),
+				refreshToken: getCookie(ctx, "vitastockRefreshToken"),
 				variant: "keep-current",
 			});
 

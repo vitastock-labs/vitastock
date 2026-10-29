@@ -1,5 +1,4 @@
 {
-   "$schema": "https://cdn.statically.io/gh/nguyenngoclongdev/cdn/main/schema/v11/terminal-keeper.json",
    "theme": "dice",
    "active": "default",
    "activateOnStartup": false,
@@ -22,20 +21,21 @@
             "icon": "server",
             "name": "dev:backend",
             "commands": [
-               "pnpm dev:nitro"
+               "pnpm dev"
             ]
          },
          {
             "autoExecuteCommands": true,
             "cwd": "apps/backend",
             "icon": "database",
-            "name": "dev:db",
+            "name": "dev:postgres-redis",
             "commands": [
-               "pnpm dev:docker-db"
+               "pnpm dev:docker-postgres-redis"
             ]
          },
          {
             "autoExecuteCommands": true,
+            "cwd": "packages/db",
             "icon": "eye-watch",
             "name": "db:studio",
             "commands": [

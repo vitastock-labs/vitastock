@@ -6,7 +6,7 @@ export const frontendEnvSchema = sharedEnvSchema.extend({
 });
 
 export const getFrontendEnv = () => {
-	// NOTE - Due to Vite's build process, we can't use process.env.NODE_ENV directly, so we use import.meta.env.
+	// NOTE - Due to Vite's build process, we can't use process.env directly, so we use import.meta.env.
 	const result = frontendEnvSchema.safeParse(import.meta.env);
 
 	if (!result.success) {
@@ -16,6 +16,7 @@ export const getFrontendEnv = () => {
 
 		const error = new Error(errorMessage, { cause: z.flattenError(result.error).fieldErrors });
 
+		// eslint-disable-next-line unicorn/no-error-property-assignment -- Needed here
 		error.stack = "";
 
 		console.error(error);
