@@ -916,7 +916,7 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 											</span>
 										</aside>
 
-										<Show.Root when={previewState.warnings.length > 0}>
+										{previewState.warnings.length > 0 && (
 											<aside
 												className="flex flex-col gap-1 rounded-lg bg-amber-50 px-3 py-2
 													text-[13px] font-medium text-amber-800"
@@ -938,7 +938,7 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 													)}
 												/>
 											</aside>
-										</Show.Root>
+										)}
 
 										<DashboardDataTable
 											table={previewTable}
@@ -962,7 +962,7 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 								previewState ? "px-4 py-3" : "p-5"
 							)}
 						>
-							<Show.Root when={previewState !== undefined}>
+							{previewState !== undefined && (
 								<Show.Content>
 									<Button
 										unstyled={true}
@@ -974,7 +974,7 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 										Back
 									</Button>
 								</Show.Content>
-							</Show.Root>
+							)}
 
 							<div
 								className="ml-auto flex grow items-center gap-3 *:flex-1 md:grow-0 md:gap-5

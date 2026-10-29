@@ -8,7 +8,6 @@ import { useEffect, useState } from "react";
 import { For } from "@/components/common/for";
 import { IconBox } from "@/components/common/IconBox";
 import { NavLinkEphemeral } from "@/components/common/NavLink";
-import { Show } from "@/components/common/show";
 import { Switch } from "@/components/common/switch";
 import { Badge, Card } from "@/components/ui";
 import { Button } from "@/components/ui/button";
@@ -164,7 +163,7 @@ function DashboardQuickActions() {
 			<h2 className="text-[14px] font-bold tracking-widest text-black uppercase">Quick Actions</h2>
 
 			<div className="flex flex-wrap items-center gap-3 md:gap-4">
-				<Show.Root when={canManageStock}>
+				{canManageStock && (
 					<NavLinkEphemeral
 						to={{
 							pathname: "/dashboard/inventory",
@@ -178,7 +177,7 @@ function DashboardQuickActions() {
 							Stock In
 						</Button>
 					</NavLinkEphemeral>
-				</Show.Root>
+				)}
 				<NavLinkEphemeral
 					to={{
 						pathname: "/dashboard/inventory",

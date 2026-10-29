@@ -243,43 +243,45 @@ function InventoryActions(props: { canManageStock: boolean }) {
 						</Button>
 					</DispenseCartDialog>
 
-					<Show.Root when={canManageStock}>
-						<DialogAnimated.Root>
-							<DialogAnimated.Trigger asChild={true}>
-								<Button className="px-6">
-									<IconBox icon="lucide:trash" className="size-4.5" />
-									Remove Stock
-								</Button>
-							</DialogAnimated.Trigger>
+					{canManageStock && (
+						<>
+							<DialogAnimated.Root>
+								<DialogAnimated.Trigger asChild={true}>
+									<Button className="px-6">
+										<IconBox icon="lucide:trash" className="size-4.5" />
+										Remove Stock
+									</Button>
+								</DialogAnimated.Trigger>
 
-							<StockMovementDialog defaultLogType="stock_out" />
-						</DialogAnimated.Root>
+								<StockMovementDialog defaultLogType="stock_out" />
+							</DialogAnimated.Root>
 
-						<DialogAnimated.Root>
-							<DialogAnimated.Trigger asChild={true}>
-								<Button className="px-6">
-									<IconBox icon="lucide:plus" className="size-4.5" />
-									Add Stock
-								</Button>
-							</DialogAnimated.Trigger>
+							<DialogAnimated.Root>
+								<DialogAnimated.Trigger asChild={true}>
+									<Button className="px-6">
+										<IconBox icon="lucide:plus" className="size-4.5" />
+										Add Stock
+									</Button>
+								</DialogAnimated.Trigger>
 
-							<StockMovementDialog defaultLogType="stock_in" />
-						</DialogAnimated.Root>
+								<StockMovementDialog defaultLogType="stock_in" />
+							</DialogAnimated.Root>
 
-						<DialogAnimated.Root>
-							<DialogAnimated.Trigger asChild={true}>
-								<Button className="px-6">
-									<IconBox icon="lucide:plus" className="size-4.5" />
-									Add New Drug
-								</Button>
-							</DialogAnimated.Trigger>
+							<DialogAnimated.Root>
+								<DialogAnimated.Trigger asChild={true}>
+									<Button className="px-6">
+										<IconBox icon="lucide:plus" className="size-4.5" />
+										Add New Drug
+									</Button>
+								</DialogAnimated.Trigger>
 
-							<CreateDrugDialog />
-						</DialogAnimated.Root>
-					</Show.Root>
+								<CreateDrugDialog />
+							</DialogAnimated.Root>
+						</>
+					)}
 				</div>
 
-				<Show.Root when={canManageStock}>
+				{canManageStock && (
 					<div className="flex flex-wrap items-center gap-3">
 						<DialogAnimated.Root>
 							<DialogAnimated.Trigger asChild={true}>
@@ -303,10 +305,10 @@ function InventoryActions(props: { canManageStock: boolean }) {
 							<BulkImportDialog onImported={() => setIsBulkImportOpen(false)} />
 						</DialogAnimated.Root>
 					</div>
-				</Show.Root>
+				)}
 			</nav>
 
-			<Show.Root when={canManageStock}>
+			{canManageStock && (
 				<StockMovementQueryDialog
 					batchId={stockMovementSearchParams.batchId}
 					drugId={stockMovementSearchParams.drugId}
@@ -314,7 +316,7 @@ function InventoryActions(props: { canManageStock: boolean }) {
 					reason={removalReason}
 					onClose={clearStockMovementSearchParams}
 				/>
-			</Show.Root>
+			)}
 		</section>
 	);
 }

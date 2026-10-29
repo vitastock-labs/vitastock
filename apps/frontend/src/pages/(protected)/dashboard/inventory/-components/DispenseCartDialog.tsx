@@ -264,7 +264,7 @@ function DispenseCartDialogContent(props: {
 		<DialogAnimated.Content
 			withCloseButton={false}
 			className="flex max-h-[calc(100svh-48px)] max-w-[480px] flex-col gap-0 overflow-hidden rounded-lg
-				border-shadcn-border bg-shadcn-background p-0"
+				border-shadcn-border bg-shadcn-background p-0 lg:max-w-[960px]"
 		>
 			<header
 				className="flex shrink-0 items-start justify-between gap-6 border-b border-shadcn-border/70
@@ -275,14 +275,14 @@ function DispenseCartDialogContent(props: {
 						<DialogAnimated.Title className="text-[17px] font-extrabold text-shadcn-foreground">
 							Dispense Medication
 						</DialogAnimated.Title>
-						<Show.Root when={cartItems.fields.length > 0}>
+						{cartItems.fields.length > 0 && (
 							<Badge
 								className="border-none bg-vitastock-primary-main/10 px-2 py-0.5 text-[11px]
 									font-bold text-vitastock-primary-main"
 							>
 								{cartItems.fields.length} in queue
 							</Badge>
-						</Show.Root>
+						)}
 					</div>
 					<DialogAnimated.Description className="text-[12px] font-medium text-vitastock-body-color/90">
 						Record multiple medications at once.
@@ -301,40 +301,42 @@ function DispenseCartDialogContent(props: {
 				type="auto"
 				classNames={{ base: "grid min-h-0 flex-1", viewport: "h-auto min-h-0" }}
 			>
-				<div className="flex flex-col gap-5 p-5">
+				<div className="grid grid-cols-1 gap-5 p-5 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
 					<DispenseCartEntryForm cartControl={cartForm.control} onAddToCart={addToCart} />
 
-					<article className="flex flex-col gap-3">
-						<header className="flex items-center justify-between gap-4">
-							<h3 className="flex items-center gap-2 text-[13px] font-bold text-shadcn-foreground">
-								Selected medications
-								<Show.Root when={cartItems.fields.length > 0}>
-									<Badge className="border-none bg-shadcn-muted px-2 text-vitastock-body-color">
-										{cartItems.fields.length}
-									</Badge>
+					<Form.Root
+						form={cartForm}
+						id="dispense-cart"
+						className="contents"
+						onSubmit={(event) => void onSubmit(event)}
+					>
+						<article className="flex flex-col gap-3 lg:col-start-1">
+							<header className="flex items-center justify-between gap-4">
+								<h3
+									className="flex items-center gap-2 text-[13px] font-bold text-shadcn-foreground"
+								>
+									Selected medications
+									<Show.Root when={cartItems.fields.length > 0}>
+										<Badge className="border-none bg-shadcn-muted px-2 text-vitastock-body-color">
+											{cartItems.fields.length}
+										</Badge>
 
-									<Show.Fallback>
-										<span className="text-[12px] font-medium text-vitastock-body-color/70">
-											· 0 items
-										</span>
-									</Show.Fallback>
-								</Show.Root>
-							</h3>
+										<Show.Fallback>
+											<span className="text-[12px] font-medium text-vitastock-body-color/70">
+												· 0 items
+											</span>
+										</Show.Fallback>
+									</Show.Root>
+								</h3>
+								{cartItems.fields.length > 0 && (
+									<p className="text-right text-[12px] text-vitastock-body-color">
+										{isGroupedByPatient && `${cartPatientCount} patients · `}
+										Review before dispensing
+									</p>
+								)}
+							</header>
+
 							<Show.Root when={cartItems.fields.length > 0}>
-								<p className="text-right text-[12px] text-vitastock-body-color">
-									{isGroupedByPatient && `${cartPatientCount} patients · `}
-									Review before dispensing
-								</p>
-							</Show.Root>
-						</header>
-
-						<Show.Root when={cartItems.fields.length > 0}>
-							<Form.Root
-								form={cartForm}
-								id="dispense-cart"
-								className="flex flex-col gap-4"
-								onSubmit={(event) => void onSubmit(event)}
-							>
 								<Show.Root when={isGroupedByPatient}>
 									<ForWithWrapper
 										className="flex flex-col gap-3"
@@ -364,28 +366,29 @@ function DispenseCartDialogContent(props: {
 										/>
 									</Show.Fallback>
 								</Show.Root>
-								<DispenseCartCheckout control={cartForm.control} />
-							</Form.Root>
 
-							<Show.Fallback>
-								<Empty.Root
-									className="gap-1 rounded-lg border border-dashed border-shadcn-border p-6"
-								>
-									<Empty.Header className="gap-1">
-										<Empty.Media className="mb-1 text-vitastock-body-color/70">
-											<IconBox icon="lucide:shopping-cart" className="size-5" />
-										</Empty.Media>
-										<Empty.Title className="text-[13px] font-medium text-shadcn-foreground">
-											No medications added yet
-										</Empty.Title>
-										<Empty.Description className="text-[12px] text-vitastock-body-color">
-											Enter medication details above to build your dispense cart.
-										</Empty.Description>
-									</Empty.Header>
-								</Empty.Root>
-							</Show.Fallback>
-						</Show.Root>
-					</article>
+								<Show.Fallback>
+									<Empty.Root
+										className="gap-1 rounded-lg border border-dashed border-shadcn-border p-6"
+									>
+										<Empty.Header className="gap-1">
+											<Empty.Media className="mb-1 text-vitastock-body-color/70">
+												<IconBox icon="lucide:shopping-cart" className="size-5" />
+											</Empty.Media>
+											<Empty.Title className="text-[13px] font-medium text-shadcn-foreground">
+												No medications added yet
+											</Empty.Title>
+											<Empty.Description className="text-[12px] text-vitastock-body-color">
+												Enter medication details above to build your dispense cart.
+											</Empty.Description>
+										</Empty.Header>
+									</Empty.Root>
+								</Show.Fallback>
+							</Show.Root>
+						</article>
+
+						<DispenseCartCheckout control={cartForm.control} />
+					</Form.Root>
 				</div>
 			</ScrollArea.Root>
 
@@ -479,7 +482,7 @@ function DispenseCartEntryForm(props: {
 						<span className="text-shadcn-destructive" aria-hidden={true}>
 							*
 						</span>
-						<Show.Root when={hasCartItems}>
+						{hasCartItems && (
 							<span
 								className="ml-auto flex items-center gap-1.5 text-[11px] font-medium
 									text-vitastock-primary-main"
@@ -487,7 +490,7 @@ function DispenseCartEntryForm(props: {
 								<span className="size-1.5 rounded-full bg-emerald-500" />
 								Ready for next item
 							</span>
-						</Show.Root>
+						)}
 					</>
 				}
 				data={drugOptions}
@@ -571,7 +574,7 @@ function PatientNameField(props: {
 								onEnter();
 							}}
 						/>
-						<Show.Root when={Boolean(field.value)}>
+						{Boolean(field.value) && (
 							<Button
 								unstyled={true}
 								className="grid size-5 shrink-0 place-items-center rounded-full bg-shadcn-muted
@@ -581,7 +584,7 @@ function PatientNameField(props: {
 							>
 								<IconBox icon="lucide:x" className="size-3" />
 							</Button>
-						</Show.Root>
+						)}
 					</div>
 				)}
 			/>
@@ -624,7 +627,7 @@ function DispenseEntryGuidance(props: {
 
 				return (
 					<>
-						<Show.Root when={exceedsAvailableStock}>
+						{exceedsAvailableStock && (
 							<p
 								role="alert"
 								className="rounded-lg border border-red-300 bg-red-100/60 p-3 text-[12px]
@@ -633,13 +636,11 @@ function DispenseEntryGuidance(props: {
 								Only {inventoryRow.totalAvailable.toLocaleString()} {unit} available
 								{quantityInCart > 0 && `, ${quantityInCart.toLocaleString()} already in the cart`}.
 							</p>
-						</Show.Root>
+						)}
 
-						<Show.Root
-							when={inventoryRow.usableBatchCount > 1 && Boolean(inventoryRow.nearestBatch)}
-						>
+						{inventoryRow.usableBatchCount > 1 && Boolean(inventoryRow.nearestBatch) && (
 							<FefoBatchNotice inventoryRow={inventoryRow} quantity={Number(quantity)} />
-						</Show.Root>
+						)}
 					</>
 				);
 			}}
@@ -724,11 +725,11 @@ function DispenseCartLine(props: {
 						<span className="truncate text-[14px] font-bold text-shadcn-foreground">
 							{drug?.name ?? EMPTY_DISPLAY_VALUE}
 						</span>
-						<Show.Root when={drug?.strength}>
+						{drug?.strength && (
 							<span className="shrink-0 text-[11px] text-vitastock-body-color">
-								{drug?.strength}
+								{drug.strength}
 							</span>
-						</Show.Root>
+						)}
 					</p>
 					<div className="flex min-w-0 flex-wrap items-center gap-1.5">
 						<span
@@ -737,13 +738,13 @@ function DispenseCartLine(props: {
 						>
 							Patient
 						</span>
-						<Show.Root when={!isGroupedByPatient}>
+						{!isGroupedByPatient && (
 							<CartLinePatientName
 								control={control}
 								index={index}
 								onPatientNameChange={onPatientNameChange}
 							/>
-						</Show.Root>
+						)}
 					</div>
 				</div>
 
@@ -943,7 +944,10 @@ function DispenseCartCheckout(props: { control: Control<DispenseCartFormValues> 
 	).length;
 
 	return (
-		<div className="flex flex-col gap-4 rounded-lg border border-shadcn-border/70 bg-shadcn-muted/30 p-4">
+		<div
+			className="flex flex-col gap-4 rounded-lg border border-shadcn-border/70 bg-shadcn-muted/30 p-4
+				lg:sticky lg:top-0 lg:col-start-2 lg:row-span-2 lg:row-start-1"
+		>
 			<FormField control={control} name="saleType" label="Sale type">
 				<Form.FieldBoundController<Pick<DispenseCartFormValues, "saleType">>
 					render={({ field }) => (
@@ -981,11 +985,11 @@ function DispenseCartCheckout(props: { control: Control<DispenseCartFormValues> 
 				/>
 			</FormField>
 
-			<Show.Root when={!canSellWholesale}>
+			{!canSellWholesale && (
 				<p className="-mt-2 text-[12px] text-vitastock-body-color">
 					Wholesale needs a wholesale price on every medication in the cart.
 				</p>
-			</Show.Root>
+			)}
 
 			<div className="flex items-baseline justify-between gap-4">
 				<p className="text-[13px] font-semibold text-shadcn-foreground">Total</p>
@@ -993,12 +997,12 @@ function DispenseCartCheckout(props: { control: Control<DispenseCartFormValues> 
 					<p className="text-[20px] font-extrabold text-shadcn-foreground">
 						{formatNaira(pricedTotal)}
 					</p>
-					<Show.Root when={unpricedLineCount > 0}>
+					{unpricedLineCount > 0 && (
 						<p className="text-[12px] font-medium text-amber-700">
 							{unpricedLineCount} {unpricedLineCount === 1 ? "medication has" : "medications have"}{" "}
 							no price and {unpricedLineCount === 1 ? "is" : "are"} not in this total
 						</p>
-					</Show.Root>
+					)}
 				</div>
 			</div>
 

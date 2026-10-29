@@ -5,7 +5,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { parseAsString, parseAsStringLiteral, useQueryState } from "nuqs";
 import { useForm } from "react-hook-form";
 import { IconBox } from "@/components/common/IconBox";
-import { Show } from "@/components/common/show";
 import { Button } from "@/components/ui/button";
 import {
 	createDataTableColumnHelper,
@@ -173,11 +172,11 @@ function CostRangeCell(props: { row: PriceListRow }) {
 				</p>
 			:	<p className="text-vitastock-body-color">Not set</p>}
 
-			<Show.Root when={uncostedBatchCount > 0}>
+			{uncostedBatchCount > 0 && (
 				<p className="text-[12px] font-medium text-amber-700">
 					{uncostedBatchCount} {uncostedBatchCount === 1 ? "batch has" : "batches have"} no cost
 				</p>
-			</Show.Root>
+			)}
 		</div>
 	);
 }

@@ -4,7 +4,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { DialogAnimated } from "@/components/animated/ui";
 import { ForWithWrapper } from "@/components/common/for";
 import { IconBox } from "@/components/common/IconBox";
-import { Show } from "@/components/common/show";
 import { Switch } from "@/components/common/switch";
 import { ScrollArea } from "@/components/ui";
 import { Button } from "@/components/ui/button";
@@ -108,25 +107,20 @@ function BulkImportHistoryRow(props: { bulkImport: BulkImportHistoryItem; canRem
 					{bulkImport.unitCount.toLocaleString()} units
 				</p>
 
-				<Show.Root when={bulkImport.removal}>
-					{bulkImport.removal && (
-						<p className="text-[12px] font-semibold text-shadcn-destructive">
-							Removed by {bulkImport.removal.removedBy} on{" "}
-							{formatDate(bulkImport.removal.removedAt)}
-						</p>
-					)}
-				</Show.Root>
+				{bulkImport.removal && (
+					<p className="text-[12px] font-semibold text-shadcn-destructive">
+						Removed by {bulkImport.removal.removedBy} on {formatDate(bulkImport.removal.removedAt)}
+					</p>
+				)}
 
-				<Show.Root when={!bulkImport.removal && canRemove && bulkImport.removalBlockedReason !== null}>
+				{!bulkImport.removal && canRemove && bulkImport.removalBlockedReason !== null && (
 					<p className="text-[12px] font-medium text-vitastock-body-color/80">
 						{bulkImport.removalBlockedReason}
 					</p>
-				</Show.Root>
+				)}
 			</div>
 
-			<Show.Root when={canRemove && !bulkImport.removal}>
-				<RemoveBulkImportButton bulkImport={bulkImport} />
-			</Show.Root>
+			{canRemove && !bulkImport.removal && <RemoveBulkImportButton bulkImport={bulkImport} />}
 		</li>
 	);
 }

@@ -11,7 +11,6 @@ import { Area, AreaChart, CartesianGrid, Pie, PieChart, ReferenceDot, XAxis, YAx
 import { For, ForWithWrapper } from "@/components/common/for";
 import { IconBox } from "@/components/common/IconBox";
 import { NavLinkEphemeral } from "@/components/common/NavLink";
-import { Show } from "@/components/common/show";
 import { Switch } from "@/components/common/switch";
 import { Badge } from "@/components/ui";
 import { Button } from "@/components/ui/button";
@@ -189,14 +188,14 @@ function AnalyticsContent(props: { timezone: string }) {
 					/>
 				</div>
 
-				<Show.Root when={range}>
+				{range && (
 					<p className="text-[13px] font-medium text-vitastock-body-color">
-						{range && formatRangeLabel(range)} · {getTimezoneLabel(timezone)}
+						{formatRangeLabel(range)} · {getTimezoneLabel(timezone)}
 					</p>
-				</Show.Root>
+				)}
 			</div>
 
-			<Show.Root when={period === "custom"}>
+			{period === "custom" && (
 				<div className="flex flex-wrap items-center gap-2">
 					<DateTimePicker
 						variant="date"
@@ -222,7 +221,7 @@ function AnalyticsContent(props: { timezone: string }) {
 						onDateStringChange={(value) => void setCustomRange({ to: value ?? null })}
 					/>
 				</div>
-			</Show.Root>
+			)}
 
 			<Switch.Root>
 				<Switch.Match when={range === null}>
@@ -293,9 +292,7 @@ function AnalyticsSections(props: { analytics: Analytics; periodLabel: string })
 				</Switch.Default>
 			</Switch.Root>
 
-			<Show.Root when={!isSingleDay && !hasNoPricedSales}>
-				<SalesByDayChart daily={analytics.daily} />
-			</Show.Root>
+			{!isSingleDay && !hasNoPricedSales && <SalesByDayChart daily={analytics.daily} />}
 
 			<div className="grid gap-6 lg:grid-cols-2">
 				<SalesSplitCard
@@ -351,9 +348,7 @@ function AnalyticsCard(props: {
 			<header className="flex flex-wrap items-start justify-between gap-3">
 				<div className="flex flex-col gap-0.5">
 					<h2 className="text-[15px] font-bold text-black">{title}</h2>
-					<Show.Root when={description}>
-						<p className="text-[12px] text-vitastock-body-color">{description}</p>
-					</Show.Root>
+					{description && <p className="text-[12px] text-vitastock-body-color">{description}</p>}
 				</div>
 				{action}
 			</header>
@@ -377,13 +372,17 @@ function PricesMissingBanner(props: { analytics: Analytics; periodLabel: string 
 		>
 			<IconBox icon="lucide:triangle-alert" className="size-4 shrink-0" />
 			<span>
-				<Show.Root when={unpricedSaleLineCount > 0}>
-					{unpricedSaleLineCount} sales {periodLabel.toLowerCase()} had no price, so they are not in
-					these totals.{" "}
-				</Show.Root>
-				<Show.Root when={uncostedSaleLineCount > 0}>
-					{uncostedSaleLineCount} sales had no cost price, so they are in sales but not in profit.
-				</Show.Root>
+				{unpricedSaleLineCount > 0 && (
+					<>
+						{unpricedSaleLineCount} sales {periodLabel.toLowerCase()} had no price, so they are not
+						in these totals.{" "}
+					</>
+				)}
+				{uncostedSaleLineCount > 0 && (
+					<>
+						{uncostedSaleLineCount} sales had no cost price, so they are in sales but not in profit.
+					</>
+				)}
 			</span>
 			<NavLinkEphemeral
 				to={{ pathname: "/dashboard/prices", search: createSearchParamsString({ prices: "missing" }) }}
@@ -421,9 +420,7 @@ function ChangeLabel(props: { current: number; note?: string; previous: number; 
 		>
 			{note && `${note} · `}
 			{change >= 0 ? "▲" : "▼"} {Math.abs(change).toFixed(0)}%
-			<Show.Root when={!note}>
-				<span className="font-normal"> vs {previousLabel}</span>
-			</Show.Root>
+			{!note && <span className="font-normal"> vs {previousLabel}</span>}
 		</p>
 	);
 }
@@ -854,43 +851,45 @@ function MoneyInStockCard(props: { moneyInStock: Analytics["moneyInStock"] }) {
 				<p className="text-[28px] font-extrabold tracking-tight text-black">
 					{formatNaira(moneyInStock.total)}
 				</p>
-				<Show.Root when={moneyInStock.uncostedBatchCount > 0}>
+				{moneyInStock.uncostedBatchCount > 0 && (
 					<p className="text-[12px] font-medium text-amber-700">
 						{moneyInStock.uncostedBatchCount}{" "}
 						{moneyInStock.uncostedBatchCount === 1 ? "batch has" : "batches have"} no cost price and{" "}
 						{moneyInStock.uncostedBatchCount === 1 ? "is" : "are"} not counted
 					</p>
-				</Show.Root>
+				)}
 			</div>
 
-			<Show.Root when={moneyInStock.topDrugs.length > 0}>
-				<p className="text-[12px] font-semibold text-vitastock-body-color">
-					Drugs holding the most money
-				</p>
-				<ForWithWrapper
-					as="ul"
-					className="flex flex-col divide-y divide-shadcn-border/70"
-					each={moneyInStock.topDrugs.slice(0, DISPLAYED_LIST_SIZE)}
-					renderItem={(item) => (
-						<li
-							key={item.drug.id}
-							className="flex items-start justify-between gap-3 py-2.5 first:pt-0"
-						>
-							<div className="min-w-0">
-								<p className="truncate text-[13px] font-semibold text-black">
-									{formatDrugLabel(item.drug)}
-								</p>
-								<p className="text-[11px] text-vitastock-body-color">
-									{item.quantity.toLocaleString()} {getUnitLabel(item.drug.unit)} in stock
-								</p>
-							</div>
-							<span className="shrink-0 text-[13px] font-bold text-black">
-								{formatNaira(item.value)}
-							</span>
-						</li>
-					)}
-				/>
-			</Show.Root>
+			{moneyInStock.topDrugs.length > 0 && (
+				<>
+					<p className="text-[12px] font-semibold text-vitastock-body-color">
+						Drugs holding the most money
+					</p>
+					<ForWithWrapper
+						as="ul"
+						className="flex flex-col divide-y divide-shadcn-border/70"
+						each={moneyInStock.topDrugs.slice(0, DISPLAYED_LIST_SIZE)}
+						renderItem={(item) => (
+							<li
+								key={item.drug.id}
+								className="flex items-start justify-between gap-3 py-2.5 first:pt-0"
+							>
+								<div className="min-w-0">
+									<p className="truncate text-[13px] font-semibold text-black">
+										{formatDrugLabel(item.drug)}
+									</p>
+									<p className="text-[11px] text-vitastock-body-color">
+										{item.quantity.toLocaleString()} {getUnitLabel(item.drug.unit)} in stock
+									</p>
+								</div>
+								<span className="shrink-0 text-[13px] font-bold text-black">
+									{formatNaira(item.value)}
+								</span>
+							</li>
+						)}
+					/>
+				</>
+			)}
 		</AnalyticsCard>
 	);
 }
