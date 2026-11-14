@@ -97,15 +97,13 @@ const getAlertConditions = async (
 				return [];
 			}
 
-			return [
-				{
-					dedupeKey: `${stockStatus}:${drug.drugId}`,
-					drugId: drug.drugId,
-					quantityAffected: drug.totalAvailable,
-					threshold: effectiveLowStockThreshold,
-					type: stockStatus,
-				},
-			];
+			return {
+				dedupeKey: `${stockStatus}:${drug.drugId}`,
+				drugId: drug.drugId,
+				quantityAffected: drug.totalAvailable,
+				threshold: effectiveLowStockThreshold,
+				type: stockStatus,
+			};
 		}),
 		...expiredBatches.map((batch) => ({
 			batchId: batch.id,

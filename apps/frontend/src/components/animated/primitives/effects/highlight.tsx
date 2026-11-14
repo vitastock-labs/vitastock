@@ -365,15 +365,6 @@ function getNonOverridingDataAttributes(
 	}, {});
 }
 
-type ExtendedChildProps = React.ComponentProps<"div"> & {
-	"data-active"?: string;
-	"data-disabled"?: boolean;
-	"data-highlight"?: boolean;
-	"data-slot"?: string;
-	"data-value"?: string;
-	id?: string;
-	ref?: React.Ref<HTMLElement>;
-};
 
 type HighlightItemProps<T extends React.ElementType = "div"> = PolymorphicProps<
 	T,
@@ -395,6 +386,15 @@ type HighlightItemProps<T extends React.ElementType = "div"> = PolymorphicProps<
 function HighlightItem<T extends React.ElementType = "div">(
 	props: HighlightItemProps<T>
 ): React.ReactNode {
+	type ExtendedChildProps = React.ComponentProps<"div"> & {
+		"data-active"?: string;
+		"data-disabled"?: boolean;
+		"data-highlight"?: boolean;
+		"data-slot"?: string;
+		"data-value"?: string;
+		id?: string;
+		ref?: React.Ref<HTMLElement>;
+	};
 	const {
 		activeClassName,
 		as: Component = "div",

@@ -5,6 +5,7 @@
 	"exports": {
 		".": "./src/db.ts",
 		"./constants": "./src/constants.ts",
+		"./keepAlive": "./src/keepAlive.ts",
 		"./schema/*": "./src/schema/*.ts"
 	},
 	"engines": {
@@ -27,25 +28,24 @@
 		"lint:type-check": "tsc --pretty -p tsconfig.json"
 	},
 	"dependencies": {
-		"@faker-js/faker": "^10.6.0",
 		"@node-rs/argon2": "^2.2.2",
 		"@vitastock/env": "workspace:*",
-		"@zayne-labs/toolkit-type-helpers": "^0.12.59",
-		"@zayne-labs/tsconfig": "0.13.19",
+		"@zayne-labs/toolkit-type-helpers": "^0.13.2",
 		"consola": "3.4.2",
-		"cross-env": "^10.1.0",
 		"date-fns": "4.4.0",
-		"drizzle-kit": "0.31.11",
 		"drizzle-orm": "0.45.4",
 		"drizzle-zod": "^0.8.3",
 		"pg": "8.23.1",
-		"tsx": "4.23.15",
 		"zod": "4.6.7"
 	},
 	"devDependencies": {
 		"@total-typescript/ts-reset": "0.6.1",
 		"@types/pg": "8.23.1",
-		"tsdown": "0.23.2",
+		"@zayne-labs/tsconfig": "0.14.0",
+		"cross-env": "^10.1.0",
+		"drizzle-kit": "0.31.11",
+		"tsdown": "0.23.7",
+		"tsx": "4.23.15",
 		"typescript": "6.0.3"
 	}
 }

@@ -5,6 +5,7 @@ import {
 	INVENTORY_BULK_IMPORT_COLUMNS,
 	INVENTORY_BULK_IMPORT_MAX_ROWS,
 } from "@vitastock/shared/validation/inventoryBulkImportSchema";
+import { waitFor } from "@zayne-labs/toolkit-core";
 import type { ExtractUnion } from "@zayne-labs/toolkit-type-helpers";
 import { useMemo, useState } from "react";
 import type { z } from "zod";
@@ -24,7 +25,6 @@ import { posthog } from "@/lib/posthog";
 import { inventoryDrugsQuery, sessionQuery } from "@/lib/react-query/queryOptions";
 import { cnJoin } from "@/lib/utils/cn";
 import { formatCalendarDateInTimezone, formatDate, formatNaira } from "@/lib/utils/formatters";
-import { waitFor } from "@/lib/utils/waitFor";
 import { EMPTY_DISPLAY_VALUE } from "@/pages/(protected)/dashboard/-components/constants";
 import {
 	MAX_BULK_IMPORT_FILE_SIZE_BYTES,
@@ -53,21 +53,6 @@ const BULK_IMPORT_IMPORTING_STEPS = [
 
 type BulkImportPriceChange = BulkImportResultType["priceChanges"][number];
 
-type BulkImportPreviewState = {
-	duplicateRows: Array<Extract<BulkImportRowResult, { status: "duplicate" }>>;
-	idempotencyKey: string;
-	invalidRows: Array<Extract<BulkImportRowResult, { status: "invalid" }>>;
-	validRows: Array<Extract<BulkImportRowResult, { status: "valid" }>>;
-	warnings: Array<{ message: string; rowNumber: number }>;
-};
-
-type BulkImportStage =
-	| (BulkImportPreviewState & { stage: "importing" })
-	| (BulkImportPreviewState & { stage: "preview" })
-	| { error?: string; file: File | null; stage: "upload" }
-	| { importedCount: number; priceChanges: BulkImportPriceChange[]; stage: "complete" }
-	| { stage: "processing"; step: BulkImportProcessingStep };
-
 const describeBulkImportHeaderIssues = (issues: string[]) => issues.join(". ");
 
 const yieldToUi = () => waitFor(0);
@@ -78,12 +63,12 @@ const bulkImportPreviewColumnHelper = createDataTableColumnHelper<BulkImportRowR
 
 type BulkImportPreviewField = ExtractUnion<typeof INVENTORY_BULK_IMPORT_COLUMNS, "values">;
 type ValidBulkImportRow = Extract<BulkImportRowResult, { status: "valid" }>;
-type InvalidBulkImportRow = Extract<BulkImportRowResult, { status: "invalid" }>;
 
 const partitionBulkImportRows = (
 	rows: ValidBulkImportRow[],
 	issues: Array<{ message: string; rowIndex: number }>
 ) => {
+	type InvalidBulkImportRow = Extract<BulkImportRowResult, { status: "invalid" }>;
 	const issueByRowIndex = new Map(issues.map((issue) => [issue.rowIndex, issue.message]));
 	const invalidRows: InvalidBulkImportRow[] = [];
 	const validRows: ValidBulkImportRow[] = [];
@@ -483,6 +468,19 @@ function BulkImportPriceChangesScreen(props: {
 }
 
 function BulkImportDialog(props: { onImported?: () => void }) {
+	type BulkImportPreviewState = {
+		duplicateRows: Array<Extract<BulkImportRowResult, { status: "duplicate" }>>;
+		idempotencyKey: string;
+		invalidRows: Array<Extract<BulkImportRowResult, { status: "invalid" }>>;
+		validRows: Array<Extract<BulkImportRowResult, { status: "valid" }>>;
+		warnings: Array<{ message: string; rowNumber: number }>;
+	};
+	type BulkImportStage =
+		| (BulkImportPreviewState & { stage: "importing" })
+		| (BulkImportPreviewState & { stage: "preview" })
+		| { error?: string; file: File | null; stage: "upload" }
+		| { importedCount: number; priceChanges: BulkImportPriceChange[]; stage: "complete" }
+		| { stage: "processing"; step: BulkImportProcessingStep };
 	const { onImported } = props;
 
 	const queryClient = useQueryClient();
@@ -583,7 +581,7 @@ function BulkImportDialog(props: { onImported?: () => void }) {
 			const warnings = backendValidation.data.warnings.flatMap((warning) => {
 				const row = result.validRows[warning.rowIndex];
 
-				return row ? [{ message: warning.message, rowNumber: row.rowNumber }] : [];
+				return row ? { message: warning.message, rowNumber: row.rowNumber } : [];
 			});
 
 			setState({

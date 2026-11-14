@@ -11,11 +11,11 @@ const useIsMobile = (options: { enable?: boolean; mobileBreakpoint?: number }) =
 
 		const mql = window.matchMedia(`(max-width: ${mobileBreakpoint - 1}px)`);
 
-		// eslint-disable-next-line react/set-state-in-effect
 		const onChange = () => setIsMobile(window.innerWidth < mobileBreakpoint);
 
 		const cleanup = on(mql, "change", onChange);
 
+		// eslint-disable-next-line react/set-state-in-effect
 		onChange();
 
 		return () => cleanup();

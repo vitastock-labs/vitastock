@@ -1,9 +1,8 @@
 import type { GetCallApiContext, RequestContext } from "@zayne-labs/callapi";
 import { definePluginWithContext } from "@zayne-labs/callapi/utils";
-import { isBrowser } from "@zayne-labs/toolkit-core";
+import { isBrowser, waitFor } from "@zayne-labs/toolkit-core";
 import type { Awaitable } from "@zayne-labs/toolkit-type-helpers";
 import type { MainAppRoutes } from "@/components/common/NavLink";
-import { waitFor } from "@/lib/utils/waitFor";
 import type { BaseApiErrorResponse } from "../apiSchema";
 import { isAuthErrorThatNeedsRedirect, isPathnameMatchingRoute, redirectTo } from "./utils/common";
 
@@ -18,11 +17,6 @@ export type AuthErrorRedirectPluginMeta = {
 	};
 };
 
-type AuthErrorRedirectContext = GetCallApiContext<{
-	ErrorData: BaseApiErrorResponse;
-	Meta: AuthErrorRedirectPluginMeta;
-}>;
-
 const defaultRedirectRoute =
 	"/auth/signin" satisfies Required<AuthErrorRedirectPluginMeta>["auth"]["redirectRoute"];
 
@@ -31,6 +25,10 @@ const defaultRedirectErrorMessage = "Session is invalid or expired! Redirecting 
 const defaultRedirectDelay = 1500;
 
 export const authErrorRedirectPlugin = (authOptions?: AuthErrorRedirectPluginMeta["auth"]) => {
+	type AuthErrorRedirectContext = GetCallApiContext<{
+		ErrorData: BaseApiErrorResponse;
+		Meta: AuthErrorRedirectPluginMeta;
+	}>;
 	const getAuthMetaAndDerivatives = (ctx: RequestContext<AuthErrorRedirectContext>) => {
 		const authMeta =
 			authOptions ? { ...authOptions, ...ctx.options.meta?.auth } : ctx.options.meta?.auth;

@@ -48,7 +48,7 @@ const useDataTableQueryState = <TFilters extends ParserMap>(options: {
 	const columnFilters = useMemo<ColumnFiltersState>(
 		() =>
 			(Object.entries(filterValues) as Array<[string, unknown]>).flatMap(([id, value]) =>
-				value === null || value === "" ? [] : [{ id, value }]
+				value === null || value === "" ? [] : { id, value }
 			),
 		[filterValues]
 	);

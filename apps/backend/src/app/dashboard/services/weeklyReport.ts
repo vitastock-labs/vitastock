@@ -176,7 +176,7 @@ const getAttentionItems = async (options: {
 	};
 };
 
-const buildWeeklyReport = async (options: {
+const generateWeeklyReport = async (options: {
 	time: string;
 	timezone: string;
 	today: string;
@@ -220,7 +220,7 @@ const buildWeeklyReport = async (options: {
 					(payment) => (payment.paymentMethod ?? "not_noted") === key
 				)?.sales ?? 0;
 
-			return sales > 0 ? [{ label, sales }] : [];
+			return sales > 0 ? { label, sales } : [];
 		}),
 		periodLabel: `${format(parseISO(weekStart), "MMM d")} – ${format(parseISO(today), "MMM d, yyyy")}, up to ${format(sentAt, "h:mmaaa")}`,
 		slowSellers: analytics.slowSellers.slice(0, EMAIL_LIST_SIZE).map((item) => ({
@@ -277,7 +277,7 @@ export const sendWeeklyOwnerReport = async (options: {
 
 	try {
 		const [report, recipients] = await Promise.all([
-			buildWeeklyReport({
+			generateWeeklyReport({
 				time: localTime.time,
 				timezone: workspace.timezone,
 				today: localTime.date,

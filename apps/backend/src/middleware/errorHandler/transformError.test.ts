@@ -1,8 +1,6 @@
 /* eslint-disable import/no-named-as-default-member */
 
-/* eslint-disable import/default */
 import jwt from "jsonwebtoken";
-/* eslint-enable import/default */
 import { expect, test } from "vitest";
 import { AppError } from "@/lib/utils";
 import { transformError } from "./transformError";

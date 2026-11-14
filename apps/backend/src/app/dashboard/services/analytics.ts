@@ -344,7 +344,7 @@ export const getDashboardAnalytics = async (options: {
 			items: expiryItems,
 		},
 		losses: lossRows.flatMap((row) =>
-			row.reason ? [{ ...row, reason: row.reason, value: toNullableNumber(row.value) }] : []
+			row.reason ? { ...row, reason: row.reason, value: toNullableNumber(row.value) } : []
 		),
 		moneyInStock: {
 			topDrugs: stockValueRows

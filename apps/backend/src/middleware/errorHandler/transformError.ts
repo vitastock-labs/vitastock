@@ -1,6 +1,5 @@
 /* eslint-disable import/no-named-as-default-member */
 import type { HTTPException } from "hono/http-exception";
-// eslint-disable-next-line import/default
 import jwt from "jsonwebtoken";
 import { AppError } from "@/lib/utils";
 

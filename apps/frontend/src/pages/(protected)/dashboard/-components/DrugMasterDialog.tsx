@@ -529,7 +529,7 @@ function BatchRow(props: { batch: DrugBatch; drugId: string; drugUnit: string | 
 					dateFormats={{ onChangeDate: "yyyy-MM-dd", visibleDate: "MMM d, yyyy" }}
 					datePickerProps={BATCH_EXPIRY_DATE_PICKER_RANGE}
 					className="h-10 min-w-0 rounded-lg border border-shadcn-border bg-white px-3 sm:flex-1"
-					onDateStringChange={(value) => setExpiryDate(value ?? "")}
+					onDateStringChange={(value = "") => setExpiryDate(value)}
 				/>
 				<Form.InputGroup
 					className="h-10 gap-1.5 rounded-lg border border-shadcn-border bg-white px-3

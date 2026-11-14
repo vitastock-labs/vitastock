@@ -61,10 +61,9 @@ const getCartItemPatientName = (item: Pick<DispenseCartFormItem, "patientName"> 
 	return PatientNameSchema.safeParse(item?.patientName).data ?? null;
 };
 
-type CartPatientGroup = { indexes: number[]; patientName: string | null };
-type PatientNameFieldValues = { patientName?: string | null };
 
 const getCartPatientGroups = (items: DispenseCartFormItem[]) => {
+	type CartPatientGroup = { indexes: number[]; patientName: string | null };
 	const groupsByName = new Map<string | null, CartPatientGroup>();
 
 	for (const [index, item] of items.entries()) {
@@ -534,6 +533,7 @@ function PatientNameField(props: {
 	control: Control<z.input<typeof DispenseCartItemSchema>>;
 	onEnter: () => void;
 }) {
+	type PatientNameFieldValues = { patientName?: string | null };
 	const { control, onEnter } = props;
 
 	return (

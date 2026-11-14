@@ -236,7 +236,7 @@ function TimePicker(props: TimePickerProps) {
 					const hour24 = (hourNumber % 12) + (isPM ? 12 : 0);
 					const oppositeHour24 = (hour24 + 12) % 24;
 
-					hourRange.includes(hour24) ? newDate.setHours(hour24) : newDate.setHours(oppositeHour24);
+					newDate.setHours(hourRange.includes(hour24) ? hour24 : newDate.setHours(oppositeHour24));
 					break;
 				}
 

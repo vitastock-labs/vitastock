@@ -24,10 +24,7 @@ export default zayne(
 		tanstack: {
 			query: true,
 		},
-		typescript: {
-			// tsconfigPath: ["apps/*/tsconfig.json", "packages/*/tsconfig.json"],
-			tsconfigPath: ["**/tsconfig.json"],
-		},
+		typescript: true,
 	},
 	// {
 	// 	files: ["apps/frontend/src/pages/**/*.ts", "apps/frontend/src/pages/**/*.tsx"],

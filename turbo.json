@@ -36,7 +36,6 @@
 		"lint:format": {},
 		"lint:eslint": {},
 		"lint:type-check": {},
-		"test": {},
-		"knip": {}
+		"test": {}
 	}
 }

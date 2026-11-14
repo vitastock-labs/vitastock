@@ -1,5 +1,4 @@
 /* eslint-disable react-you-might-not-need-an-effect/no-event-handler */
-/* eslint-disable react/set-state-in-effect */
 /* eslint-disable react-you-might-not-need-an-effect/no-derived-state */
 /* eslint-disable react-you-might-not-need-an-effect/no-chain-state-updates */
 /* eslint-disable react-hooks/preserve-manual-memoization */

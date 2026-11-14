@@ -22,8 +22,8 @@ const errorHandler: ErrorHandler<HonoAppBindings> = (error: AppError | Error | H
 	const errorInfo = {
 		status: "error",
 		message: modifiedError.message,
-		...(modifiedError.appCode && { appCode: modifiedError.appCode }),
-		...(Boolean(modifiedError.errors) && { errors: modifiedError.errors }),
+		...(modifiedError.appCode && pickKeys(modifiedError, ["appCode"])),
+		...(modifiedError.errors != null && pickKeys(modifiedError, ["errors"])),
 	};
 
 	const errorLogInfo = {
@@ -41,8 +41,8 @@ const errorHandler: ErrorHandler<HonoAppBindings> = (error: AppError | Error | H
 		userId: currentUser?.id,
 		userName: currentUser?.fullName,
 		userRole: currentUser?.role,
-		...(Boolean(modifiedError.realReason) && pickKeys(modifiedError, ["realReason"])),
-		...(Boolean(modifiedError.cause) && pickKeys(modifiedError, ["cause"])),
+		...(modifiedError.realReason && pickKeys(modifiedError, ["realReason"])),
+		...(modifiedError.cause != null && pickKeys(modifiedError, ["cause"])),
 		statusCode: modifiedError.statusCode,
 		userAgent: ctx.req.header("user-agent"),
 		workspaceId: currentWorkspace?.id,

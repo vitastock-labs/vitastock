@@ -68,6 +68,11 @@ export const serviceKeepAliveEnvSchema = backendEnvSchema.pick({
 	REDIS_QUEUE_URL: true,
 });
 
+export const databaseKeepAliveEnvSchema = backendEnvSchema.pick({
+	DATABASE_URL: true,
+	DATABASE_URL_STAGING: true,
+});
+
 const packageJson = findUpSync("pnpm-workspace.yaml", { cwd: import.meta.dirname });
 
 const monorepoRoot = packageJson ? path.dirname(packageJson) : null;
@@ -105,3 +110,5 @@ export const getDatabaseEnv = () => parseEnvironment(databaseEnvSchema);
 export const getDatabaseSeedEnv = () => parseEnvironment(databaseSeedEnvSchema);
 
 export const getServiceKeepAliveEnv = () => parseEnvironment(serviceKeepAliveEnvSchema);
+
+export const getDatabaseKeepAliveEnv = () => parseEnvironment(databaseKeepAliveEnvSchema);

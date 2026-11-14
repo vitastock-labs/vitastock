@@ -26,12 +26,6 @@ export type ToastPluginMeta = {
 	};
 };
 
-type ToastContext = GetCallApiContext<{
-	Data: BaseApiSuccessResponse;
-	ErrorData: BaseApiErrorResponse;
-	Meta: ToastPluginMeta;
-}>;
-
 const shouldEndpointBeSkipped = (
 	options: Pick<NonNullable<ToastPluginMeta["toast"]>, "endpointsToSkip"> & {
 		initURL: string | undefined;
@@ -49,14 +43,10 @@ const shouldEndpointBeSkipped = (
 			}
 
 			const isRouteExcluded =
-				entry.routesExclude ?
-					entry.routesExclude.some((pattern) => isPathnameMatchingRoute(pattern))
-				:	false;
+				entry.routesExclude?.some((pattern) => isPathnameMatchingRoute(pattern)) ?? false;
 
 			const isRouteIncluded =
-				entry.routesInclude ?
-					entry.routesInclude.some((pattern) => isPathnameMatchingRoute(pattern))
-				:	true;
+				entry.routesInclude?.some((pattern) => isPathnameMatchingRoute(pattern)) ?? true;
 
 			return !isRouteExcluded && isRouteIncluded;
 		})
@@ -64,6 +54,12 @@ const shouldEndpointBeSkipped = (
 };
 
 export const toastPlugin = (toastOptions?: ToastPluginMeta["toast"]) => {
+	type ToastContext = GetCallApiContext<{
+		Data: BaseApiSuccessResponse;
+		ErrorData: BaseApiErrorResponse;
+		Meta: ToastPluginMeta;
+	}>;
+
 	const getToastMeta = (ctx: RequestContext<ToastContext>) => {
 		return toastOptions ? { ...toastOptions, ...ctx.options.meta?.toast } : ctx.options.meta?.toast;
 	};

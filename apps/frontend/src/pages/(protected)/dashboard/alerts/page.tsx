@@ -19,7 +19,6 @@ import { EmptyState } from "@/pages/(protected)/dashboard/-components/EmptyState
 import { Main } from "../-components/Main";
 
 type AlertType = InventoryAlertsQueryResultType["alerts"][number]["type"];
-type AlertStatus = InventoryAlertsQueryResultType["alerts"][number]["status"];
 
 const filterCategories = [
 	"all",
@@ -137,6 +136,7 @@ function AlertsPage() {
 					<TabsAnimated.Root
 						value={alertStatus}
 						onValueChange={(value) => {
+							type AlertStatus = InventoryAlertsQueryResultType["alerts"][number]["status"];
 							void setAlertSearchParams({ alertStatus: value as AlertStatus });
 						}}
 					>

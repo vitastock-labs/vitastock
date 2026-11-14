@@ -1015,7 +1015,7 @@ function StockMovementDialog(props: {
 	initialReason?: RemovalReason;
 	onComplete?: () => void;
 }) {
-	const { defaultLogType, initialBatchId, initialDrugId, initialReason, onComplete } = props;
+	const { defaultLogType, initialBatchId = "", initialDrugId = "", initialReason, onComplete } = props;
 
 	const isRemoval = defaultLogType === StockMovementLogTypeSchema.enum.stock_out;
 
@@ -1045,7 +1045,7 @@ function StockMovementDialog(props: {
 				return {
 					batchNumber: "",
 					costPrice: "",
-					drugId: initialDrugId ?? "",
+					drugId: initialDrugId,
 					expiryDate: "",
 					logType: defaultLogType,
 					notes: "",
@@ -1054,8 +1054,8 @@ function StockMovementDialog(props: {
 			}
 
 			return {
-				batchId: initialBatchId ?? "",
-				drugId: initialDrugId ?? "",
+				batchId: initialBatchId,
+				drugId: initialDrugId,
 				logType: StockMovementLogTypeSchema.enum.stock_out,
 				notes: "",
 				quantity: "",

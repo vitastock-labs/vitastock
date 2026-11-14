@@ -520,14 +520,7 @@ const authRoutes = new Hono()
 
 			const { updatedMembership, updatedUser } = resetResult;
 
-			if (!updatedUser) {
-				throw new AppError({
-					code: 400,
-					message: "Password reset failed",
-				});
-			}
-
-			if (!updatedMembership) {
+			if (!updatedUser || !updatedMembership) {
 				throw new AppError({
 					code: 400,
 					message: "Password reset failed",

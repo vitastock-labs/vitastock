@@ -320,7 +320,7 @@ const applyImportedSellingPrices = async (options: {
 				const newPrice = filePrices[field];
 
 				return previousPrice !== null && newPrice !== undefined ?
-						[{ drugName: drug.name, field, newPrice, previousPrice }]
+						{ drugName: drug.name, field, newPrice, previousPrice }
 					:	[];
 			})
 		);

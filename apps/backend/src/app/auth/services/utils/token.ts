@@ -3,9 +3,7 @@
 import type { SelectUserType, SessionUserType } from "@vitastock/db/schema/auth";
 import { pickKeys } from "@zayne-labs/toolkit-core";
 import { addMilliseconds, isPast } from "date-fns";
-/* eslint-disable import/default */
 import jwt from "jsonwebtoken";
-/* eslint-enable import/default */
 import { z } from "zod";
 import { ENVIRONMENT } from "@/config/env";
 import { appLogger } from "@/lib/logger";

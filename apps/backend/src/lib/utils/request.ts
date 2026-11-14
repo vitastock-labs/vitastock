@@ -1,9 +1,9 @@
 import type { IncomingMessage } from "node:http";
 import type { Context } from "hono";
 
-type NodeBindings = { incoming?: IncomingMessage } | undefined;
 
 const getSocketAddress = (ctx: Context) => {
+	type NodeBindings = { incoming?: IncomingMessage } | undefined;
 	const env = ctx.env as (NodeBindings & { server?: NodeBindings }) | undefined;
 
 	return (env?.server ?? env)?.incoming?.socket.remoteAddress;

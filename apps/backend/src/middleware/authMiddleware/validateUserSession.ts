@@ -5,10 +5,8 @@ import { users, type SessionUserType } from "@vitastock/db/schema/auth";
 import { AUTH_ERRORS } from "@vitastock/shared/constants";
 import type { UnionDiscriminator } from "@zayne-labs/toolkit-type-helpers";
 import { eq } from "drizzle-orm";
-/* eslint-disable import/default */
 import jwt from "jsonwebtoken";
 import { getCurrentMembership, getCurrentSessionState } from "@/app/auth/services/data-access/common";
-/* eslint-enable import/default */
 import {
 	decodeJwtToken,
 	generateAccessToken,
