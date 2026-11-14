@@ -1,0 +1,25 @@
+variables:
+  - name: baseHost
+    value: http://localhost:8000
+  - name: baseURL
+    value: "{{baseHost}}/api/v1"
+  - name: bulkImportIdempotencyKey
+    value: 00000000-0000-4000-8000-000000000007
+  - name: alertId
+    value: 00000000-0000-4000-8000-000000000004
+  - name: drugId
+    value: 00000000-0000-4000-8000-000000000003
+  - name: invitationId
+    value: 00000000-0000-4000-8000-000000000002
+  - name: memberId
+    value: 00000000-0000-4000-8000-000000000001
+  - name: stockInIdempotencyKey
+    value: 00000000-0000-4000-8000-000000000005
+  - name: stockOutIdempotencyKey
+    value: 00000000-0000-4000-8000-000000000006
+  - name: batchId
+    value: 00000000-0000-4000-8000-000000000008
+  - name: stockTransactionId
+    value: 00000000-0000-4000-8000-000000000009
+  - name: dispenseIdempotencyKey
+    value: 00000000-0000-4000-8000-000000000010

@@ -16,7 +16,6 @@ type ContextValue = {
 const [CollapsibleContextProvider, useCollapsibleContext] = createCustomContext<ContextValue>();
 
 function CollapsibleRoot(props: React.ComponentProps<typeof CollapsiblePrimitive.Root>) {
-	// eslint-disable-next-line ts-eslint/unbound-method
 	const { defaultOpen, onOpenChange: setOpenProp, open: openProp, ...restOfProps } = props;
 
 	const savedSetOpenProp = useCallbackRef(setOpenProp);

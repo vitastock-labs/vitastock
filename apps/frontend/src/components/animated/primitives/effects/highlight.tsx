@@ -1,3 +1,4 @@
+/* eslint-disable unicorn/prefer-observer-apis */
 /* eslint-disable react-you-might-not-need-an-effect/no-event-handler */
 /* eslint-disable react/set-state-in-effect */
 /* eslint-disable react-you-might-not-need-an-effect/no-derived-state */
@@ -237,7 +238,7 @@ function HighlightRoot<T extends React.ElementType = "div">(props: HighlightProp
 		const onScroll = () => {
 			if (!activeValue) return;
 			const activeEl = container.querySelector<HTMLElement>(
-				`[data-value="${activeValue}"][data-highlight="true"]`
+				`[data-value="${CSS.escape(activeValue)}"][data-highlight="true"]`
 			);
 			if (activeEl) safeSetBoundsRef.current?.(activeEl.getBoundingClientRect());
 		};
@@ -337,10 +338,8 @@ function HighlightRoot<T extends React.ElementType = "div">(props: HighlightProp
 	return (
 		<HighlightContextProvider value={contextValue}>
 			{enabled ?
-				// eslint-disable-next-line unicorn/no-nested-ternary
-				controlledItems ?
-					render(children)
-				:	render(
+				render(
+					controlledItems ? children : (
 						toArray(children).map((child, index) => (
 							// eslint-disable-next-line react/no-array-index-key
 							<HighlightItem key={index} className={props.itemsClassName}>
@@ -348,7 +347,7 @@ function HighlightRoot<T extends React.ElementType = "div">(props: HighlightProp
 							</HighlightItem>
 						))
 					)
-
+				)
 			:	children}
 		</HighlightContextProvider>
 	);
@@ -366,15 +365,6 @@ function getNonOverridingDataAttributes(
 	}, {});
 }
 
-type ExtendedChildProps = React.ComponentProps<"div"> & {
-	"data-active"?: string;
-	"data-disabled"?: boolean;
-	"data-highlight"?: boolean;
-	"data-slot"?: string;
-	"data-value"?: string;
-	id?: string;
-	ref?: React.Ref<HTMLElement>;
-};
 
 type HighlightItemProps<T extends React.ElementType = "div"> = PolymorphicProps<
 	T,
@@ -396,6 +386,15 @@ type HighlightItemProps<T extends React.ElementType = "div"> = PolymorphicProps<
 function HighlightItem<T extends React.ElementType = "div">(
 	props: HighlightItemProps<T>
 ): React.ReactNode {
+	type ExtendedChildProps = React.ComponentProps<"div"> & {
+		"data-active"?: string;
+		"data-disabled"?: boolean;
+		"data-highlight"?: boolean;
+		"data-slot"?: string;
+		"data-value"?: string;
+		id?: string;
+		ref?: React.Ref<HTMLElement>;
+	};
 	const {
 		activeClassName,
 		as: Component = "div",

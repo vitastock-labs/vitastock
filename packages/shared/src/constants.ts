@@ -51,3 +51,9 @@ export type AuthErrorAppCodeType = (typeof AUTH_ERRORS.$inferUnion)["appCode"];
 export const AUTH_ERROR_APP_CODES = Object.values(AUTH_ERRORS).map(
 	(error) => error.appCode
 ) as NonEmptyArray<AuthErrorAppCodeType>;
+
+export const STOCK_DISPENSE_UNDO_WINDOW_MS = 2 * 60 * 1000;
+
+export const ANALYTICS_EXPIRY_RISK_WINDOW_DAYS = 90;
+
+export const WEEKLY_REPORT_EXPIRING_SOON_DAYS = 30;

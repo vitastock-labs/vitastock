@@ -1,0 +1,16 @@
+info:
+  name: inventory
+  type: folder
+  seq: 5
+
+request:
+  auth: inherit
+
+docs:
+  content: |-
+    # Inventory
+
+    Workspace-scoped Drug Master, prices, batches, stock movements, dispensing and undo, bulk import and removal, activity, summary, and alert endpoints.
+
+    All requests require an active authenticated workspace membership. Workspace IDs are derived from the session and must not be supplied by clients.
+  type: text/markdown

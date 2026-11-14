@@ -96,13 +96,12 @@ function CarouselRoot(props: CarouselProps & React.ComponentProps<"div">) {
 		if (!carouselApi) return;
 
 		const onSelect = () => {
-			/* eslint-disable react/set-state-in-effect */
 			setCanScrollPrev(carouselApi.canScrollPrev());
 			setCanScrollNext(carouselApi.canScrollNext());
 			setSelectedIndex(carouselApi.selectedScrollSnap());
-			/* eslint-enable react/set-state-in-effect */
 		};
 
+		// eslint-disable-next-line react/set-state-in-effect
 		onSelect();
 
 		carouselApi.on("reInit", onSelect);

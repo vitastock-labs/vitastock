@@ -1,0 +1,18 @@
+info:
+  name: alerts
+  type: folder
+  seq: 2
+
+request:
+  auth: inherit
+
+docs:
+  content: |-
+    # Inventory Alerts
+
+    Persisted low-stock, expiring-soon, and expired inventory alert lifecycle.
+
+    Acknowledging an alert marks it as read. Resolution occurs only when the underlying inventory condition no longer applies.
+
+    Alerts are in-app only. They are not emailed one by one; drugs running low and expiring soon appear in the weekly owner email instead.
+  type: text/markdown

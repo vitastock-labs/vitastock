@@ -1,0 +1,124 @@
+info:
+  name: activity
+  type: http
+  seq: 2
+
+http:
+  method: GET
+  url: "{{baseURL}}/inventory/activity?page=1&pageSize=20"
+  params:
+    - name: page
+      value: "1"
+      type: query
+    - name: pageSize
+      value: "20"
+      type: query
+    - name: search
+      value: amoxil
+      type: query
+      disabled: true
+    - name: logType
+      value: stock_out
+      type: query
+      disabled: true
+    - name: drugId
+      value: "{{drugId}}"
+      type: query
+      disabled: true
+    - name: from
+      value: "2026-10-01"
+      type: query
+      disabled: true
+    - name: to
+      value: "2026-10-31"
+      type: query
+      disabled: true
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+docs: |-
+  # Inventory Activity
+
+  Returns the paginated stock movement log for the Reports page, with weekly and expiry-loss summary figures.
+
+  ## Authorization
+
+  Requires an authenticated user with an active workspace membership.
+
+  ## Query Parameters
+
+  | Parameter | Type | Required | Rules | Description |
+  |-----------|------|----------|-------|-------------|
+  | `page` | integer | No | `1` or more | Page to return. |
+  | `pageSize` | integer | No | `1` to `100` | Rows per page. |
+  | `search` | string | No | Non-empty | Case-insensitive drug search. |
+  | `logType` | string | No | `stock_in`, `opening_stock`, `stock_out`, `damaged`, `expired`, `reconciliation` | One movement type. |
+  | `drugId` | UUID | No | | One drug. |
+  | `from` / `to` | calendar-date string | No | `YYYY-MM-DD`; `to` on or after `from` | Date range in the workspace timezone. |
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Inventory activity fetched successfully",
+    "data": {
+      "stats": {
+        "weeklyMovementCount": 11,
+        "weeklyStockInQuantity": 2010,
+        "weeklyStockOutQuantity": 352,
+        "expiredLossQuantity": 0
+      },
+      "availableDateRange": { "from": "2026-10-01", "to": "2026-10-25" },
+      "pagination": { "page": 1, "pageSize": 20, "pageCount": 1, "total": 16 },
+      "rows": [
+        {
+          "id": "activity-row-id",
+          "stockTransactionId": "stock-transaction-uuid",
+          "createdAt": "2026-10-25T22:47:00.000Z",
+          "drug": {
+            "id": "drug-uuid",
+            "name": "Amoxil",
+            "genericName": "Amoxicillin",
+            "strength": "500mg",
+            "form": "Capsule",
+            "unit": "Pack"
+          },
+          "logType": "stock_out",
+          "reason": "patient",
+          "patientName": "Mrs. Adebayo",
+          "quantity": 3,
+          "batchCount": 1,
+          "notes": "Paid half, balance tomorrow",
+          "performedByUserId": "user-uuid",
+          "person": "Ada Owner",
+          "undoneAt": "2026-10-25T22:48:00.000Z",
+          "undoneBy": "Ada Owner"
+        }
+      ]
+    }
+  }
+  ```
+
+  ## Notes
+
+  - Rows are grouped per transaction and drug, so a dispense split across batches is one row; `batchCount` says how many batches it used.
+  - Undone dispenses and removed imports stay in the log with `undoneAt` and `undoneBy` set.
+  - `weekly*` figures cover the last 7 days and `expiredLossQuantity` the last 30 days. All of them exclude undone movements and removed imports.
+  - `availableDateRange` is the span of recorded activity, or `null` when there is none.
+
+  ## Errors
+
+  | Status | Description |
+  |--------|-------------|
+  | `401 Unauthorized` | Authentication is invalid or workspace access is suspended. |
+  | `422 Unprocessable Entity` | A query parameter is invalid, or `to` is before `from`. |
+  | `500 Internal Server Error` | Activity retrieval failed unexpectedly. |

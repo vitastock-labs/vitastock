@@ -1,0 +1,65 @@
+info:
+  name: bulk-imports
+  type: http
+  seq: 10
+
+http:
+  method: GET
+  url: "{{baseURL}}/inventory/bulk-imports"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+docs: |-
+  # Import History
+
+  Lists the workspace's 50 most recent bulk imports, newest first, with whether each can still be removed.
+
+  ## Authorization
+
+  Requires an authenticated `owner` or `admin`. Pharmacists receive `403 Forbidden`.
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Bulk imports retrieved successfully",
+    "data": {
+      "imports": [
+        {
+          "id": "stock-transaction-uuid",
+          "createdAt": "2026-10-25T22:49:00.000Z",
+          "importedBy": "Ada Owner",
+          "drugCount": 2,
+          "unitCount": 30,
+          "removal": null,
+          "removalBlockedReason": null
+        }
+      ]
+    }
+  }
+  ```
+
+  ## Fields
+
+  | Field | Description |
+  |-------|-------------|
+  | `id` | Import ID to pass to `remove-bulk-import`. |
+  | `drugCount` / `unitCount` | Distinct drugs and total units the import added. |
+  | `removal` | `{ removedAt, removedBy }` once removed, otherwise `null`. |
+  | `removalBlockedReason` | Why it can no longer be removed (already removed, its batches are gone, or its stock has been dispensed, removed, or adjusted), or `null` when it can. |
+
+  ## Errors
+
+  | Status | Description |
+  |--------|-------------|
+  | `401 Unauthorized` | Authentication is invalid or workspace access is suspended. |
+  | `403 Forbidden` | The member is not an owner or admin. |

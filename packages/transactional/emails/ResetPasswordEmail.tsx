@@ -27,8 +27,8 @@ export function ResetPasswordEmail(props: ResetPasswordEmailProps) {
 			</Text>
 
 			<Text className="mt-4 text-center text-base/relaxed text-vitastock-body-color">
-				We received a request to reset your VitaStock password. Choose a new password using the
-				secure link below. This link expires in <strong>20 minutes</strong>.
+				We received a request to reset your VitaStock password. Choose a new password using the secure
+				link below. This link expires in <strong>20 minutes</strong>.
 			</Text>
 
 			<Section className="mt-8 text-center">

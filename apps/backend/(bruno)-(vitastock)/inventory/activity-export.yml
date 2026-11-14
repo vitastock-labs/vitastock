@@ -1,0 +1,70 @@
+info:
+  name: activity-export
+  type: http
+  seq: 12
+
+http:
+  method: GET
+  url: "{{baseURL}}/inventory/activity/export"
+  params:
+    - name: from
+      value: "2026-10-01"
+      type: query
+      disabled: true
+    - name: to
+      value: "2026-10-31"
+      type: query
+      disabled: true
+    - name: logType
+      value: stock_out
+      type: query
+      disabled: true
+    - name: drugId
+      value: "{{drugId}}"
+      type: query
+      disabled: true
+    - name: search
+      value: amoxil
+      type: query
+      disabled: true
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+docs: |-
+  # Export Activity (CSV)
+
+  Downloads the stock movement log as a CSV file, using the same filters as the activity list but without pagination.
+
+  ## Authorization
+
+  Requires an authenticated user with an active workspace membership.
+
+  ## Query Parameters
+
+  `search`, `logType`, `drugId`, `from`, and `to`, with the same rules as `GET /inventory/activity`. All are optional.
+
+  ## Success Response
+
+  **`200 OK`** with `Content-Type: text/csv; charset=utf-8` and `Content-Disposition: attachment; filename="vitastock-stock-movements-2026-10-01-to-2026-10-31.csv"`.
+
+  Columns: `Timestamp`, `Drug Name`, `Generic Name`, `Strength`, `Dosage Form`, `Unit`, `Patient`, `Movement`, `Reason`, `Quantity`, `Batches Used`, `Performed By`, `Undone By`, `Notes`, `Transaction ID`.
+
+  ## Notes
+
+  - Timestamps are in the workspace timezone with their offset.
+  - The file starts with a UTF-8 byte-order mark so Excel opens it correctly.
+  - Cells that would start a spreadsheet formula are escaped.
+  - The filename reflects the date filter, or today's date when there is none.
+
+  ## Errors
+
+  | Status | Description |
+  |--------|-------------|
+  | `401 Unauthorized` | Authentication is invalid or workspace access is suspended. |
+  | `422 Unprocessable Entity` | A query parameter is invalid, or `to` is before `from`. |

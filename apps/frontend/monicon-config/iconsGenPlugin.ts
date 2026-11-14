@@ -9,13 +9,6 @@ export const iconsGenPlugin: MoniconPlugin<MyPluginOptions> = (options) => () =>
 	const { outputPath = ".monicon" } = options;
 
 	return {
-		name: "icon-file-plugin",
-
-		// eslint-disable-next-line perfectionist/sort-objects -- Ignore
-		afterWriteFiles: () => {
-			console.info("[Monicon] Finished icon generation!");
-		},
-
 		generate: (ctx) => {
 			const files: MoniconPluginFile[] = [];
 
@@ -37,6 +30,13 @@ export const iconsGenPlugin: MoniconPlugin<MyPluginOptions> = (options) => () =>
 
 			return files;
 		},
+
+		// eslint-disable-next-line perfectionist/sort-objects -- Ignore
+		afterWriteFiles: () => {
+			console.info("[Monicon] Finished icon generation!");
+		},
+
+		name: "icon-file-plugin",
 	};
 };
 

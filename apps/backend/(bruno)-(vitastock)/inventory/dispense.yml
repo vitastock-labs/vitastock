@@ -1,0 +1,107 @@
+info:
+  name: dispense
+  type: http
+  seq: 5
+
+http:
+  method: POST
+  url: "{{baseURL}}/inventory/stock-log/dispense"
+  headers:
+    - name: x-idempotency-key
+      value: "{{dispenseIdempotencyKey}}"
+  body:
+    type: json
+    data: |-
+      {
+        "items": [
+          {
+            "drugId": "{{drugId}}",
+            "quantity": "3",
+            "reason": "patient",
+            "patientName": "Mrs. Adebayo"
+          }
+        ],
+        "saleType": "retail",
+        "paymentMethod": "cash",
+        "notes": "Paid half, balance tomorrow"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+docs: |-
+  # Dispense (Cart)
+
+  Dispenses one or more medications as a single sale. Stock is deducted with FEFO, and every line saves the selling and cost prices at the moment of sale. The whole cart can be undone for 2 minutes.
+
+  ## Authorization
+
+  Requires an authenticated user with an active workspace membership. Owners, admins, and pharmacists can dispense.
+
+  ## Required Header
+
+  | Header | Type | Required | Description |
+  |--------|------|----------|-------------|
+  | `x-idempotency-key` | UUID | Yes | Stable identifier for this cart submission. |
+
+  ## Request Body
+
+  | Field | Type | Required | Rules / Description |
+  |-------|------|----------|---------------------|
+  | `items` | array | Yes | 1 to 100 lines. The same drug for the same patient may appear once. |
+  | `items[].drugId` | UUID | Yes | Active drug in the authenticated workspace. |
+  | `items[].quantity` | numeric string | Yes | Greater than `0`. |
+  | `items[].reason` | string | Yes | Must be `patient`. |
+  | `items[].patientName` | string | No | Patient the line is for. |
+  | `saleType` | string | No | `retail` (default, sale to a patient) or `wholesale` (sale to a business). |
+  | `paymentMethod` | string | No | `cash`, `transfer`, or `pos`. Omit when not noted. |
+  | `notes` | string | No | Up to 500 characters. Applies to the whole cart. |
+
+  Clients never send prices. The server reads them from the drug and the batches FEFO takes.
+
+  ## Pricing Rules
+
+  - Each line saves `unitSellingPrice` (the drug's retail or wholesale price, by `saleType`) and `unitCostPrice` (the cost of the batch it came from). A line split across batches keeps each batch's cost.
+  - A drug without a selling price is still dispensed; that line has no selling price and is excluded from sales totals.
+  - A `wholesale` cart is refused when any drug has no wholesale price.
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Medications dispensed successfully",
+    "data": {
+      "stockTransactionId": "stock-transaction-uuid",
+      "undoExpiresAt": "2026-10-25T21:33:00.000Z"
+    }
+  }
+  ```
+
+  Pass `stockTransactionId` to the undo request before `undoExpiresAt`.
+
+  ## Side Effects
+
+  - All lines commit in one transaction; if any line fails, nothing is dispensed.
+  - Inventory alerts are re-evaluated after commit.
+
+  ## Errors
+
+  | Status | Description |
+  |--------|-------------|
+  | `400 Bad Request` | A drug is inactive. |
+  | `401 Unauthorized` | Authentication is invalid or workspace access is suspended. |
+  | `404 Not Found` | A drug does not exist in the authenticated workspace. |
+  | `409 Conflict` | A line exceeds available stock, a wholesale cart contains a drug with no wholesale price (`errors["items.N.drugId"]` names the line), or the idempotency key was reused for a different request. |
+  | `422 Unprocessable Entity` | Validation failed, for example a duplicate line or an empty cart. |
+
+  ## Idempotency
+
+  Retrying the exact request with the same key returns the original result without dispensing twice.

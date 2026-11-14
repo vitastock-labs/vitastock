@@ -1,0 +1,90 @@
+info:
+  name: create-drug
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{baseURL}}/inventory/drugs"
+  body:
+    type: json
+    data: |-
+      {
+        "name": "Amoxil",
+        "genericName": "Amoxicillin",
+        "strength": "500mg",
+        "form": "Capsule",
+        "unit": "Pack",
+        "lowStockThreshold": 20
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+docs: |-
+  # Create Drug
+
+  Adds a drug to the workspace's Drug Master. Brand name, generic name, strength, dosage form, and counting unit are stored separately.
+
+  ## Authorization
+
+  Requires an authenticated `owner` or `admin`. Pharmacists receive `403 Forbidden`.
+
+  ## Request Body
+
+  | Field | Type | Required | Description |
+  |-------|------|----------|-------------|
+  | `name` | string | Yes | Brand or trade name, for example `Amoxil`. |
+  | `genericName` | string | Yes | Active ingredient, for example `Amoxicillin`. |
+  | `strength` | string | No | For example `500mg`. Blank becomes `null`. |
+  | `form` | string | No | Dosage form, for example `Capsule`. Blank becomes `null`. |
+  | `unit` | string | No | Counting unit that stock and prices use, for example `Pack`. Blank becomes `null`. |
+  | `lowStockThreshold` | integer | No | Overrides the workspace threshold for this drug. `0` or more. |
+
+  Selling prices are set afterwards with `PATCH /inventory/drugs/:drugId`.
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Drug created successfully",
+    "data": {
+      "drug": {
+        "id": "drug-uuid",
+        "name": "Amoxil",
+        "genericName": "Amoxicillin",
+        "strength": "500mg",
+        "form": "Capsule",
+        "unit": "Pack",
+        "isActive": true,
+        "lowStockThreshold": 20,
+        "retailPrice": null,
+        "wholesalePrice": null
+      }
+    }
+  }
+  ```
+
+  ## Persistence Rules
+
+  - The workspace comes from the session, never the request.
+  - New drugs are active and have no prices.
+  - Duplicate drug identities in one workspace are rejected by a database constraint.
+  - Inventory alerts are re-evaluated after the drug is created.
+
+  ## Errors
+
+  | Status | Description |
+  |--------|-------------|
+  | `401 Unauthorized` | Authentication is invalid or workspace access is suspended. |
+  | `403 Forbidden` | The member is not an owner or admin. |
+  | `422 Unprocessable Entity` | A required field is missing or a value is invalid. |
+  | `500 Internal Server Error` | The insert failed, including a duplicate drug identity. |

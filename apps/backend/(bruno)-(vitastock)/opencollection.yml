@@ -1,0 +1,108 @@
+opencollection: 1.0.0
+
+info:
+  name: (bruno)-(vitastock)
+
+docs:
+  content: |-
+    # VitaStock API Documentation
+
+    VitaStock is a pharmacy inventory, pricing, and owner-analytics platform.
+
+    ## Base URL
+
+    All requests use `{{baseURL}}` from the selected environment (`{{baseHost}}/api/v1`). The health check uses `{{baseHost}}` directly.
+
+    ## Authentication
+
+    VitaStock uses cookie-based authentication with access and refresh tokens.
+
+    - **Access Token**: Short-lived JWT stored in the `vitastockAccessToken` cookie.
+    - **Refresh Token**: Long-lived JWT stored in the `vitastockRefreshToken` cookie, used to issue new access tokens.
+
+    Sign in first; Bruno keeps the cookies for every later request in the collection.
+
+    ### Authentication Flow
+
+    1. **Signup**: Create an owner account and workspace. A verification email is sent.
+    2. **Verify Email**: Submit the code from the verification email.
+    3. **Signin**: Authenticate with email and password. Tokens are set as cookies.
+    4. **Session**: Read the current user, membership, and workspace.
+    5. **Password Management**: Forgot, reset, and change password.
+    6. **Invitations**: Owners and admins invite admins and pharmacists.
+
+    *Owners sign up directly. Admins and pharmacists join through workspace invitations.*
+
+    ## Roles
+
+    Every workspace-scoped request derives the workspace from the session. Clients never send a workspace ID.
+
+    | Capability | Owner | Admin | Pharmacist |
+    |------------|-------|-------|------------|
+    | Dispense to patients, undo own dispense (2 minutes) | Yes | Yes | Yes |
+    | View stock, prices, activity, alerts | Yes | Yes | Yes |
+    | Stock in, opening stock, damaged/expired removal | Yes | Yes | No |
+    | Create/edit drugs, set prices, correct batches | Yes | Yes | No |
+    | Bulk import and import history | Yes | Yes | No |
+    | Remove a bulk import | Yes | No | No |
+    | Analytics, alert and weekly-email settings | Yes | Yes | No |
+
+    Refused requests return `403 Forbidden` with `appCode: "INSUFFICIENT_PERMISSIONS"`.
+
+    ## Prices
+
+    - Prices are naira per one of the drug's counting unit, sent as numbers with at most 2 decimal places, and always above zero.
+    - Cost price belongs to each batch (delivery). Retail and wholesale selling prices belong to the drug.
+    - Batches with a different cost are separate batches; costs are never averaged.
+    - Every sale snapshots the selling price and the batch cost on its stock log rows, so later price edits never change past profit.
+    - Prices are optional. A missing price is returned as `null`, never `0`.
+
+    ## Idempotency
+
+    Every stock-changing write (`stock-log`, `stock-log/dispense`, `bulk-import`) requires an `x-idempotency-key` UUID header. Generate a new UUID for each distinct operation and reuse it only to retry the exact same request. Reusing a key with a different payload returns `409 Conflict`.
+
+    ## Undo
+
+    A dispense can be undone by the person who recorded it within 2 minutes. Undone movements stay in the activity history, marked with who undid them, and are excluded from every total and from analytics.
+
+    ## Security Features
+
+    - **Rate Limiting**: Authentication and user routes are rate-limited.
+    - **Retry Protection**: Repeated failed sign-ins temporarily block authentication; repeated invalid password-reset attempts can suspend workspace access.
+    - **Token Rotation**: Refresh tokens rotate on every use.
+    - **Input Validation**: Requests are validated with shared Zod schemas on both frontend and backend.
+
+    ## Error Handling
+
+    ```json
+    {
+      "status": "error",
+      "message": "Human-readable error message",
+      "errors": {
+        "field": ["specific error detail"]
+      }
+    }
+    ```
+
+    ### Common Status Codes
+
+    - `200 OK`: Request successful.
+    - `400 Bad Request`: The request is valid but cannot be applied (for example, an inactive drug).
+    - `401 Unauthorized`: Authentication is missing or invalid, or membership is suspended.
+    - `403 Forbidden`: The member's role cannot perform this action.
+    - `404 Not Found`: The resource does not exist in the authenticated workspace.
+    - `409 Conflict`: State conflict, such as insufficient stock, an expired undo window, or a reused idempotency key.
+    - `422 Unprocessable Entity`: Header, query, or body validation failed.
+    - `429 Too Many Requests`: Rate limit exceeded.
+    - `500 Internal Server Error`: Unexpected server error.
+
+    ## Core Modules
+
+    - **Auth**: Signup, email verification, signin, session, and password management.
+    - **Workspace**: Members, invitations, roles, suspension, alert thresholds, and the weekly owner email.
+    - **Inventory**: Drug Master, prices, batches, stock movements, dispensing and undo, bulk import and removal, activity and CSV export, summaries, and alerts.
+    - **Dashboard**: Inventory overview and Owner/Admin analytics.
+    - **Health Check**: Server status.
+  type: text/markdown
+bundled: false
+extensions: {}

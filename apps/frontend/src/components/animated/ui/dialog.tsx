@@ -43,7 +43,8 @@ function DialogContent(
 			<DialogOverlay className={classNames?.overlay} />
 			<DialogPrimitive.Content
 				className={cnMerge(
-					`fixed top-1/2 left-1/2 z-50 grid w-full max-w-lg -translate-1/2 gap-4 rounded-lg border
+					`fixed top-1/2 left-1/2 z-50 grid max-h-[calc(100svh-32px)] w-[calc(100%-32px)] max-w-lg
+					-translate-1/2 gap-4 overflow-y-auto overscroll-contain rounded-lg border
 					bg-shadcn-background p-6 shadow-lg`,
 					className,
 					classNames?.base

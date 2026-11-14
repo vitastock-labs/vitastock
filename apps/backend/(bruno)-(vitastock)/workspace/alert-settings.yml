@@ -1,0 +1,78 @@
+info:
+  name: update-alert-settings
+  type: http
+  seq: 2
+
+http:
+  method: PATCH
+  url: "{{baseURL}}/workspace/alert-settings"
+  body:
+    type: json
+    data: |-
+      {
+        "lowStockThreshold": 10,
+        "nearExpiryDays": 30,
+        "weeklyEmailEnabled": true,
+        "weeklyEmailTime": "21:00"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+docs: |-
+  # Update Alert Settings
+
+  Updates the workspace's inventory alert thresholds and the weekly owner email.
+
+  ## Authorization
+
+  Requires an authenticated `owner` or `admin`. Pharmacists receive `403 Forbidden`.
+
+  ## Request Body
+
+  | Field | Type | Required | Rules / Description |
+  |-------|------|----------|---------------------|
+  | `lowStockThreshold` | integer | Yes | Default threshold for drugs without their own. Must be `0` or more. |
+  | `nearExpiryDays` | integer | Yes | Batches expiring within this many days are flagged. Must be above `0`. |
+  | `weeklyEmailEnabled` | boolean | Yes | Turns the weekly owner email on or off. |
+  | `weeklyEmailTime` | string | Yes | `HH:mm`, 24-hour, in the workspace timezone. |
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Alert settings updated successfully",
+    "data": null
+  }
+  ```
+
+  ## Weekly Owner Email
+
+  - Sent once a week on Sunday, on the first hourly run at or after `weeklyEmailTime` in the workspace timezone. It covers Monday to Sunday.
+  - Recipients are every Owner and Admin whose membership is not suspended, at their sign-in email address.
+  - Contents: the week's sales, profit and number of sales against the previous week; how customers paid; top 5 and slow sellers; drugs running low; batches expiring in the next 30 days; and the week's damaged/expired removals and undone dispenses.
+  - A week with no sales still sends, stating that no sales were recorded.
+  - Each workspace is claimed for the week atomically, so a week is sent once even with overlapping runs; a failed send is retried on the next hourly run.
+
+  ## Side Effects
+
+  - The cached workspace session record is invalidated immediately; `GET /auth/session` returns the new values.
+  - Inventory alerts are re-evaluated with the new thresholds, which may raise or resolve alerts immediately.
+  - In-app alerts are not emailed individually; the weekly email is the only inventory email.
+
+  ## Errors
+
+  | Status | Description |
+  |--------|-------------|
+  | `401 Unauthorized` | Authentication is invalid or membership is suspended. |
+  | `403 Forbidden` | The member is not an owner or admin. |
+  | `422 Unprocessable Entity` | A threshold or the send time is invalid. |
+  | `500 Internal Server Error` | Saving the settings or re-evaluating alerts failed unexpectedly. |

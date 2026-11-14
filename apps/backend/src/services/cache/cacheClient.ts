@@ -43,5 +43,12 @@ export const initializeRedisCacheClient = async () => {
 		appLogger.pretty.info("[Redis Cache Client] .connect() called successfully.");
 	} catch (error) {
 		appLogger.pretty.error("[Redis Cache Client] Failed to connect during initialization", error);
+		throw error;
 	}
+};
+
+export const closeRedisCacheClient = async () => {
+	if (!redisCacheClient.isOpen) return;
+
+	await redisCacheClient.close();
 };

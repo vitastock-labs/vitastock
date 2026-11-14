@@ -58,8 +58,16 @@ const routes = createRoutesFromElements(
 					Component={lazy(() => import("./pages/(protected)/dashboard/inventory/page"))}
 				/>
 				<Route
+					path="/dashboard/prices"
+					Component={lazy(() => import("./pages/(protected)/dashboard/prices/page"))}
+				/>
+				<Route
 					path="/dashboard/reports"
 					Component={lazy(() => import("./pages/(protected)/dashboard/reports/page"))}
+				/>
+				<Route
+					path="/dashboard/analytics"
+					Component={lazy(() => import("./pages/(protected)/dashboard/analytics/page"))}
 				/>
 				<Route
 					path="/dashboard/alerts"

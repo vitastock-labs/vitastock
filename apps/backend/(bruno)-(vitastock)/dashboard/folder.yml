@@ -1,0 +1,17 @@
+info:
+  name: dashboard
+  type: folder
+  seq: 4
+
+request:
+  auth: inherit
+
+docs:
+  content: |-
+    # Dashboard
+
+    Workspace-scoped dashboard read models.
+
+    - `overview`: inventory counts and recent activity, for every active member.
+    - `analytics`: sales, profit, and stock insight for a period, for owners and admins only.
+  type: text/markdown

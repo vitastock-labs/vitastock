@@ -1,0 +1,55 @@
+info:
+  name: signout-all
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: "{{baseURL}}/auth/signout/all"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+docs: |-
+  # Sign Out From All Devices
+
+  Logs out the user from all active sessions by clearing all refresh tokens and authentication cookies.
+
+  ## Authentication
+
+  Requires valid `vitastockAccessToken` and `vitastockRefreshToken` cookies.
+
+  ## Success Response (200 OK)
+
+  ```json
+  {
+    "status": "success",
+    "message": "Signed out from all devices successfully",
+    "data": null
+  }
+  ```
+
+  ## Error Response (401 Unauthorized)
+
+  If no valid session exists:
+
+  ```json
+  {
+    "status": "error",
+    "message": "Unauthorized"
+  }
+  ```
+
+  ## Notes
+
+  - Clears `vitastockAccessToken` cookie on current device
+  - Clears `vitastockRefreshToken` cookie on current device
+  - Removes ALL refresh tokens from user's token array
+  - Invalidates all active sessions across all devices
+  - User must sign in again on any device to continue using the application
+  - Cache entry for user is cleared

@@ -1,42 +1,57 @@
 import { pickKeys } from "@zayne-labs/toolkit-core";
 import type { ErrorHandler } from "hono";
-import type { HTTPException } from "hono/http-exception";
+import { HTTPException } from "hono/http-exception";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { errorCodes } from "@/constants";
 import { appLogger } from "@/lib/logger";
 import type { HonoAppBindings } from "@/lib/types/common";
-import { AppError } from "@/lib/utils";
+import { AppError, getClientIp } from "@/lib/utils";
 import { transformError } from "./transformError";
 
 const errorHandler: ErrorHandler<HonoAppBindings> = (error: AppError | Error | HTTPException, ctx) => {
+	if (error instanceof HTTPException) {
+		return error.getResponse();
+	}
+
 	const modifiedError = transformError(error);
-	const { currentUser, currentWorkspace } = ctx.var as Partial<HonoAppBindings["Variables"]>;
+	const { currentUser, currentWorkspace, logger, requestId, requestStartedAt } = ctx.var as Partial<
+		HonoAppBindings["Variables"]
+	>;
 
 	/* eslint-disable perfectionist/sort-objects */
 	const errorInfo = {
 		status: "error",
 		message: modifiedError.message,
-		...(modifiedError.appCode && { appCode: modifiedError.appCode }),
-		...(Boolean(modifiedError.errors) && { errors: modifiedError.errors }),
+		...(modifiedError.appCode && pickKeys(modifiedError, ["appCode"])),
+		...(modifiedError.errors != null && pickKeys(modifiedError, ["errors"])),
 	};
 
 	const errorLogInfo = {
 		...errorInfo,
+		clientIp: getClientIp(ctx),
+		...(requestStartedAt !== undefined && {
+			durationMs: Math.round((performance.now() - requestStartedAt) * 100) / 100,
+		}),
 		method: ctx.req.method,
+		origin: ctx.req.header("origin"),
 		path: ctx.req.path,
-		requestId: ctx.get("requestId"),
+		referer: ctx.req.header("referer"),
+		requestId,
+		userEmail: currentUser?.email,
 		userId: currentUser?.id,
-		...(Boolean(modifiedError.realReason) && pickKeys(modifiedError, ["realReason"])),
-		...(Boolean(modifiedError.cause) && pickKeys(modifiedError, ["cause"])),
+		userName: currentUser?.fullName,
+		userRole: currentUser?.role,
+		...(modifiedError.realReason && pickKeys(modifiedError, ["realReason"])),
+		...(modifiedError.cause != null && pickKeys(modifiedError, ["cause"])),
 		statusCode: modifiedError.statusCode,
+		userAgent: ctx.req.header("user-agent"),
 		workspaceId: currentWorkspace?.id,
+		workspaceName: currentWorkspace?.name,
 	};
 
-	const logger = ctx.get("logger");
+	appLogger.pretty.error(`${error.name}: ${errorLogInfo.message}\n`, error, errorLogInfo);
 
-	appLogger.pretty.error(`${error.name}: ${errorLogInfo.message}\n`, errorLogInfo);
-
-	logger.error({ err: modifiedError, ...errorLogInfo }, modifiedError.message);
+	(logger ?? appLogger.structured).error({ err: modifiedError, ...errorLogInfo }, modifiedError.message);
 
 	/* eslint-enable perfectionist/sort-objects */
 	const ERROR_LOOKUP = new Map<ContentfulStatusCode, () => unknown>([
@@ -53,6 +68,8 @@ const errorHandler: ErrorHandler<HonoAppBindings> = (error: AppError | Error | H
 		[errorCodes.REQUEST_TIMEOUT, () => ctx.json(errorInfo, 408)],
 
 		[errorCodes.SERVER_ERROR, () => ctx.json(errorInfo, 500)],
+
+		[errorCodes.TOO_MANY_REQUESTS, () => ctx.json(errorInfo, 429)],
 
 		[errorCodes.UNAUTHORIZED, () => ctx.json(errorInfo, 401)],
 
