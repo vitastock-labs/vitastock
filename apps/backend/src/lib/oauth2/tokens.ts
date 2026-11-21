@@ -1,15 +1,13 @@
 import { z } from "zod";
 
-export const OAuth2TokenDataSchema = z
-	.object({
-		access_token: z.string().min(1),
-		expires_in: z.number().nonnegative().optional(),
-		id_token: z.string().min(1).optional(),
-		refresh_token: z.string().min(1).optional(),
-		scope: z.string().optional(),
-		token_type: z.string().min(1),
-	})
-	.loose();
+export const OAuth2TokenDataSchema = z.looseObject({
+	access_token: z.string().min(1),
+	expires_in: z.number().nonnegative().optional(),
+	id_token: z.string().min(1).optional(),
+	refresh_token: z.string().min(1).optional(),
+	scope: z.string().optional(),
+	token_type: z.string().min(1),
+});
 
 export type OAuth2TokenData = z.output<typeof OAuth2TokenDataSchema>;
 
@@ -28,6 +26,7 @@ const decodeBase64Url = (value: string) => {
 		.replaceAll("-", "+")
 		.replaceAll("_", "/")
 		.padEnd(Math.ceil(value.length / 4) * 4, "=");
+
 	const bytes = Uint8Array.from(atob(base64), (character) => character.codePointAt(0) ?? 0);
 
 	return new TextDecoder().decode(bytes);
@@ -52,7 +51,9 @@ export const decodeUnverifiedIdTokenPayload = <TSchema extends z.ZodType>(
 
 export const createOAuth2Tokens = (data: OAuth2TokenData) => {
 	const accessToken = () => data.access_token;
+
 	const tokenType = () => data.token_type;
+
 	const expiresInSeconds = () => {
 		const value = data.expires_in;
 
@@ -62,6 +63,7 @@ export const createOAuth2Tokens = (data: OAuth2TokenData) => {
 
 		return value;
 	};
+
 	const scopes = () => data.scope?.split(" ").filter(Boolean) ?? [];
 
 	return {

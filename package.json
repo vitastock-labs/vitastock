@@ -3,14 +3,14 @@
 	"type": "module",
 	"version": "0.0.0",
 	"private": true,
-	"packageManager": "pnpm@12.18.0",
+	"packageManager": "pnpm@12.22.0",
 	"engines": {
 		"node": "24.x.x"
 	},
 	"devEngines": {
 		"packageManager": {
 			"name": "pnpm",
-			"version": "12.18.0"
+			"version": "12.22.0"
 		}
 	},
 	"scripts": {
@@ -39,27 +39,27 @@
 		"doctor": "npx react-doctor@latest"
 	},
 	"devDependencies": {
-		"@eslint-react/eslint-plugin": "5.30.2",
-		"@tanstack/eslint-plugin-query": "5.107.1",
+		"@eslint-react/eslint-plugin": "5.30.5",
+		"@tanstack/eslint-plugin-query": "5.108.2",
 		"@types/node": "26.6.6",
 		"@zayne-labs/eslint-config": "0.14.0",
 		"@zayne-labs/knip-config": "0.14.0",
 		"@zayne-labs/prettier-config": "0.14.0",
 		"@zayne-labs/tsconfig": "0.14.0",
-		"eslint": "10.14.0",
+		"eslint": "10.15.0",
 		"eslint-plugin-better-tailwindcss": "4.11.0",
 		"eslint-plugin-react-hooks": "7.1.1",
-		"eslint-plugin-react-refresh": "0.5.7",
+		"eslint-plugin-react-refresh": "0.5.8",
 		"eslint-plugin-react-you-might-not-need-an-effect": "1.2.0",
 		"husky": "9.1.7",
-		"knip": "6.45.1",
-		"lint-staged": "17.6.0",
+		"knip": "6.47.0",
+		"lint-staged": "17.6.1",
 		"prettier": "3.10.1",
 		"prettier-plugin-classnames": "0.10.5",
 		"prettier-plugin-merge": "0.10.2",
 		"prettier-plugin-tailwindcss": "0.8.1",
 		"tailwindcss": "4.3.5",
-		"turbo": "2.11.11",
+		"turbo": "2.11.13",
 		"typescript": "6.0.3"
 	}
 }

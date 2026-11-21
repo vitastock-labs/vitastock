@@ -124,7 +124,11 @@ const createOAuth2ProviderClient = (options: {
 		});
 	};
 
-	return { ...options.client, createAuthorizationRequest, exchangeAuthorizationCode };
+	return {
+		...options.client,
+		createAuthorizationRequest,
+		exchangeAuthorizationCode,
+	};
 };
 
 const createProvider = (definition: OAuth2ProviderDefinition, options: OAuth2ProviderOptions) => {
@@ -144,7 +148,10 @@ const createProvider = (definition: OAuth2ProviderDefinition, options: OAuth2Pro
 		tokenEndpoint: definition.tokenEndpoint,
 	});
 
-	return createOAuth2ProviderClient({ client, pkce: definition.pkce });
+	return createOAuth2ProviderClient({
+		client,
+		pkce: definition.pkce,
+	});
 };
 
 const createProviderFactory = <TDefinition extends OAuth2ProviderDefinition>(definition: TDefinition) => {
@@ -228,7 +235,10 @@ const createDomainProvider = (
 	>
 ) => {
 	return createDynamicProvider(
-		{ ...options, baseUrl: parseDomainBaseUrl(options.domain).href },
+		{
+			...options,
+			baseUrl: parseDomainBaseUrl(options.domain).href,
+		},
 		paths,
 		definition
 	);

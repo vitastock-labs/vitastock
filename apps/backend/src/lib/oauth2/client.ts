@@ -1,6 +1,11 @@
 import { createFetchClient, type BaseCallApiExtraOptions } from "@zayne-labs/callapi";
-import { fallBackRouteSchemaKey } from "@zayne-labs/callapi/constants";
-import { defineSchema, toSearchParams } from "@zayne-labs/callapi/utils";
+import {
+	defineFallbackRouteSchema,
+	defineSchema,
+	toQueryString,
+	toSearchParams,
+} from "@zayne-labs/callapi/utils";
+import { invokeFn } from "@zayne-labs/toolkit-core";
 import type { Awaitable } from "@zayne-labs/toolkit-type-helpers";
 import { z } from "zod";
 import { OAuth2RequestError, OAuth2ResponseError, OAuth2TransportError } from "./errors";
@@ -19,6 +24,7 @@ export type OAuth2CallApiConfig = Omit<
 	| "schema"
 	| "throwOnError"
 >;
+
 type OAuth2RequestBody = Record<string, string>;
 export type OAuth2ExtensionParameters = Record<string, string>;
 
@@ -117,7 +123,7 @@ const reservedRefreshParameters = new Set([
 const reservedRevocationParameters = new Set([...reservedClientParameters, "token"]);
 
 const encodeFormComponent = (value: string) => {
-	return new URLSearchParams({ value }).toString().slice("value=".length);
+	return toQueryString({ value }).slice("value=".length);
 };
 
 const encodeBase64Url = (bytes: Uint8Array) => {
@@ -210,34 +216,35 @@ export const createOAuth2Client = (options: OAuth2ClientOptions) => {
 		return resolvedClientSecret;
 	};
 
-	const getBaseAuth = () => {
-		if (clientAuthentication !== "client_secret_basic") return;
-		if (!clientSecret) {
-			throw new TypeError("Generated client secrets require client_secret_post authentication");
-		}
-
-		return {
-			password: () => encodeFormComponent(clientSecret),
-			type: "Basic" as const,
-			username: () => encodeFormComponent(options.clientId),
-		};
-	};
+	const apiSchema = defineSchema({
+		...defineFallbackRouteSchema({
+			body: OAuth2RequestBodySchema,
+		}),
+	});
 
 	const callOAuth2Api = createFetchClient({
 		...options.callApiConfig,
-		auth: getBaseAuth(),
-		bodyTransformer: ({ body }) => toSearchParams(body as OAuth2RequestBody),
-		dedupeStrategy: "none",
-		schema: defineSchema({
-			[fallBackRouteSchemaKey]: {
-				body: OAuth2RequestBodySchema,
-				errorData: z.unknown(),
-			},
+		auth: invokeFn(() => {
+			if (clientAuthentication !== "client_secret_basic") return;
+
+			if (!clientSecret) {
+				throw new TypeError("Generated client secrets require client_secret_post authentication");
+			}
+
+			return {
+				password: () => encodeFormComponent(clientSecret),
+				type: "Basic",
+				username: () => encodeFormComponent(options.clientId),
+			};
 		}),
+		bodyTransformer: ({ body }) => toSearchParams(body),
+		dedupeStrategy: "none",
+		schema: apiSchema,
 	});
 
 	const createAuthorizationUrl = async (authorizationOptions: CreateAuthorizationUrlOptions) => {
 		const { codeVerifier, parameters = {}, scopes = [], state } = authorizationOptions;
+
 		const url = new URL(options.authorizationEndpoint);
 		const authorizationProfile = providerProfile.authorization ?? {};
 		const fixedParameters = authorizationProfile.parameters ?? {};
@@ -320,7 +327,10 @@ export const createOAuth2Client = (options: OAuth2ClientOptions) => {
 			headers: providerProfile.requestHeaders,
 			method: "POST",
 			responseType,
-			schema: ({ currentRouteSchema }) => ({ ...currentRouteSchema, data: dataSchema }),
+			schema: ({ currentRouteSchema }) => ({
+				...currentRouteSchema,
+				data: dataSchema,
+			}),
 		});
 
 		if (!result.error) {
@@ -364,9 +374,13 @@ export const createOAuth2Client = (options: OAuth2ClientOptions) => {
 		}
 
 		const providerParameters = providerProfile.exchange?.parameters ?? {};
+
 		return requestTokens(
 			addExtensionParameters(
-				{ ...body, ...providerParameters },
+				{
+					...body,
+					...providerParameters,
+				},
 				exchangeOptions.parameters,
 				new Set([
 					...reservedExchangeParameters,
@@ -388,9 +402,13 @@ export const createOAuth2Client = (options: OAuth2ClientOptions) => {
 		}
 
 		const providerParameters = providerProfile.refresh?.parameters ?? {};
+
 		return requestTokens(
 			addExtensionParameters(
-				{ ...body, ...providerParameters },
+				{
+					...body,
+					...providerParameters,
+				},
 				refreshOptions.parameters,
 				new Set([
 					...reservedRefreshParameters,
@@ -408,8 +426,12 @@ export const createOAuth2Client = (options: OAuth2ClientOptions) => {
 		}
 
 		const providerParameters = providerProfile.revocation?.parameters ?? {};
+
 		const body = addExtensionParameters(
-			{ token, ...providerParameters },
+			{
+				token,
+				...providerParameters,
+			},
 			revokeOptions.parameters,
 			new Set([
 				...reservedRevocationParameters,
