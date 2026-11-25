@@ -3,6 +3,7 @@ import type { TemplateLookupType } from "./lookup";
 
 export type WithCommonFields<TObject extends Record<string, unknown>> = TObject & {
 	priority?: "high" | "low";
+	subject?: string;
 	to: {
 		email: string;
 		name: string;
@@ -17,6 +18,7 @@ type EmailJobOptionsBase = {
 }[keyof TemplateLookupType];
 
 type EmailJobHooks = {
+	jobId?: string;
 	onError?: () => Awaitable<void>;
 	onSuccess?: () => Awaitable<void>;
 };

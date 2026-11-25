@@ -12,7 +12,7 @@ function VerifyEmailSuccessPage() {
 				</span>
 
 				<div className="flex flex-col items-center gap-4 text-center">
-					<h1 className="text-[30px] font-extrabold text-black">Email Verified</h1>
+					<h1 className="text-[26px] font-extrabold text-black md:text-[30px]">Email Verified</h1>
 					<p className="text-base">Your account is ready. Sign in to access your dashboard.</p>
 				</div>
 

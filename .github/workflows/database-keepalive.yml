@@ -1,0 +1,38 @@
+name: Database Keepalive
+
+on:
+   schedule:
+      - cron: "17 9 * * 1,4"
+        timezone: Africa/Lagos
+   workflow_dispatch:
+
+permissions:
+   contents: read
+
+jobs:
+   keep-database-alive:
+      runs-on: ubuntu-latest
+      steps:
+         - name: Checkout code
+           uses: actions/checkout@v6
+
+         - name: Setup pnpm
+           uses: pnpm/action-setup@v5
+           with:
+              version: 12.22.0
+
+         - name: Setup Node.js
+           uses: actions/setup-node@v6
+           with:
+              node-version: lts/*
+              cache: pnpm
+
+         - name: Install dependencies
+           run: pnpm install --frozen-lockfile
+
+         - name: Keep Supabase databases alive
+           working-directory: apps/backend
+           env:
+              DATABASE_URL: ${{ secrets.DATABASE_URL }}
+              DATABASE_URL_STAGING: ${{ secrets.DATABASE_URL_STAGING }}
+           run: pnpm maintenance:keepalive:db

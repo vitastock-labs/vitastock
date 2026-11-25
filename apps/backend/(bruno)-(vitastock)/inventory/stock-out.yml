@@ -1,0 +1,98 @@
+info:
+  name: stock-out
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: "{{baseURL}}/inventory/stock-log"
+  headers:
+    - name: x-idempotency-key
+      value: "{{stockOutIdempotencyKey}}"
+  body:
+    type: json
+    data: |-
+      {
+        "drugId": "{{drugId}}",
+        "batchId": "{{batchId}}",
+        "logType": "stock_out",
+        "quantity": "2",
+        "reason": "damaged",
+        "notes": "Bottle broke on the shelf"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+docs: |-
+  # Record Stock Out
+
+  Removes stock for one drug: a single patient dispense, or a damaged/expired removal from a chosen batch. For selling, prefer `POST /inventory/stock-log/dispense`, which records sale type, payment, and prices and supports undo.
+
+  ## Authorization
+
+  | Reason | Allowed roles |
+  |--------|---------------|
+  | `patient` | Owner, Admin, Pharmacist |
+  | `damaged`, `expired` | Owner, Admin |
+
+  Pharmacists removing damaged or expired stock receive `403 Forbidden`.
+
+  ## Required Header
+
+  | Header | Type | Required | Description |
+  |--------|------|----------|-------------|
+  | `x-idempotency-key` | UUID | Yes | Stable identifier for this stock movement. |
+
+  ## Request Body
+
+  | Field | Type | Required | Rules / Description |
+  |-------|------|----------|---------------------|
+  | `drugId` | UUID | Yes | Active drug in the authenticated workspace. |
+  | `logType` | string | Yes | Must be `stock_out`. |
+  | `quantity` | numeric string | Yes | Greater than `0`. |
+  | `reason` | string | Yes | `patient` (automatic FEFO), `damaged`, or `expired` (chosen batch). |
+  | `batchId` | UUID | Conditional | Required for `damaged`/`expired`; must be omitted for `patient`. |
+  | `patientName` | string | No | `patient` only. |
+  | `notes` | string | No | Context for the movement. |
+
+  ## FEFO Behavior (`patient`)
+
+  1. Only non-expired batches of the drug with stock are eligible.
+  2. Batches are taken in expiry order, then creation time, then ID.
+  3. The quantity may be split across batches; all deductions commit in one transaction.
+  4. Each batch line saves the drug's retail selling price and that batch's cost price at the moment of sale.
+
+  Damaged and expired removals use one physical batch, chosen from `GET /inventory/drugs/:drugId/batches`. They are losses, never sales.
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Stock movement recorded successfully",
+    "data": null
+  }
+  ```
+
+  ## Errors
+
+  | Status | Description |
+  |--------|-------------|
+  | `400 Bad Request` | The drug is inactive. |
+  | `401 Unauthorized` | Authentication is invalid or workspace access is suspended. |
+  | `403 Forbidden` | A pharmacist attempted a damaged or expired removal. |
+  | `404 Not Found` | The drug or chosen batch does not exist in the authenticated workspace. |
+  | `409 Conflict` | The quantity exceeds the eligible stock (the message includes what is available), or the idempotency key was reused for a different request. |
+  | `422 Unprocessable Entity` | Validation failed, for example `batchId` sent with `patient` or missing for `damaged`. |
+
+  ## Idempotency
+
+  Generate a new UUID for each movement. Retrying the exact request is safe.

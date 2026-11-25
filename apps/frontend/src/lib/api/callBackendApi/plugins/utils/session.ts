@@ -6,12 +6,12 @@ export const sessionDedupeOptions = defineInstanceConfig({
 	dedupeStrategy: "defer",
 });
 
-export const checkUserSessionForQuery = (options?: Pick<GlobalMeta, "auth">) => {
-	const { auth } = options ?? {};
+export const checkUserSessionForQuery = (options?: Pick<GlobalMeta, "auth" | "toast">) => {
+	const { auth, toast } = options ?? {};
 
 	return callBackendApiForQuery("@get/auth/session", {
 		...sessionDedupeOptions,
-		meta: { auth, toast: { success: false } },
+		meta: { auth, toast: { success: false, ...toast } },
 	});
 };
 

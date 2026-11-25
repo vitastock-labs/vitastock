@@ -38,18 +38,23 @@ export type SelectUserType = typeof users.$inferSelect;
 
 export type SessionMembershipType = Pick<
 	SelectWorkspaceMembershipType,
-	"id" | "role" | "status" | "suspendedAt" | "workspaceId"
+	"id" | "role" | "suspendedAt" | "workspaceId"
 >;
 
 export type SessionWorkspaceType = Pick<
 	SelectWorkspaceType,
-	"alertEmail" | "id" | "lowStockThreshold" | "name" | "nearExpiryDays" | "timezone"
+	| "id"
+	| "lowStockThreshold"
+	| "name"
+	| "nearExpiryDays"
+	| "timezone"
+	| "weeklyEmailEnabled"
+	| "weeklyEmailTime"
 >;
 
 export type SessionUserType = SelectUserType & {
 	membershipId: SessionMembershipType["id"];
 	role: SessionMembershipType["role"];
-	status: SessionMembershipType["status"];
 	suspendedAt: SessionMembershipType["suspendedAt"];
 	workspaceId: SessionMembershipType["workspaceId"];
 };

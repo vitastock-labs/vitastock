@@ -3,7 +3,7 @@ import * as cookieHelpers from "hono/cookie";
 import type { CookieOptions } from "hono/utils/cookie";
 import { ENVIRONMENT } from "@/config/env";
 
-type VitaStockCookieNames = "vitaStockAccessToken" | "vitaStockRefreshToken";
+type VitaStockCookieNames = "vitastockAccessToken" | "vitastockRefreshToken";
 
 type GoogleCookieNames = "google_code_verifier" | "google_oauth_state";
 
@@ -12,13 +12,13 @@ type PossibleCookieNames = GoogleCookieNames | VitaStockCookieNames;
 export const getCookie = (ctx: Context, name: PossibleCookieNames) => cookieHelpers.getCookie(ctx, name);
 
 const getBaseCookieOptions = () => {
-	const isProduction = ENVIRONMENT.NODE_ENV === "production";
+	const isDeployedEnvironment = ENVIRONMENT.NODE_ENV !== "development";
 
 	return {
 		httpOnly: true,
-		partitioned: isProduction,
-		sameSite: isProduction ? "none" : "lax",
-		secure: isProduction,
+		partitioned: isDeployedEnvironment,
+		sameSite: isDeployedEnvironment ? "none" : "lax",
+		secure: isDeployedEnvironment,
 	} satisfies CookieOptions;
 };
 

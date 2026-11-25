@@ -1,0 +1,19 @@
+info:
+  name: folder
+  type: folder
+  seq: 1
+
+request:
+  auth: inherit
+
+docs:
+  content: |-
+    # Workspace Invitations
+
+    Endpoints for managing workspace user invitations.
+
+    - **Send Invitation**: Owners can invite admins or pharmacists; admins can invite pharmacists.
+    - **Resend Invitation**: Rotate an active invitation's credentials and send it again.
+    - **Cancel Invitation**: Permanently cancel an unaccepted invitation.
+    - **Accept Invitation**: Create the invited member account and membership. The member then signs in with the default password and must change it before workspace access.
+  type: text/markdown

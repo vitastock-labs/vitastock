@@ -55,6 +55,11 @@ export const TEMPLATE_LOOKUP = defineEnumDeep(
 			subject: "Verify your email address",
 			template: getTemplateFn(import("../emails/VerifyEmail")),
 		},
+		weeklyOwnerReport: {
+			from,
+			subject: "Your VitaStock week in review",
+			template: getTemplateFn(import("../emails/WeeklyOwnerReportEmail")),
+		},
 		welcomeEmail: {
 			from,
 			subject: "Welcome to Vitastock",

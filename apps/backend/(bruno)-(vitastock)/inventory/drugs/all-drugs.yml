@@ -1,0 +1,68 @@
+info:
+  name: all-drugs
+  type: http
+  seq: 5
+
+http:
+  method: GET
+  url: "{{baseURL}}/inventory/drugs"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+docs: |-
+  # All Active Drugs
+
+  Returns every active drug in the workspace, unpaginated, for selection controls such as the dispense cart.
+
+  ## Authorization
+
+  Requires an authenticated user with an active workspace membership.
+
+  ## Request
+
+  Send no query parameters. Adding any query parameter switches to the paginated Drug Master listing (see `list-drugs`).
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Drugs fetched successfully",
+    "data": {
+      "drugs": [
+        {
+          "id": "drug-uuid",
+          "name": "Amoxil",
+          "genericName": "Amoxicillin",
+          "strength": "500mg",
+          "form": "Capsule",
+          "unit": "Pack",
+          "isActive": true,
+          "lowStockThreshold": null,
+          "retailPrice": 500,
+          "wholesalePrice": 400
+        }
+      ]
+    }
+  }
+  ```
+
+  ## Notes
+
+  - Only active drugs are returned, ordered by brand name. `pagination` is omitted.
+  - `retailPrice` and `wholesalePrice` are naira per counting unit, or `null` when not set.
+
+  ## Errors
+
+  | Status | Description |
+  |--------|-------------|
+  | `401 Unauthorized` | Authentication is invalid or workspace access is suspended. |
+  | `500 Internal Server Error` | Drug retrieval failed unexpectedly. |

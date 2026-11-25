@@ -6,6 +6,15 @@ export const secureHeadersOptions = {
 		defaultSrc: ["'self'"],
 		frameAncestors: ["'none'"],
 		imgSrc: ["'self'", "https://res.cloudinary.com", "data:"],
-		upgradeInsecureRequests: ["'self'"],
+		upgradeInsecureRequests: [],
+	},
+} satisfies Parameters<typeof secureHeaders>[0];
+
+export const bullBoardSecureHeadersOptions = {
+	...secureHeadersOptions,
+	contentSecurityPolicy: {
+		...secureHeadersOptions.contentSecurityPolicy,
+		fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+		styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
 	},
 } satisfies Parameters<typeof secureHeaders>[0];

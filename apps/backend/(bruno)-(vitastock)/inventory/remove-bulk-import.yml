@@ -1,0 +1,62 @@
+info:
+  name: remove-bulk-import
+  type: http
+  seq: 11
+
+http:
+  method: POST
+  url: "{{baseURL}}/inventory/bulk-imports/{{stockTransactionId}}/remove"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+docs: |-
+  # Remove a Bulk Import
+
+  Takes an import that went in wrong back off the shelf, as long as none of its stock has been used yet.
+
+  ## Authorization
+
+  Requires the workspace `owner`. Admins and pharmacists receive `403 Forbidden` with `Only the pharmacy owner can remove an import.`
+
+  ## Path Parameters
+
+  | Parameter | Type | Required | Description |
+  |-----------|------|----------|-------------|
+  | `stockTransactionId` | UUID | Yes | Import `id` from `GET /inventory/bulk-imports`. |
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Import removed. Its stock is no longer on the shelf.",
+    "data": null
+  }
+  ```
+
+  ## Behavior
+
+  - Allowed only while no later dispense, removal, or adjustment has touched the import's batches.
+  - The imported quantity is subtracted from each batch. Imports can add to existing batches, so a batch is deleted only when the import was its only stock.
+  - Drugs the import created are deleted when they have no other stock or history.
+  - The import's log rows are stamped like an undo, so they drop out of every total but stay in the activity history ("Import removed by …").
+  - Selling prices the import replaced are not restored.
+  - Inventory alerts are re-evaluated afterwards. The removal cannot be reversed.
+
+  ## Errors
+
+  | Status | Description |
+  |--------|-------------|
+  | `401 Unauthorized` | Authentication is invalid or workspace access is suspended. |
+  | `403 Forbidden` | The member is not the owner. |
+  | `404 Not Found` | The import does not exist in the authenticated workspace. |
+  | `409 Conflict` | The import was already removed, its batches no longer exist, or some of its stock has been used. The message says which. |
+  | `422 Unprocessable Entity` | The path UUID is invalid. |

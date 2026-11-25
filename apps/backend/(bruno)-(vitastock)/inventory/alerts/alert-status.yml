@@ -1,0 +1,55 @@
+info:
+  name: alert-status
+  type: http
+  seq: 2
+
+http:
+  method: GET
+  url: "{{baseURL}}/inventory/alerts/status"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+docs: |-
+  # Alert Status
+
+  Reports whether the workspace has any active inventory alert. The header bell uses it to show its badge.
+
+  ## Authorization
+
+  Requires an authenticated user with an active workspace membership.
+
+  ## Request
+
+  No path parameters, query parameters, or request body.
+
+  ## Success Response
+
+  **`200 OK`**
+
+  ```json
+  {
+    "status": "success",
+    "message": "Alert status fetched successfully",
+    "data": {
+      "hasActiveAlerts": true
+    }
+  }
+  ```
+
+  ## Notes
+
+  - Only alerts with `status = active` count. Resolved alerts never count.
+  - Use `GET /inventory/alerts` for the alerts themselves.
+
+  ## Errors
+
+  | Status | Description |
+  |--------|-------------|
+  | `401 Unauthorized` | Authentication is invalid or workspace access is suspended. |
+  | `500 Internal Server Error` | The status query failed unexpectedly. |
