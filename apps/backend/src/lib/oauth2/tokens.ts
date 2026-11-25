@@ -1,86 +1,69 @@
 import { z } from "zod";
 
+const stringWithNumberValidation = <TNumberSchema extends z.ZodType>(numberSchema: TNumberSchema) => {
+	return z.preprocess(
+		(value: number | string | undefined) =>
+			value === "" || value === undefined ? undefined : Number(value),
+		numberSchema
+	);
+};
+
+export const base64urlJsonValidation = <TSchema extends z.ZodType>(schema: TSchema) => {
+	return z.preprocess((value: string) => {
+		try {
+			return JSON.parse(new TextDecoder().decode(z.util.base64urlToUint8Array(value)));
+		} catch {
+			return value;
+		}
+	}, schema);
+};
+
 export const OAuth2TokenDataSchema = z.looseObject({
 	access_token: z.string().min(1),
-	expires_in: z.number().nonnegative().optional(),
+	expires_in: stringWithNumberValidation(z.number().nonnegative().optional()),
 	id_token: z.string().min(1).optional(),
 	refresh_token: z.string().min(1).optional(),
 	scope: z.string().optional(),
-	token_type: z.string().min(1),
+	token_type: z.string().min(1).optional(),
 });
 
 export type OAuth2TokenData = z.output<typeof OAuth2TokenDataSchema>;
-
-const requireString = (data: OAuth2TokenData, field: string) => {
-	const value = data[field];
-
-	if (typeof value !== "string") {
-		throw new TypeError(`Missing or invalid OAuth 2.0 token field: ${field}`);
-	}
-
-	return value;
-};
-
-const decodeBase64Url = (value: string) => {
-	const base64 = value
-		.replaceAll("-", "+")
-		.replaceAll("_", "/")
-		.padEnd(Math.ceil(value.length / 4) * 4, "=");
-
-	const bytes = Uint8Array.from(atob(base64), (character) => character.codePointAt(0) ?? 0);
-
-	return new TextDecoder().decode(bytes);
-};
 
 export const decodeUnverifiedIdTokenPayload = <TSchema extends z.ZodType>(
 	idToken: string,
 	schema: TSchema
 ) => {
-	const encodedPayload = idToken.split(".", 2)[1];
+	return z
+		.jwt()
+		.transform((token) => token.split(".", 3)[1] ?? "")
+		.pipe(base64urlJsonValidation(schema))
+		.parse(idToken);
+};
 
-	if (!encodedPayload) {
-		throw new TypeError("Invalid ID token");
-	}
-
-	try {
-		return schema.parse(JSON.parse(decodeBase64Url(encodedPayload)));
-	} catch (error) {
-		throw new TypeError("Invalid ID token payload", { cause: error });
-	}
+const getRequiredField = <TSchema extends z.ZodType>(schema: TSchema, value: unknown, field: string) => {
+	return schema.parse(value, { error: () => `Missing or invalid OAuth 2.0 token field: ${field}` });
 };
 
 export const createOAuth2Tokens = (data: OAuth2TokenData) => {
-	const accessToken = () => data.access_token;
+	const expiresInSeconds = () => getRequiredField(z.number(), data.expires_in, "expires_in");
 
-	const tokenType = () => data.token_type;
-
-	const expiresInSeconds = () => {
-		const value = data.expires_in;
-
-		if (value === undefined) {
-			throw new TypeError("Missing or invalid OAuth 2.0 token field: expires_in");
-		}
-
-		return value;
-	};
-
-	const scopes = () => data.scope?.split(" ").filter(Boolean) ?? [];
+	const idToken = () => getRequiredField(z.string(), data.id_token, "id_token");
 
 	return {
-		accessToken,
+		accessToken: () => data.access_token,
 		accessTokenExpiresAt: (now = Date.now()) => new Date(now + expiresInSeconds() * 1000),
 		accessTokenExpiresInSeconds: expiresInSeconds,
 		data,
 		decodeUnverifiedIdToken: <TSchema extends z.ZodType>(schema: TSchema) =>
-			decodeUnverifiedIdTokenPayload(requireString(data, "id_token"), schema),
+			decodeUnverifiedIdTokenPayload(idToken(), schema),
 		hasAccessTokenExpiry: () => data.expires_in !== undefined,
 		hasIdToken: () => data.id_token !== undefined,
 		hasRefreshToken: () => data.refresh_token !== undefined,
 		hasScopes: () => data.scope !== undefined,
-		idToken: () => requireString(data, "id_token"),
-		refreshToken: () => requireString(data, "refresh_token"),
-		scopes,
-		tokenType,
+		idToken,
+		refreshToken: () => getRequiredField(z.string(), data.refresh_token, "refresh_token"),
+		scopes: () => data.scope?.split(" ").filter(Boolean) ?? [],
+		tokenType: () => getRequiredField(z.string(), data.token_type, "token_type"),
 	};
 };
 

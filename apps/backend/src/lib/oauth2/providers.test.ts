@@ -1,5 +1,4 @@
-import { generateKeyPairSync } from "node:crypto";
-import { decode } from "jsonwebtoken";
+import { generateKeyPairSync, verify } from "node:crypto";
 import { expect, test, vi } from "vitest";
 import * as providerCatalog from "./providers";
 import {
@@ -191,7 +190,9 @@ test("OAuth2 providers - supports public Microsoft Entra clients", async () => {
 		codeVerifier: authorization.codeVerifier,
 	});
 	expect(getRequestBody(customFetchImpl).get("client_id")).toBe("microsoft-client");
-	expect(new Headers(customFetchImpl.mock.calls[0]?.[1]?.headers).get("Origin")).toBe("arctic");
+	expect(new Headers(customFetchImpl.mock.calls[0]?.[1]?.headers).get("Origin")).toBe(
+		"https://example.com"
+	);
 });
 
 test("OAuth2 providers - unwraps Withings token responses", async () => {
@@ -212,7 +213,7 @@ test("OAuth2 providers - unwraps Withings token responses", async () => {
 });
 
 test("OAuth2 providers - Apple - creates a short-lived ES256 client secret", async () => {
-	const { privateKey } = generateKeyPairSync("ec", { namedCurve: "P-256" });
+	const { privateKey, publicKey } = generateKeyPairSync("ec", { namedCurve: "P-256" });
 	const customFetchImpl = createJsonFetch({ access_token: "apple-token", token_type: "Bearer" });
 	const apple = createAppleOAuth2Client({
 		callApiConfig: { customFetchImpl },
@@ -224,13 +225,26 @@ test("OAuth2 providers - Apple - creates a short-lived ES256 client secret", asy
 	});
 
 	await apple.exchangeAuthorizationCode({ code: "code" });
-	const clientSecret = getRequestBody(customFetchImpl).get("client_secret");
-	const decoded = decode(clientSecret ?? "", { complete: true });
+	const [header = "", payload = "", signature = ""] = (
+		getRequestBody(customFetchImpl).get("client_secret") ?? ""
+	).split(".", 3);
+	const decodeSegment = (segment: string) =>
+		JSON.parse(Buffer.from(segment, "base64url").toString("utf8")) as Record<string, unknown>;
+	const claims = decodeSegment(payload);
 
-	expect(decoded?.header).toMatchObject({ alg: "ES256", kid: "APPLE_KEY_ID", typ: "JWT" });
-	expect(decoded?.payload).toMatchObject({
+	expect(decodeSegment(header)).toEqual({ alg: "ES256", kid: "APPLE_KEY_ID", typ: "JWT" });
+	expect(claims).toMatchObject({
 		aud: "https://appleid.apple.com",
 		iss: "APPLE_TEAM_ID",
 		sub: "com.example.web",
 	});
+	expect(Number(claims.exp) - Number(claims.iat)).toBe(300);
+	expect(
+		verify(
+			"sha256",
+			Buffer.from(`${header}.${payload}`),
+			{ dsaEncoding: "ieee-p1363", key: publicKey },
+			Buffer.from(signature, "base64url")
+		)
+	).toBe(true);
 });

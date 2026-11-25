@@ -1,4 +1,3 @@
-import { sign } from "jsonwebtoken";
 import { z } from "zod";
 import {
 	createOAuth2Client,
@@ -707,7 +706,11 @@ export const createMicrosoftEntraIdOAuth2Client = (options: MicrosoftEntraIdOAut
 		{
 			clientAuthentication: isPublicClient ? "none" : "client_secret_basic",
 			pkce: "required",
-			profile: isPublicClient ? { requestHeaders: { Origin: "arctic" } } : undefined,
+			// == Entra only redeems public-client codes for requests that carry an Origin
+			profile:
+				isPublicClient ?
+					{ requestHeaders: { Origin: new URL(options.redirectUri).origin } }
+				:	undefined,
 		}
 	);
 };
@@ -820,27 +823,59 @@ export const createWithingsOAuth2Client = (options: OAuth2ConfidentialProviderOp
 	);
 };
 
+const APPLE_CLIENT_SECRET_LIFETIME_SECONDS = 300;
+
+const encodeJwtSegment = (value: Record<string, unknown>) => {
+	return z.util.uint8ArrayToBase64url(new TextEncoder().encode(JSON.stringify(value)));
+};
+
+const importApplePrivateKey = (privateKey: string) => {
+	const derBase64 = privateKey.replaceAll(/-----(?:BEGIN|END) PRIVATE KEY-----|\s/gu, "");
+	return crypto.subtle.importKey(
+		"pkcs8",
+		z.util.base64ToUint8Array(derBase64),
+		{ name: "ECDSA", namedCurve: "P-256" },
+		false,
+		["sign"]
+	);
+};
+
 export const createAppleOAuth2Client = (options: AppleOAuth2ClientOptions) => {
+	let signingKey: Promise<CryptoKey> | null = null;
+
+	const createClientSecret = async () => {
+		signingKey ??= importApplePrivateKey(options.privateKey);
+
+		const issuedAt = Math.floor(Date.now() / 1000);
+
+		const unsignedToken = `${encodeJwtSegment({
+			alg: "ES256",
+			kid: options.keyId,
+			typ: "JWT",
+		})}.${encodeJwtSegment({
+			aud: "https://appleid.apple.com",
+			exp: issuedAt + APPLE_CLIENT_SECRET_LIFETIME_SECONDS,
+			iat: issuedAt,
+			iss: options.teamId,
+			sub: options.clientId,
+		})}`;
+
+		const signature = await crypto.subtle.sign(
+			{ hash: "SHA-256", name: "ECDSA" },
+			await signingKey,
+			new TextEncoder().encode(unsignedToken)
+		);
+
+		return `${unsignedToken}.${z.util.uint8ArrayToBase64url(new Uint8Array(signature))}`;
+	};
+
 	return createProvider(
 		{
 			authorizationEndpoint: "https://appleid.apple.com/auth/authorize",
 			clientAuthentication: "client_secret_post",
 			pkce: "none",
 			profile: {
-				clientCredentials: {
-					resolveClientSecret: () => {
-						const signedToken = sign({}, options.privateKey, {
-							algorithm: "ES256",
-							audience: "https://appleid.apple.com",
-							expiresIn: "5m",
-							header: { alg: "ES256", kid: options.keyId, typ: "JWT" },
-							issuer: options.teamId,
-							subject: options.clientId,
-						});
-
-						return signedToken;
-					},
-				},
+				clientCredentials: { resolveClientSecret: createClientSecret },
 			},
 			tokenEndpoint: "https://appleid.apple.com/auth/token",
 		},

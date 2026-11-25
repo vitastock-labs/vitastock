@@ -11,11 +11,11 @@ the current provider documentation before enabling an integration in production.
 ## Installation
 
 ```bash
-pnpm add @zayne-labs/callapi jsonwebtoken zod
-pnpm add -D @types/jsonwebtoken
+pnpm add @zayne-labs/callapi zod
 ```
 
-Copy the `oauth2` directory as a unit and import factories from its `index.ts` barrel.
+Copy the `oauth2` directory as a unit and import factories from its `index.ts` barrel. It only uses
+Web APIs (`fetch`, `crypto.subtle`, `URL`), so it runs on Node 20+, Bun, Deno, and edge runtimes.
 
 ## Standard Provider
 
@@ -95,7 +95,8 @@ Use `baseUrl` for Authentik, Gitea, GitLab, Keycloak realm URLs, Mastodon, and S
 
 ## Apple
 
-Apple creates a fresh five-minute ES256 client secret for every token request.
+Apple creates a fresh five-minute ES256 client secret for every token request, signed with Web
+Crypto from the PKCS#8 private key. No JWT library is needed.
 
 ```ts
 const apple = createAppleOAuth2Client({
@@ -210,7 +211,9 @@ Use `createOAuth2Client()` directly for a provider outside the catalog. Its gene
 unchanged. Authorization, exchange, refresh, and revocation calls accept extension parameters, but
 cannot override protocol fields, credentials, or provider-fixed parameters.
 
-Token helpers expose access, refresh, ID-token, expiry, and scope data. Decoding an ID token does
+Token helpers expose access, refresh, ID-token, expiry, and scope data. `token_type` and
+`expires_in` are optional in the response, and a numeric-string `expires_in` is accepted; the
+matching helpers throw only when read without a value. Decoding an ID token does
 not verify its signature, issuer, audience, nonce, or expiry; use a maintained OIDC/JWT verifier
 before trusting identity claims.
 

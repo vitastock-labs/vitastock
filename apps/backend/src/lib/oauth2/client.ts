@@ -2,11 +2,11 @@ import { createFetchClient, type BaseCallApiExtraOptions } from "@zayne-labs/cal
 import {
 	defineFallbackRouteSchema,
 	defineSchema,
+	isHTTPError,
+	isValidationError,
 	toQueryString,
 	toSearchParams,
 } from "@zayne-labs/callapi/utils";
-import { invokeFn } from "@zayne-labs/toolkit-core";
-import type { Awaitable } from "@zayne-labs/toolkit-type-helpers";
 import { z } from "zod";
 import { OAuth2RequestError, OAuth2ResponseError, OAuth2TransportError } from "./errors";
 import { createOAuth2Tokens, OAuth2TokenDataSchema, type OAuth2TokenData } from "./tokens";
@@ -37,7 +37,7 @@ export type OAuth2ProviderProfile = {
 	clientCredentials?: {
 		clientIdParameter?: string;
 		clientSecretParameter?: string;
-		resolveClientSecret?: () => Awaitable<string>;
+		resolveClientSecret?: () => string | Promise<string>;
 	};
 	exchange?: { parameters?: OAuth2ExtensionParameters; scopeSeparator?: string };
 	refresh?: {
@@ -126,12 +126,6 @@ const encodeFormComponent = (value: string) => {
 	return toQueryString({ value }).slice("value=".length);
 };
 
-const encodeBase64Url = (bytes: Uint8Array) => {
-	const binary = Array.from(bytes, (byte) => String.fromCodePoint(byte)).join("");
-
-	return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/u, "");
-};
-
 const getOptionalString = (data: Record<string, unknown>, field: string) => {
 	return typeof data[field] === "string" ? data[field] : null;
 };
@@ -173,17 +167,17 @@ const createResponseError = (status: number, body: unknown) => {
 };
 
 export const generateOAuth2State = () => {
-	const bytes = crypto.getRandomValues(new Uint8Array(32));
-
-	return encodeBase64Url(bytes);
+	return z.util.uint8ArrayToBase64url(crypto.getRandomValues(new Uint8Array(32)));
 };
 
-export const generateOAuth2CodeVerifier = generateOAuth2State;
+export const generateOAuth2CodeVerifier = () => {
+	return z.util.uint8ArrayToBase64url(crypto.getRandomValues(new Uint8Array(32)));
+};
 
 export const createS256CodeChallenge = async (codeVerifier: string) => {
 	const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(codeVerifier));
 
-	return encodeBase64Url(new Uint8Array(digest));
+	return z.util.uint8ArrayToBase64url(new Uint8Array(digest));
 };
 
 export const createOAuth2Client = (options: OAuth2ClientOptions) => {
@@ -224,19 +218,14 @@ export const createOAuth2Client = (options: OAuth2ClientOptions) => {
 
 	const callOAuth2Api = createFetchClient({
 		...options.callApiConfig,
-		auth: invokeFn(() => {
-			if (clientAuthentication !== "client_secret_basic") return;
-
-			if (!clientSecret) {
-				throw new TypeError("Generated client secrets require client_secret_post authentication");
-			}
-
-			return {
-				password: () => encodeFormComponent(clientSecret),
-				type: "Basic",
-				username: () => encodeFormComponent(options.clientId),
-			};
-		}),
+		auth:
+			clientAuthentication === "client_secret_basic" ?
+				{
+					password: async () => encodeFormComponent(await resolveClientSecret()),
+					type: "Basic",
+					username: () => encodeFormComponent(options.clientId),
+				}
+			:	undefined,
 		bodyTransformer: ({ body }) => toSearchParams(body),
 		dedupeStrategy: "none",
 		schema: apiSchema,
@@ -337,15 +326,22 @@ export const createOAuth2Client = (options: OAuth2ClientOptions) => {
 			return result.data;
 		}
 
-		if (!result.response) {
-			throw new OAuth2TransportError(result.error.originalError);
-		}
-
-		if (result.error.name === "HTTPError") {
+		if (result.response && isHTTPError(result.error)) {
 			throw createResponseError(result.response.status, result.error.errorData);
 		}
 
-		throw new OAuth2ResponseError(result.response.status, result.error.errorData);
+		if (result.response) {
+			throw new OAuth2ResponseError(
+				result.response.status,
+				isValidationError(result.error) ? result.error.errorData : null
+			);
+		}
+
+		if (isValidationError(result.error)) {
+			throw result.error.originalError;
+		}
+
+		throw new OAuth2TransportError(result.error.originalError);
 	};
 
 	const requestTokens = async (body: OAuth2RequestBody, endpoint = options.tokenEndpoint) => {
